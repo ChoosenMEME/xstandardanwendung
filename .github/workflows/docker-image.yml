@@ -1,0 +1,43 @@
+name: Django Docker CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  docker-ci:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Create CI env file
+        run: cp .env.example .env
+
+      - name: Validate Docker Compose file
+        run: docker compose config --quiet
+
+      - name: Build Docker images
+        run: docker compose build
+
+      - name: Start Docker Compose stack
+        run: docker compose up -d --wait --wait-timeout 120
+
+      - name: Run Django system check
+        run: docker compose exec -T web python manage.py check
+
+      - name: Run Django tests
+        run: docker compose exec -T web python manage.py test
+
+      - name: Test HTTP response
+        run: curl --fail --silent --show-error http://localhost:8000/healthz/
+
+      - name: Show logs on failure
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: Cleanup
+        if: always()
+        run: docker compose down -v
