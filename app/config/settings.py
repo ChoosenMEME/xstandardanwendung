@@ -28,9 +28,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 #ALLOWED_HOSTS = []
 
-SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-key")
-DEBUG = os.environ.get("DEBUG", "0") == "1"
-ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "").split()
+SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key")
+DEBUG = os.getenv("DEBUG", "0") == "1"
+ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "").split()
 
 
 # Application definition
@@ -78,9 +78,13 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.getenv("POSTGRES_DB", "xstandard"),
+        "USER": os.getenv("POSTGRES_USER", "xstandard"),
+        "PASSWORD": os.getenv("POSTGRES_PASSWORD", "xstandard_test_password"),
+        "HOST": os.getenv("POSTGRES_HOST", "db"),
+        "PORT": os.getenv("POSTGRES_PORT", "5432"),
     }
 }
 
@@ -107,9 +111,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = os.getenv("LANGUAGE_CODE", "en-us")
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = os.getenv("TZ", "UTC")
 
 USE_I18N = True
 
