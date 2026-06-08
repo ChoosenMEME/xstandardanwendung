@@ -5,6 +5,8 @@ services:
       context: .
     ports:
       - "${WEB_PORT:-8000}:${WEB_PORT:-8000}"
+    volumes:
+      - ./app:/app
     environment:
       DEBUG: ${DEBUG:-1}
       SECRET_KEY: ${SECRET_KEY}

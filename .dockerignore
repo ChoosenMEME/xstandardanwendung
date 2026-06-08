@@ -6,3 +6,6 @@ __pycache__
 .env.example
 .git
 .venv
+
+app/static/kern
+app/staticfiles
