@@ -4,11 +4,6 @@ services:
     build:
       context: .
     user: "${UID:-1000}:${GID:-1000}"
-    command: >
-      sh -c "python manage.py migrate --noinput &&
-             python manage.py runserver 0.0.0.0:8000"
-    volumes:
-      - ./app:/app
     ports:
       - "8000:8000"
     environment:
