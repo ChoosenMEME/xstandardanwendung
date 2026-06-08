@@ -18,16 +18,8 @@ if [ "$(id -u)" = "0" ]; then
   mkdir -p /app/staticfiles
   mkdir -p /app/media
 
-  # Keep writeable runtime paths owned by the app uid/gid.
-  chown -R "${PUID}:${PGID}" /app/staticfiles /app/media || true
-
-  if [ -d /app/static ]; then
-    chown -R "${PUID}:${PGID}" /app/static || true
-  fi
-
-  if [ -f /app/db.sqlite3 ]; then
-    chown "${PUID}:${PGID}" /app/db.sqlite3 || true
-  fi
+  # Keep /app paths owned by the app uid/gid.
+  chown -R "${PUID}:${PGID}" /app || true
 fi
 
 # Wait for PostgreSQL and apply migrations before starting Django.
