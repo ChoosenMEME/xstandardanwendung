@@ -7,5 +7,4 @@ __pycache__
 .git
 .venv
 
-app/static/kern
 app/staticfiles

@@ -1,0 +1,15 @@
+{% load static %}
+<!doctype html>
+<html lang="de" data-kern-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% block title %}Meine Anwendung{% endblock %}</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@kern-ux/native/dist/kern.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@kern-ux/native/dist/fonts/fira-sans.css" />
+    {% block extra_head %}{% endblock %}
+  </head>
+  <body>
+    <main style="padding: 2rem">{% block content %}{% endblock %}</main>
+  </body>
+</html>
