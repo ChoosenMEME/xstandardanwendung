@@ -29,7 +29,7 @@ run_as_app() {
 if [ "$(id -u)" = "0" ]; then
   # Prepare writable Django static directories before dropping privileges.
   log "INFO" "Preparing /app directories"
-  mkdir -p /app/staticfiles
+  mkdir -p /app/static /app/staticfiles
 
   # Keep /app paths owned by the app uid/gid.
   chown -R "${PUID}:${PGID}" /app || true
