@@ -30,19 +30,6 @@ if [ "$(id -u)" = "0" ]; then
   # Prepare writable Django static directories before dropping privileges.
   log "INFO" "Preparing /app directories"
   mkdir -p /app/staticfiles
-  mkdir -p /app/static/kern
-
-  # The project requires the packaged KERN static assets at runtime.
-  if [ -d /opt/kern-static ]; then
-    log "INFO" "Found /opt/kern-static, copying to /app/static/kern"
-    rm -rf /app/static/kern
-    mkdir -p /app/static/kern
-    cp -a /opt/kern-static/. /app/static/kern/
-    log "INFO" "Copied kern static to /app/static/kern"
-  else
-    log "ERROR" "Required project assets directory /opt/kern-static was not found; cannot start xstandardanwendung. Ensure the Docker image includes or mounts /opt/kern-static before starting the container."
-    exit 1
-  fi
 
   # Keep /app paths owned by the app uid/gid.
   chown -R "${PUID}:${PGID}" /app || true
