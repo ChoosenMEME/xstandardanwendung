@@ -35,11 +35,8 @@ if [ "$(id -u)" = "0" ]; then
   chown -R "${PUID}:${PGID}" /app || true
 fi
 
-# Wait for PostgreSQL and apply migrations before starting Django.
-until run_as_app python manage.py migrate --noinput; do
-  log "INFO" "waiting for db..."
-  sleep 2
-done
+# Apply SQLite-backed migrations before starting Django.
+run_as_app python manage.py migrate --noinput
 
 log "INFO" "Running collectstatic"
 run_as_app python manage.py collectstatic --noinput
