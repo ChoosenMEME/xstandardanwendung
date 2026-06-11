@@ -35,7 +35,20 @@ jobs:
         run: docker compose exec -T web python manage.py test
 
       - name: Test HTTP response
-        run: curl --fail --silent --show-error http://localhost:8000/healthz/
+        run: |
+          WEB_PORT="$(grep -E '^WEB_PORT=' .env | cut -d= -f2-)"
+          APP_PATH="$(grep -E '^APP_PATH=' .env | cut -d= -f2-)"
+          WEB_PORT="${WEB_PORT:-8000}"
+          APP_PATH="${APP_PATH#/}"
+          APP_PATH="${APP_PATH%/}"
+
+          if [ -n "$APP_PATH" ]; then
+            HEALTH_URL="http://localhost:${WEB_PORT}/${APP_PATH}/healthz/"
+          else
+            HEALTH_URL="http://localhost:${WEB_PORT}/healthz/"
+          fi
+
+          curl --fail --silent --show-error "$HEALTH_URL"
 
       - name: Show logs on failure
         if: failure()
@@ -43,4 +56,4 @@ jobs:
 
       - name: Cleanup
         if: always()
-        run: docker compose down -v
+        run: docker compose down
