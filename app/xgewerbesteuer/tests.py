@@ -18,6 +18,14 @@ class AppPathConfigurationTests(SimpleTestCase):
 
         self.assertEqual(match.url_name, "xgewerbesteuer_default")
 
+    def test_configured_app_path_renders_xgewerbesteuer_view(self):
+        route = "/" + normalize_route_prefix(settings.APP_PATH)
+
+        response = self.client.get(route)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "xgewerbesteuer_default.html")
+
     def test_configured_app_path_routes_to_healthz_view(self):
         route = "/" + normalize_route_prefix(settings.APP_PATH) + "healthz/"
 
