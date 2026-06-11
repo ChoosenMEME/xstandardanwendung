@@ -26,6 +26,6 @@ def healthz(request):
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('healthz/', healthz),
+    path(normalize_route_prefix(settings.APP_PATH) + 'healthz/', healthz, name='healthz'),
     path(normalize_route_prefix(settings.APP_PATH), include('xgewerbesteuer.urls')),
 ]
