@@ -1,5 +1,4 @@
 from django.apps import AppConfig
 
-
-class XgewerbesteuerConfig(AppConfig):
+class XGewerbesteuerConfig(AppConfig):
     name = 'xgewerbesteuer'
