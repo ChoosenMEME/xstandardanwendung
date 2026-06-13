@@ -32,3 +32,11 @@ class AppPathConfigurationTests(SimpleTestCase):
         match = resolve(route)
 
         self.assertEqual(match.url_name, "healthz")
+
+    def test_healthz_endpoint_returns_ok_status(self):
+        route = "/" + normalize_route_prefix(settings.APP_PATH) + "healthz/"
+
+        response = self.client.get(route)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"status": "ok"})
