@@ -17,7 +17,7 @@ services:
       WEB_HOST: ${WEB_HOST:-0.0.0.0}
       WEB_PORT: ${WEB_PORT:-8000}
       APP_PATH: ${APP_PATH:-}
-      LANGUAGE_CODE: ${LANGUAGE_CODE:-en-en}
+      LANGUAGE_CODE: ${LANGUAGE_CODE:-de-de}
       TZ: ${TZ:-UTC}
     volumes:
       # Quellcode live ins Container-/app spiegeln (inkl. db.sqlite3 + Tests).
