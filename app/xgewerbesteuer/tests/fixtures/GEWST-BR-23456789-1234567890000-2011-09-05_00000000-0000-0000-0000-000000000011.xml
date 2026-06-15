@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gewst:berechnung.gewerbesteuer.0021 xmlns:gewst="urn:xoev-de:xunternehmen:standard:gewerbesteuer_1.4"
+                                     xmlns:adr="urn:xoev-de:xunternehmen:standard:basismodul:adressen_1.2">
+   <nachrichtenkopf>
+      <nachrichtenID>00000000-0000-0000-0000-000000000011</nachrichtenID>
+      <zeitstempel>2011-09-05T10:02:47.0</zeitstempel>
+      <nameStandard>GewSt</nameStandard>
+      <versionStandard>1.4</versionStandard>
+      <fachverfahren>fachverfahren</fachverfahren>
+   </nachrichtenkopf>
+   <briefkopf>
+      <berechnungsDatum>2011-09-05</berechnungsDatum>
+      <stichtag>2011-09-05</stichtag>
+      <steuernummerBund>1234567890000</steuernummerBund>
+      <steuernummerFA>1234567890</steuernummerFA>
+      <buchungsnummer>9219900097104</buchungsnummer>
+      <behoerdenZeichen>21.31</behoerdenZeichen>
+   </briefkopf>
+   <kommune>
+      <nameBehoerde>Stadtverwaltung Musterhausen</nameBehoerde>
+      <anschrift>
+         <strasse>Peterstraße</strasse>
+         <hausnummer>15</hausnummer>
+         <postleitzahl>54321</postleitzahl>
+         <ort>Musterhausen</ort>
+         <staat listURI="urn:de:bund:destatis:bevoelkerungsstatistik:schluessel:staat"
+                listVersionID="2024-08-01">
+            <code>000</code>
+         </staat>
+      </anschrift>
+      <adr:gemeindeschluessel listVersionID="2025-01-31">
+         <code>23456789</code>
+      </adr:gemeindeschluessel>
+      <abteilung>Kassen- und Steueramt</abteilung>
+      <ansprechperson>
+         <anrede>Herr</anrede>
+         <name>Steuermann</name>
+      </ansprechperson>
+      <zimmer>517</zimmer>
+      <telefonnummer>01234-424-12345</telefonnummer>
+      <faxnummer>01234-424-12349</faxnummer>
+      <emailAdresse>steuern@musterhausen.de</emailAdresse>
+   </kommune>
+   <inhaltsAdressat>
+      <strukturiert>
+         <name>Musterbetrieb &amp; Co. KG</name>
+         <anschrift>
+            <strasse>Musterallee</strasse>
+            <hausnummer>17</hausnummer>
+            <postleitzahl>54321</postleitzahl>
+            <ort>Musterhausen</ort>
+            <staat listURI="urn:de:bund:destatis:bevoelkerungsstatistik:schluessel:staat"
+                   listVersionID="2024-08-01">
+               <code>000</code>
+            </staat>
+         </anschrift>
+      </strukturiert>
+   </inhaltsAdressat>
+   <berechnungsEmpfaenger>
+      <strukturiert>
+         <name>Musterbetrieb &amp; Co. KG</name>
+         <anschrift>
+            <strasse>Musterallee</strasse>
+            <hausnummer>17</hausnummer>
+            <postleitzahl>54321</postleitzahl>
+            <ort>Musterhausen</ort>
+            <staat listURI="urn:de:bund:destatis:bevoelkerungsstatistik:schluessel:staat"
+                   listVersionID="2024-08-01">
+               <code>000</code>
+            </staat>
+         </anschrift>
+      </strukturiert>
+   </berechnungsEmpfaenger>
+   <gwstBerechnung>
+      <berechnungsAngaben>
+         <abgabeart listURI="urn:xoev-de:xunternehmen:codeliste:gewerbesteuer.abgabeart"
+                    listVersionID="1">
+            <code>GB</code>
+         </abgabeart>
+         <berechnungsart listURI="urn:xoev-de:xunternehmen:codeliste:gewerbesteuer.festsetzungsart"
+                         listVersionID="1">
+            <code>EF</code>
+         </berechnungsart>
+         <SOLLoderIST listURI="urn:xoev-de:xunternehmen:codeliste:gewerbesteuer.solloderist"
+                      listVersionID="1">
+            <code>SOLL</code>
+         </SOLLoderIST>
+         <erhebungszeitraum>
+            <bezugsjahr>2010</bezugsjahr>
+         </erhebungszeitraum>
+         <berechnungAktuell>39600.00</berechnungAktuell>
+      </berechnungsAngaben>
+      <messbetrag>8800.00</messbetrag>
+      <hebesatz>450</hebesatz>
+   </gwstBerechnung>
+   <erlaeuterungsText>
+        Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut
+        labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores
+        et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet.
+    </erlaeuterungsText>
+</gewst:berechnung.gewerbesteuer.0021>
