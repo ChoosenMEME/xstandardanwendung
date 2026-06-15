@@ -1,5 +1,9 @@
 # GewSt-Bescheidassistent
 
+> 🤝 **Beitragen:** Eine Schritt-für-Schritt-Anleitung (Setup mit und ohne Docker, Branch
+> anlegen, testen, Pull Request, Branch-Schutz) findet sich in
+> [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
 Prüfungsleistung im Modul **Digitale Transformation** (6. Semester DSWVI, SoSe 2026).
 
 > 📎 **Design Thinking Prozess:** Die Konzeption dieser Anwendung basiert auf einem
@@ -10,16 +14,12 @@ Prüfungsleistung im Modul **Digitale Transformation** (6. Semester DSWVI, SoSe 
 ## Inhaltsverzeichnis
 
 - [Über das Projekt](#über-das-projekt)
-- [Problemstellung & Zielsetzung](#problemstellung--zielsetzung)
-- [Lösungskonzept](#lösungskonzept)
 - [Technologie-Stack](#technologie-stack)
 - [Projektstruktur](#projektstruktur)
 - [Voraussetzungen](#voraussetzungen)
 - [Installation & Start](#installation--start)
 - [Konfiguration](#konfiguration)
 - [Nutzung](#nutzung)
-- [XGewerbesteuer-Datenstandard](#xgewerbesteuer-datenstandard)
-- [Tests](#tests)
 - [Status & Roadmap](#status--roadmap)
 - [Mitwirkende & Einsatz von KI-Tools](#mitwirkende--einsatz-von-ki-tools)
 
@@ -35,37 +35,6 @@ Gewerbesteuerbescheid einliest und die wichtigsten Informationen – Zahlbetrag,
 Fälligkeiten, Berechnungsgrundlagen und Veränderungen zum Vorjahr – verständlich
 aufbereitet.
 
-## Problemstellung & Zielsetzung
-
-Die Persona **Sabine Keller**, Inhaberin eines kleinen Cafés, steht stellvertretend für
-viele kleine Unternehmen: Sie erhält einen digitalen Gewerbesteuerbescheid, kann den
-fälligen Betrag, die Fälligkeit, die Berechnung und die Veränderung zum Vorjahr aber nicht
-ohne Aufwand nachvollziehen.
-
-**Design Challenge:**
-
-> Wie können wir kleinen Unternehmen ermöglichen, digitale Gewerbesteuerbescheide
-> schneller zu verstehen, damit sie fällige Zahlungen sicher planen, Änderungen
-> nachvollziehen und finanzielle Risiken besser einschätzen können?
-
-Die zugehörigen OKRs und der vollständige Problemraum sind in
-[`docs/design-thinking.md`](docs/design-thinking.md) beschrieben.
-
-## Lösungskonzept
-
-Auf Basis des Design-Thinking-Prozesses ist folgendes Funktionskonzept vorgesehen:
-
-| Bereich | Funktion | Nutzen |
-| --- | --- | --- |
-| Startseite | Kurze Erklärung der Anwendung | Nutzer:innen verstehen sofort, wofür die Anwendung gedacht ist |
-| Upload | XGewerbesteuer-Bescheid (XML) hochladen | Digitale Bescheiddaten werden automatisch eingelesen |
-| Zusammenfassung | Zahlbetrag, Jahr, Gemeinde, Fälligkeit | Wichtigste Informationen erscheinen auf einen Blick |
-| Fristenübersicht | Zahlungen chronologisch darstellen | Zahlungsfristen werden nicht übersehen |
-| Berechnungserklärung | Messbetrag, Hebesatz und Steuerbetrag erklären | Fachbegriffe werden verständlicher |
-| Änderungsvergleich | Vergleich mit Vorjahresbescheid | Veränderungen werden transparent |
-| Hinweisbogen | Auffälligkeiten verständlich erklären | Nutzer:innen erhalten Orientierung |
-| Export | Bericht als PDF/CSV | Ergebnisse können gespeichert oder weitergegeben werden |
-
 ## Technologie-Stack
 
 - **[Django](https://www.djangoproject.com/)** als Webframework (Python)
@@ -74,7 +43,7 @@ Auf Basis des Design-Thinking-Prozesses ist folgendes Funktionskonzept vorgesehe
 - **[KERN UX](https://www.kern-ux.de/)** als UI-/Designsystem für Verwaltungsanwendungen
   (eingebunden über `base.html`)
 - **[XGewerbesteuer 1.4](https://www.xrepository.de/details/urn:xoev-de:xunternehmen:standard:gewerbesteuer_1.4#version)**
-  als zu verarbeitender XÖV-Datenstandard
+  als zu verarbeitender XÖV-Datenstandard (Details: [`docs/datenstandard.md`](docs/datenstandard.md))
 
 ## Projektstruktur
 
@@ -87,7 +56,9 @@ Auf Basis des Design-Thinking-Prozesses ist folgendes Funktionskonzept vorgesehe
 ├── requirements.txt            # Python-Abhängigkeiten
 ├── .env.example                # Beispiel-Konfiguration (siehe Konfiguration)
 ├── docs/
-│   └── design-thinking.md      # Dokumentation des Design-Thinking-Prozesses
+│   ├── design-thinking.md      # Dokumentation des Design-Thinking-Prozesses
+│   ├── datenstandard.md        # Erläuterung des XGewerbesteuer-Datenstandards
+│   └── testdaten.md            # Übersicht der XGewerbesteuer-Beispieldateien (Tests)
 ├── README.md
 ├── AGENTS.md                   # Konventionen für KI-gestützte Beiträge
 └── app/
@@ -114,12 +85,14 @@ Auf Basis des Design-Thinking-Prozesses ist folgendes Funktionskonzept vorgesehe
         └── tests/
             ├── test_views.py   # Routing- und View-Tests
             ├── test_imports.py # Struktur-Tests fuer XGewerbesteuer-Beispieldateien
-            └── fixtures/       # XGewerbesteuer-1.4-Beispieldateien (siehe unten)
+            └── fixtures/       # XGewerbesteuer-1.4-Beispieldateien (siehe docs/testdaten.md)
 ```
 
 ## Voraussetzungen
 
 - [Docker](https://docs.docker.com/get-docker/) und [Docker Compose](https://docs.docker.com/compose/)
+
+> Für die lokale Entwicklung – auch ohne Docker – siehe [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Installation & Start
 
@@ -154,14 +127,11 @@ Standardmäßig wird das Tag `latest` verwendet. Eine bestimmte Version lässt s
 über `IMAGE_TAG` wählen, z. B. `IMAGE_TAG=1.2.3 docker compose up -d`. Die
 SQLite-Datenbank wird im benannten Volume `app-data` persistiert.
 
-### Lokale Entwicklung
+### Lokale Entwicklung & Mitwirken
 
-Für die Entwicklung baut `compose.dev.yaml` das Image lokal aus dem `Dockerfile`
-und spiegelt den Quellcode (`./app`) live in den Container:
-
-```bash
-docker compose -f compose.dev.yaml up -d --build
-```
+Die lokale Entwicklung (mit `compose.dev.yaml` oder ohne Docker per Python), das Ausführen
+der Tests und der vollständige Beitragsworkflow (Aufgabe, Branch, Pull Request,
+Branch-Schutz) sind in [`CONTRIBUTING.md`](CONTRIBUTING.md) beschrieben.
 
 ### Image bauen und veröffentlichen
 
@@ -212,61 +182,8 @@ Nach dem Start stehen folgende Routen zur Verfügung (jeweils relativ zu einem o
 - `/healthz/` – Health-Check-Endpunkt (liefert `{"status": "ok"}`), wird auch vom
   Docker-`HEALTHCHECK` verwendet
 
-Die Bescheid-Upload- und Auswertungsfunktionen aus dem [Lösungskonzept](#lösungskonzept)
-befinden sich in Entwicklung, siehe [Status & Roadmap](#status--roadmap).
-
-## XGewerbesteuer-Datenstandard
-
-Die Anwendung verarbeitet Datensätze nach dem
-[XGewerbesteuer-Standard (Version 1.4)](https://www.xrepository.de/details/urn:xoev-de:xunternehmen:standard:gewerbesteuer_1.4#version),
-einem XÖV-konformen Standard für den elektronischen Austausch von
-Gewerbesteuer(mess)bescheiden zwischen Finanzverwaltung, Kommunen und Unternehmen. Im
-XRepository sind dazu u. a. die XML-Schemas (XSD), zugehörige Codelisten und die
-fachliche Spezifikation des Standards veröffentlicht.
-
-Im Rahmen dieser Anwendung dient der Standard als verbindliches Datenformat für den
-Bescheid-Upload (siehe [Lösungskonzept](#lösungskonzept)): Die enthaltenen Felder zu
-Steuerjahr, Gemeinde, Messbetrag, Hebesatz, Steuerbetrag und Fälligkeiten werden
-ausgelesen und für die nutzerfreundliche Aufbereitung verwendet.
-
-### Beispieldateien (Testdaten)
-
-Im Verzeichnis [`app/xgewerbesteuer/tests/fixtures/`](app/xgewerbesteuer/tests/fixtures/)
-liegen anonymisierte XGewerbesteuer-1.4-Beispieldateien (Musterdaten) für Berechnungen
-(`berechnung.gewerbesteuer.0021`) und Bescheide (`bescheide.gewerbesteuer.generisch.0010`).
-Sie decken denselben Steuerfall jeweils über mehrere Jahre ab und eignen sich daher für
-Tests rund um Upload, Import, Berechnungserklärung und Vorjahresvergleich:
-
-| Datei | Typ | Unternehmen / Fall | Bezugsjahr(e) | Besonderheit |
-| --- | --- | --- | --- | --- |
-| `GEWST-BR-12345678-...-2019-10-11_...0000.xml` | Berechnung | Maxi Mustermann (Musterhausen) | 2017 | Insolvenzverfahren (eröffnet 2019-07-01), Verspätungszuschlag |
-| `GEWST-BR-12345678-...-2017-08-18_...0010.xml` | Berechnung | Maxi Mustermann (Musterhausen) | 2016 | Vorjahr, ohne Insolvenz |
-| `GEWST-BR-12345678-...-2016-08-10_...0013.xml` | Berechnung | Maxi Mustermann (Musterhausen) | 2015 | Vorvorjahr, ohne Insolvenz, niedrigerer Hebesatz |
-| `GEWST-BR-23456789-...-2020-07-14_...0000.xml` | Berechnung | Musterbetrieb & Co. KG (Musterhausen) | 2011–2013 | Änderungsbescheide & Zinsen infolge Insolvenz (eröffnet 2017-11-01) |
-| `GEWST-BR-23456789-...-2011-09-05_...0011.xml` | Berechnung | Musterbetrieb & Co. KG (Musterhausen) | 2010 | Vorjahr, ohne Insolvenz |
-| `GEWST-BR-23456789-...-2010-09-12_...0014.xml` | Berechnung | Musterbetrieb & Co. KG (Musterhausen) | 2009 | Vorvorjahr, ohne Insolvenz, niedrigerer Hebesatz |
-| `GEWST-BS-09162000-...-2020-09-07_...0000.xml` | Bescheid | Muster AG (München) | 2018, Vorauszahlungen 2020/2021 | – |
-| `GEWST-BS-09162000-...-2021-09-06_...0012.xml` | Bescheid | Muster AG (München) | 2019, Vorauszahlungen 2021/2022 | Folgejahr / Änderungsbescheid |
-| `GEWST-BS-09162000-...-2022-09-05_...0015.xml` | Bescheid | Muster AG (München) | 2020, Vorauszahlungen 2022/2023 | Folgejahr / Änderungsbescheid, knüpft an Festsetzung 2019 an |
-
-Die Dateien werden in [`app/xgewerbesteuer/tests/test_imports.py`](app/xgewerbesteuer/tests/test_imports.py)
-als Struktur- und Smoke-Tests genutzt und dienen als Ausgangspunkt für künftige
-Import-/Parser-Tests des Bescheid-Uploads.
-
-## Tests
-
-Tests liegen in `app/xgewerbesteuer/tests.py`. Da das Release-Image bewusst
-keine Tests enthält, werden sie über die Dev-Compose ausgeführt:
-
-```bash
-docker compose -f compose.dev.yaml exec web python manage.py test
-```
-
-Zusätzlich kann die Projektkonfiguration geprüft werden:
-
-```bash
-docker compose -f compose.dev.yaml exec web python manage.py check
-```
+Die Bescheid-Upload- und Auswertungsfunktionen befinden sich in Entwicklung, siehe
+[Status & Roadmap](#status--roadmap).
 
 ## Status & Roadmap
 
@@ -275,17 +192,9 @@ Docker-Setup, KERN-UX-Anbindung, Health-Check, konfigurierbarer App-Pfad). Die f
 Funktionen werden entlang der Story Map aus dem Design-Thinking-Prozess umgesetzt.
 
 Der laufende Fortschritt wird im
-[GitHub Project](https://github.com/users/ChoosenMEME/projects/1) getrackt.
-
-| Schritt | Nutzerziel | Funktion im System |
-| --- | --- | --- |
-| 1 | Bescheid erhalten | Einstieg mit kurzer Erklärung und Nutzungshinweis |
-| 2 | Bescheid hochladen | Upload des digitalen XGewerbesteuer-Bescheids |
-| 3 | Bescheid verstehen | Automatische Zusammenfassung zentraler Informationen |
-| 4 | Fristen erkennen | Übersicht über Zahlungen und Fälligkeiten |
-| 5 | Berechnung nachvollziehen | Erklärung von Messbetrag, Hebesatz und Gewerbesteuer |
-| 6 | Änderungen vergleichen | Vergleich mit Vorjahresbescheid |
-| 7 | Ergebnis sichern | Ausgabe eines kompakten Analyseberichts |
+[GitHub Project](https://github.com/users/ChoosenMEME/projects/1) getrackt. Die geplanten
+Funktionsschritte (Story Map) sind in [`docs/design-thinking.md`](docs/design-thinking.md)
+dokumentiert.
 
 ## Mitwirkende & Einsatz von KI-Tools
 
