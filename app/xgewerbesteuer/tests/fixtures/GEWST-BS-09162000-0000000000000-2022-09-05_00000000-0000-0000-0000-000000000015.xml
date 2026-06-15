@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gewst:bescheide.gewerbesteuer.generisch.0010 xmlns:gewst="urn:xoev-de:xunternehmen:standard:gewerbesteuer_1.4"
+                                              xmlns:adr="urn:xoev-de:xunternehmen:standard:basismodul:adressen_1.2">
+   <nachrichtenkopf>
+      <nachrichtenID>00000000-0000-0000-0000-000000000015</nachrichtenID>
+      <zeitstempel>2022-09-05T00:00:11</zeitstempel>
+      <nameStandard>GewSt</nameStandard>
+      <versionStandard>1.4</versionStandard>
+      <fachverfahren>fachverfahren0</fachverfahren>
+   </nachrichtenkopf>
+   <briefkopf>
+      <bescheidDatum>2022-09-05</bescheidDatum>
+      <stichtag>2022-09-05</stichtag>
+      <steuernummerBund>0000000000000</steuernummerBund>
+      <buchungsnummer>12345680</buchungsnummer>
+      <behoerdenZeichen>SKA 4.11</behoerdenZeichen>
+   </briefkopf>
+   <kommune>
+      <nameBehoerde>Landeshauptstadt München Stadtkämmerei</nameBehoerde>
+      <anschrift>
+         <strasse>Herzog-Wilhelm-Str.</strasse>
+         <hausnummer>11</hausnummer>
+         <postleitzahl>80331</postleitzahl>
+         <ort>München</ort>
+         <staat listURI="urn:de:bund:destatis:bevoelkerungsstatistik:schluessel:staat"
+                listVersionID="2024-08-01">
+            <code>000</code>
+         </staat>
+      </anschrift>
+      <adr:gemeindeschluessel listVersionID="2025-01-31">
+         <code>09162000</code>
+      </adr:gemeindeschluessel>
+      <abteilung>SKA 4.1 Gewerbesteuer</abteilung>
+      <zimmer>261</zimmer>
+      <telefonnummer>(089)233-28958</telefonnummer>
+      <faxnummer>(089)233-23307</faxnummer>
+      <emailAdresse>gewerbesteuer.ska@muenchen.de</emailAdresse>
+      <bankdatenKommune>
+         <zweck>
+            <code>U</code>
+         </zweck>
+         <bankname>Stadtsparkasse München</bankname>
+         <iban>DE86701500000000203000</iban>
+         <bic>SSKMDMMXXX</bic>
+      </bankdatenKommune>
+      <sepa>
+         <mandatsreferenz>12345680</mandatsreferenz>
+         <glaeubigerID>DE 34 LHM 00 00 00 15 55 6</glaeubigerID>
+      </sepa>
+   </kommune>
+   <inhaltsAdressat>
+      <strukturiert>
+         <name>Muster AG</name>
+         <anschrift>
+            <strasse>Musterweg</strasse>
+            <hausnummer>1</hausnummer>
+            <postleitzahl>80123</postleitzahl>
+            <ort>München</ort>
+            <staat listURI="urn:de:bund:destatis:bevoelkerungsstatistik:schluessel:staat"
+                   listVersionID="2024-08-01">
+               <code>000</code>
+            </staat>
+         </anschrift>
+         <abteilung>Steuern</abteilung>
+         <ansprechperson>
+            <anrede>Herr</anrede>
+            <name>Peter Steuermann</name>
+         </ansprechperson>
+      </strukturiert>
+   </inhaltsAdressat>
+   <bescheidEmpfaenger>
+      <strukturiert>
+         <name>Muster AG</name>
+         <anschrift>
+            <strasse>Musterweg</strasse>
+            <hausnummer>1</hausnummer>
+            <postleitzahl>80123</postleitzahl>
+            <ort>München</ort>
+            <staat listURI="urn:de:bund:destatis:bevoelkerungsstatistik:schluessel:staat"
+                   listVersionID="2024-08-01">
+               <code>000</code>
+            </staat>
+         </anschrift>
+      </strukturiert>
+   </bescheidEmpfaenger>
+   <gwstVeranlagung>
+      <festsetzungsAngaben>
+         <abgabeart>
+            <code>GV</code>
+         </abgabeart>
+         <festsetzungsart>
+            <code>AE</code>
+         </festsetzungsart>
+         <erhebungszeitraum>
+            <bezugsjahr>2020</bezugsjahr>
+            <beginn>2020-01-01</beginn>
+            <ende>2020-12-31</ende>
+         </erhebungszeitraum>
+         <festsetzungAktuell>3822.00</festsetzungAktuell>
+         <festsetzungBisher>3724.00</festsetzungBisher>
+         <zahlungsaufforderungsAngaben>
+            <SOLLoderIST>
+               <code>SOLL</code>
+            </SOLLoderIST>
+            <zahlungsaufforderung>
+               <betrag>98.00</betrag>
+               <faelligkeit>
+                  <zahlungBis>2022-10-10</zahlungBis>
+               </faelligkeit>
+            </zahlungsaufforderung>
+         </zahlungsaufforderungsAngaben>
+      </festsetzungsAngaben>
+      <messbetrag>780.00</messbetrag>
+      <hebesatz>490.00</hebesatz>
+   </gwstVeranlagung>
+   <gwstVorauszahlungen>
+      <festsetzungsAngaben>
+         <abgabeart>
+            <code>VZ</code>
+         </abgabeart>
+         <festsetzungsart>
+            <code>AE</code>
+         </festsetzungsart>
+         <erhebungszeitraum>
+            <bezugsjahr>2022</bezugsjahr>
+            <beginn>2022-01-01</beginn>
+            <ende>2022-12-31</ende>
+         </erhebungszeitraum>
+         <festsetzungAktuell>160.00</festsetzungAktuell>
+         <festsetzungBisher>145.00</festsetzungBisher>
+         <zahlungsaufforderungsAngaben>
+            <SOLLoderIST>
+               <code>SOLL</code>
+            </SOLLoderIST>
+            <zahlungsaufforderung>
+               <betrag>15.00</betrag>
+               <faelligkeit>
+                  <zahlungBis>2022-11-15</zahlungBis>
+               </faelligkeit>
+            </zahlungsaufforderung>
+         </zahlungsaufforderungsAngaben>
+      </festsetzungsAngaben>
+   </gwstVorauszahlungen>
+   <gwstVorauszahlungen>
+      <festsetzungsAngaben>
+         <abgabeart>
+            <code>VZ</code>
+         </abgabeart>
+         <festsetzungsart>
+            <code>EF</code>
+         </festsetzungsart>
+         <erhebungszeitraum>
+            <bezugsjahr>2023</bezugsjahr>
+            <beginn>2023-01-01</beginn>
+            <ende>2023-12-31</ende>
+         </erhebungszeitraum>
+         <festsetzungAktuell>160.00</festsetzungAktuell>
+         <zahlungsaufforderungsAngaben>
+            <SOLLoderIST>
+               <code>SOLL</code>
+            </SOLLoderIST>
+            <zahlungsaufforderung>
+               <betrag>160.00</betrag>
+               <faelligkeit>
+                  <regelmaessig>
+                     <zahlungAb>2023-02-15</zahlungAb>
+                     <wiederholung>
+                        <code>VJ</code>
+                     </wiederholung>
+                  </regelmaessig>
+               </faelligkeit>
+            </zahlungsaufforderung>
+         </zahlungsaufforderungsAngaben>
+      </festsetzungsAngaben>
+   </gwstVorauszahlungen>
+   <rechtsbehelfsBelehrung>Gegen diesen Bescheid ...</rechtsbehelfsBelehrung>
+   <erlaeuterungsText>II. Zahlungsaufforderungen
+      Die oben genannten Vorauszahlungen werden faellig, sofern nicht innerhalb der
+      Rechtsbehelfsfrist Einspruch eingelegt wird.</erlaeuterungsText>
+</gewst:bescheide.gewerbesteuer.generisch.0010>
