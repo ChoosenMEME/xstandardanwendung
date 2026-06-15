@@ -20,14 +20,3 @@ Urheberrechtshinweise gelten unverändert weiter.
   BSD-3-Clause, <https://github.com/django/django/blob/main/LICENSE>.
 - **KERN UX** – UI-/Designsystem; wird per CDN eingebunden (nicht im Repository/Image
   enthalten). Lizenz: EUROPÄISCHE UNION PUBLIC LICENCE v. 1.2
-
-## Python-Abhängigkeiten neu erzeugen
-
-Die obige Liste der Python-Pakete lässt sich automatisch aktualisieren:
-
-```bash
-pip install pip-licenses
-pip-licenses --format=markdown --with-urls --with-license-file
-# im Container:
-# docker compose -f compose.dev.yaml exec web sh -c "pip install pip-licenses && pip-licenses --format=markdown --with-urls"
-```
