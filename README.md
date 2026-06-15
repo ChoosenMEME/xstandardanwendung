@@ -215,7 +215,7 @@ Der laufende Fortschritt wird im
 [GitHub Project](https://github.com/users/ChoosenMEME/projects/1) getrackt.
 
 | Schritt | Nutzerziel | Funktion im System |
-| --- | --- | --- | --- |
+| --- | --- | --- |
 | 1 | Bescheid erhalten | Einstieg mit kurzer Erklärung und Nutzungshinweis |
 | 2 | Bescheid hochladen | Upload des digitalen XGewerbesteuer-Bescheids |
 | 3 | Bescheid verstehen | Automatische Zusammenfassung zentraler Informationen |
