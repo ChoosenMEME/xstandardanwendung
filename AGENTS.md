@@ -53,10 +53,13 @@ Aktuelle Struktur:
         ├── models.py
         ├── views.py
         ├── urls.py
-        ├── tests.py
         ├── admin.py
         ├── migrations/
-        └── templates/
+        ├── templates/
+        └── tests/
+            ├── test_views.py
+            ├── test_imports.py
+            └── fixtures/
 ```
 
 Falls sich die Struktur aendert, soll sich der Agent an der tatsaechlich vorhandenen Struktur im Repository orientieren.
@@ -253,16 +256,30 @@ Zu Codeaenderungen sollen passende Tests erstellt oder angepasst werden.
 * Bei Views sollen Statuscode, verwendetes Template und wichtige Kontextdaten geprueft werden.
 * Wenn fuer eine Aenderung kein Test sinnvoll ist, soll der Grund kurz dokumentiert werden.
 
-Tests liegen aktuell in `app/xgewerbesteuer/tests.py`. Falls die Tests umfangreicher werden, kann innerhalb der App ein Testpaket angelegt werden:
+Tests liegen in `app/xgewerbesteuer/tests/` als Testpaket:
 
 ```text
 app/xgewerbesteuer/tests/
 ├── __init__.py
-├── test_models.py
 ├── test_views.py
-├── test_services.py
-└── test_imports.py
+├── test_imports.py
+└── fixtures/
 ```
+
+Bei Bedarf koennen weitere Module wie `test_models.py` oder `test_services.py` ergaenzt werden.
+
+### XGewerbesteuer-Beispieldateien (Fixtures)
+
+`app/xgewerbesteuer/tests/fixtures/` enthaelt anonymisierte XGewerbesteuer-1.4-Beispieldateien
+(Berechnungen `berechnung.gewerbesteuer.0021` und Bescheide `bescheide.gewerbesteuer.generisch.0010`)
+mit fiktiven Daten. Mehrere Dateien bilden denselben Steuerfall ueber verschiedene Jahre ab
+(mit und ohne Insolvenzverfahren) und werden in `test_imports.py` fuer Struktur- und
+Smoke-Tests verwendet.
+
+* Dateinamen folgen dem Muster `GEWST-<ART>-<Gemeindeschluessel>-<SteuernummerBund>-<Datum>_<nachrichtenID>.xml`.
+* Neue Fixtures sollen ebenfalls rein fiktive Daten (`Muster...`, Steuernummern wie `1234567890000`) verwenden.
+* Fuer neue Fixtures eine bisher unbenutzte `nachrichtenID` (z. B. `00000000-0000-0000-0000-0000000000XX`) waehlen.
+* Vorhandene Fixtures nicht ohne Grund veraendern, da sich Tests in `test_imports.py` auf konkrete Werte beziehen.
 
 Vor Abschluss einer Aenderung moeglichst ausfuehren:
 
