@@ -207,4 +207,3 @@ mitgelieferten bzw. genutzten Drittanbieter-Komponenten (Python, Django, KERN UX
 XGewerbesteuer u. a.) sind in [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) dokumentiert.
 
 ## Mitwirkende & Einsatz von KI-Tools
-
