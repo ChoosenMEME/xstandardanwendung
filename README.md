@@ -128,8 +128,7 @@ docker compose down           # Anwendung stoppen
 ```
 
 Standardmäßig wird das Tag `latest` verwendet. Eine bestimmte Version lässt sich
-über `IMAGE_TAG` wählen, z. B. `IMAGE_TAG=1.2.3 docker compose up -d`. Die
-SQLite-Datenbank wird fest in `./app/db.sqlite3` persistiert.
+über `IMAGE_TAG` mögliche Tags einsehbar bei [`Dockerhub`](https://hub.docker.com/repository/docker/choosenmeme/xstandardanwendung/tags) wählen, z. B. `IMAGE_TAG=1.2.3 docker compose up -d`. Die SQLite-Datenbank wird fest in `./app/db.sqlite3` persistiert.
 
 ### Lokale Entwicklung & Mitwirken
 
