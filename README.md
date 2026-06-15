@@ -80,7 +80,8 @@ Auf Basis des Design-Thinking-Prozesses ist folgendes Funktionskonzept vorgesehe
 
 ```text
 .
-├── compose.yaml                # Docker-Compose-Definition des web-Service
+├── compose.yaml                # Produktion: zieht das fertige Image von Docker Hub
+├── compose.dev.yaml            # Entwicklung: baut lokal und mountet ./app
 ├── Dockerfile                  # Image-Definition (Python/Django)
 ├── docker-entrypoint.sh        # Migrationen, collectstatic, Start des Dev-Servers
 ├── requirements.txt            # Python-Abhängigkeiten
@@ -129,10 +130,11 @@ Auf Basis des Design-Thinking-Prozesses ist folgendes Funktionskonzept vorgesehe
    cp .env.example .env
    ```
 
-3. Anwendung bauen und starten:
+3. Anwendung starten – das fertige Image wird von Docker Hub geladen
+   (kein lokaler Build nötig):
 
    ```bash
-   docker compose up -d --build
+   docker compose up -d
    ```
 
 4. Die Anwendung ist anschließend unter [http://localhost:8000/](http://localhost:8000/)
@@ -141,10 +143,44 @@ Auf Basis des Design-Thinking-Prozesses ist folgendes Funktionskonzept vorgesehe
 Weitere nützliche Befehle:
 
 ```bash
-docker compose logs -f      # Logs verfolgen
-docker compose ps            # Status der Container anzeigen
-docker compose down          # Anwendung stoppen
+docker compose pull          # Neueste Image-Version holen
+docker compose up -d          # Mit aktualisiertem Image neu starten
+docker compose logs -f        # Logs verfolgen
+docker compose ps             # Status der Container anzeigen
+docker compose down           # Anwendung stoppen
 ```
+
+Standardmäßig wird das Tag `latest` verwendet. Eine bestimmte Version lässt sich
+über `IMAGE_TAG` wählen, z. B. `IMAGE_TAG=1.2.3 docker compose up -d`. Die
+SQLite-Datenbank wird im benannten Volume `app-data` persistiert.
+
+### Lokale Entwicklung
+
+Für die Entwicklung baut `compose.dev.yaml` das Image lokal aus dem `Dockerfile`
+und spiegelt den Quellcode (`./app`) live in den Container:
+
+```bash
+docker compose -f compose.dev.yaml up -d --build
+```
+
+### Image bauen und veröffentlichen
+
+Build und Betrieb sind getrennt: Das Release-Image wird einmalig gebaut, auf
+Docker Hub veröffentlicht und von der Produktions-`compose.yaml` nur noch
+geladen. Es enthält weder Tests noch DB-, Doku- oder Build-Artefakte
+(siehe `.dockerignore`).
+
+```bash
+# Manuell bauen und pushen
+docker build -t choosenmeme/xstandardanwendung:latest .
+docker push choosenmeme/xstandardanwendung:latest
+```
+
+Automatisiert geschieht das über den Workflow
+[`.github/workflows/docker-publish.yml`](.github/workflows/docker-publish.yml):
+Beim Pushen eines Versions-Tags (`vX.Y.Z`) wird das Image gebaut und nach Docker
+Hub gepusht. Dafür müssen die Repository-Secrets `DOCKERHUB_USERNAME` und
+`DOCKERHUB_TOKEN` gesetzt sein.
 
 Der Entrypoint (`docker-entrypoint.sh`) führt beim Start automatisch
 `migrate --noinput` und `collectstatic --noinput` aus, bevor der
@@ -219,17 +255,17 @@ Import-/Parser-Tests des Bescheid-Uploads.
 
 ## Tests
 
-Tests liegen im Package `app/xgewerbesteuer/tests/` und werden über die
-Django-Testumgebung ausgeführt:
+Tests liegen in `app/xgewerbesteuer/tests.py`. Da das Release-Image bewusst
+keine Tests enthält, werden sie über die Dev-Compose ausgeführt:
 
 ```bash
-docker compose exec web python manage.py test
+docker compose -f compose.dev.yaml exec web python manage.py test
 ```
 
 Zusätzlich kann die Projektkonfiguration geprüft werden:
 
 ```bash
-docker compose exec web python manage.py check
+docker compose -f compose.dev.yaml exec web python manage.py check
 ```
 
 ## Status & Roadmap

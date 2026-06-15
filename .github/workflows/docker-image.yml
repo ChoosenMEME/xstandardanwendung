@@ -19,20 +19,22 @@ jobs:
       - name: Create CI env file
         run: cp .env.example .env
 
+      # Gegen die Dev-Compose getestet: sie baut lokal und enthaelt die Tests.
+      # Das veroeffentlichte Release-Image bleibt schlank und testfrei.
       - name: Validate Docker Compose file
-        run: docker compose config --quiet
+        run: docker compose -f compose.dev.yaml config --quiet
 
       - name: Build Docker images
-        run: docker compose build
+        run: docker compose -f compose.dev.yaml build
 
       - name: Start Docker Compose stack
-        run: docker compose up -d --wait --wait-timeout 120
+        run: docker compose -f compose.dev.yaml up -d --wait --wait-timeout 120
 
       - name: Run Django system check
-        run: docker compose exec -T web python manage.py check
+        run: docker compose -f compose.dev.yaml exec -T web python manage.py check
 
       - name: Run Django tests
-        run: docker compose exec -T web python manage.py test
+        run: docker compose -f compose.dev.yaml exec -T web python manage.py test
 
       - name: Test HTTP response
         run: |
@@ -52,8 +54,8 @@ jobs:
 
       - name: Show logs on failure
         if: failure()
-        run: docker compose logs --no-color
+        run: docker compose -f compose.dev.yaml logs --no-color
 
       - name: Cleanup
         if: always()
-        run: docker compose down
+        run: docker compose -f compose.dev.yaml down

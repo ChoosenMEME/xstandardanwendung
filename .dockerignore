@@ -1,10 +1,31 @@
+# Python-Artefakte
 __pycache__
 *.pyc
 *.pyo
 *.pyd
+
+# Lokale/Umgebungs-Dateien
 .env
 .env.example
 .git
+.github
+.gitattributes
+.gitignore
+.idea
 .venv
 
+# Compose-Dateien gehoeren nicht ins Image
+compose.yaml
+compose.dev.yaml
+
+# Projekt-/Doku-Dateien (im Release-Image ueberfluessig)
+AGENTS.md
+README.md
+docs
+
+# Laufzeit-/Build-Artefakte (werden im Container erzeugt)
+app/db.sqlite3
 app/staticfiles
+
+# Tests gehoeren nicht ins Release-Image
+**/tests.py
