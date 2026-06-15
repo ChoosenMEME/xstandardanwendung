@@ -128,8 +128,7 @@ docker compose down           # Anwendung stoppen
 ```
 
 Standardmäßig wird das Tag `latest` verwendet. Eine bestimmte Version lässt sich
-über `IMAGE_TAG` wählen, z. B. `IMAGE_TAG=1.2.3 docker compose up -d`. Die
-SQLite-Datenbank wird im benannten Volume `app-data` persistiert.
+über `IMAGE_TAG` mögliche Tags einsehbar bei [`Dockerhub`](https://hub.docker.com/repository/docker/choosenmeme/xstandardanwendung/tags) wählen, z. B. `IMAGE_TAG=1.2.3 docker compose up -d`. Die SQLite-Datenbank wird fest in `./app/db.sqlite3` persistiert.
 
 ### Lokale Entwicklung & Mitwirken
 
@@ -173,7 +172,7 @@ Die Konfiguration erfolgt vollständig über Umgebungsvariablen (`.env`, siehe
 | `APP_PATH` | Optionaler URL-Präfix, unter dem die App eingebunden wird (z. B. hinter einem Reverse Proxy) | `""` |
 | `WEB_HOST` | Bind-Adresse des Entwicklungsservers | `0.0.0.0` |
 | `WEB_PORT` | Port des Entwicklungsservers | `8000` |
-| `LANGUAGE_CODE` | Django-Sprachcode | `en-us` |
+| `LANGUAGE_CODE` | Django-Sprachcode | `de-de` |
 | `TZ` | Zeitzone des Containers | `UTC` |
 | `PUID` / `PGID` | UID/GID, unter der der Container-Prozess läuft | `1000` |
 

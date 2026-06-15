@@ -15,9 +15,9 @@ services:
       WEB_HOST: ${WEB_HOST:-0.0.0.0}
       WEB_PORT: ${WEB_PORT:-8000}
       APP_PATH: ${APP_PATH:-}
-      LANGUAGE_CODE: ${LANGUAGE_CODE:-en-en}
+      LANGUAGE_CODE: ${LANGUAGE_CODE:-de-de}
       TZ: ${TZ:-UTC}
-      # SQLite-DB ausserhalb von /app, damit sie im Volume persistiert.
+      # SQLite-DB im festen Host-Pfad ./app/db.sqlite3 persistieren.
       SQLITE_PATH: /data/db.sqlite3
     volumes:
       - ./app/db.sqlite3:/data/db.sqlite3

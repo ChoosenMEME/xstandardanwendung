@@ -128,8 +128,8 @@ docker compose -f compose.dev.yaml ps        # Läuft der Container?
 docker compose -f compose.dev.yaml down      # Umgebung stoppen
 ```
 
-> Bitte `docker compose down -v` nicht verwenden und das Volume `app-data` nicht löschen –
-> sonst geht die lokale Datenbank verloren. Siehe auch die verbotenen Befehle in
+> Bitte `docker compose down -v` nicht verwenden und keine SQLite-Datenbankdateien (db.sqlite3) löschen
+> sonst können lokale Daten verloren gehen. Siehe auch die verbotenen Befehle in
 > [`AGENTS.md`](AGENTS.md#verbotene-oder-gefaehrliche-befehle).
 
 ### Variante B: Ohne Docker (Bare-Metal)
