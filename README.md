@@ -21,6 +21,7 @@ Prüfungsleistung im Modul **Digitale Transformation** (6. Semester DSWVI, SoSe 
 - [Konfiguration](#konfiguration)
 - [Nutzung](#nutzung)
 - [Status & Roadmap](#status--roadmap)
+- [Lizenz](#lizenz)
 - [Mitwirkende & Einsatz von KI-Tools](#mitwirkende--einsatz-von-ki-tools)
 
 ## Über das Projekt
@@ -60,6 +61,9 @@ aufbereitet.
 │   ├── datenstandard.md        # Erläuterung des XGewerbesteuer-Datenstandards
 │   └── testdaten.md            # Übersicht der XGewerbesteuer-Beispieldateien (Tests)
 ├── README.md
+├── LICENSE                     # MIT-Lizenz des Projekts
+├── THIRD-PARTY-NOTICES.md      # Lizenzen der Drittanbieter-Komponenten
+├── CONTRIBUTING.md             # Anleitung zum Mitwirken
 ├── AGENTS.md                   # Konventionen für KI-gestützte Beiträge
 └── app/
     ├── manage.py
@@ -195,6 +199,12 @@ Der laufende Fortschritt wird im
 [GitHub Project](https://github.com/users/ChoosenMEME/projects/1) getrackt. Die geplanten
 Funktionsschritte (Story Map) sind in [`docs/design-thinking.md`](docs/design-thinking.md)
 dokumentiert.
+
+## Lizenz
+
+Dieses Projekt steht unter der **MIT-Lizenz** (siehe [`LICENSE`](LICENSE)). Die Lizenzen der
+mitgelieferten bzw. genutzten Drittanbieter-Komponenten (Python, Django, KERN UX,
+XGewerbesteuer u. a.) sind in [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) dokumentiert.
 
 ## Mitwirkende & Einsatz von KI-Tools
 
