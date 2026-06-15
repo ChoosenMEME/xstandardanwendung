@@ -14,6 +14,8 @@ RUN apt-get update \
 COPY requirements.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Nur der Anwendungscode. Tests, lokale DB und Build-Artefakte werden ueber
+# .dockerignore vom Build-Kontext ausgeschlossen und landen nicht im Image.
 COPY ./app /app
 
 COPY ./docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
@@ -27,3 +29,12 @@ EXPOSE ${WEB_PORT}
 HEALTHCHECK --interval=10s --timeout=5s --retries=5 --start-period=10s CMD python -c "import os, urllib.request; p=os.environ['WEB_PORT']; a=os.environ.get('APP_PATH','').strip('/'); h=f'/{a}/healthz/' if a else '/healthz/'; urllib.request.urlopen(f'http://127.0.0.1:{p}{h}', timeout=5)" || exit 1
 
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+
+# Metadaten fuer das veroeffentlichte Release-Image.
+ARG VERSION=dev
+ARG VCS_REF=unknown
+LABEL org.opencontainers.image.title="xstandardanwendung" \
+      org.opencontainers.image.description="Django-Anwendung zur Verarbeitung von XGewerbesteuer-Bescheiden" \
+      org.opencontainers.image.source="https://github.com/ChoosenMEME/xstandardanwendung" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${VCS_REF}"

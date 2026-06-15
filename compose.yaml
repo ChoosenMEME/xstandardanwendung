@@ -1,14 +1,13 @@
 services:
   web:
     container_name: xstandardanwendung
-    build:
-      context: .
+    image: choosenmeme/xstandardanwendung:${IMAGE_TAG:-latest}
+    pull_policy: always
+    restart: unless-stopped
     ports:
       - "${WEB_PORT:-8000}:${WEB_PORT:-8000}"
-    volumes:
-      - ./app:/app
     environment:
-      DEBUG: ${DEBUG:-1}
+      DEBUG: ${DEBUG:-0}
       SECRET_KEY: ${SECRET_KEY}
       DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS}
       PUID: ${PUID:-1000}
@@ -18,3 +17,7 @@ services:
       APP_PATH: ${APP_PATH:-}
       LANGUAGE_CODE: ${LANGUAGE_CODE:-en-en}
       TZ: ${TZ:-UTC}
+      # SQLite-DB ausserhalb von /app, damit sie im Volume persistiert.
+      SQLITE_PATH: /data/db.sqlite3
+    volumes:
+      - ./app/db.sqlite3:/data/db.sqlite3

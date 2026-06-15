@@ -33,6 +33,15 @@ if [ "$(id -u)" = "0" ]; then
 
   # Keep /app paths owned by the app uid/gid.
   chown -R "${PUID}:${PGID}" /app || true
+
+  # When the SQLite database is stored outside /app (e.g. on a mounted
+  # volume), make sure its directory exists and is writable by the app user.
+  if [ -n "${SQLITE_PATH:-}" ]; then
+    SQLITE_DIR="$(dirname "${SQLITE_PATH}")"
+    log "INFO" "Preparing database directory ${SQLITE_DIR}"
+    mkdir -p "${SQLITE_DIR}"
+    chown -R "${PUID}:${PGID}" "${SQLITE_DIR}" || true
+  fi
 fi
 
 # Apply SQLite-backed migrations before starting Django.
