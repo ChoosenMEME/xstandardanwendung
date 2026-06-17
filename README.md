@@ -56,6 +56,7 @@ aufbereitet.
 ├── docker-entrypoint.sh        # Migrationen, collectstatic, Start des Dev-Servers
 ├── requirements.txt            # Python-Abhängigkeiten
 ├── .env.example                # Beispiel-Konfiguration (siehe Konfiguration)
+├── data/                       # lokale Runtime-Daten der produktiven Compose (ignoriert)
 ├── docs/
 │   ├── design-thinking.md      # Dokumentation des Design-Thinking-Prozesses
 │   ├── datenstandard.md        # Erläuterung des XGewerbesteuer-Datenstandards
@@ -67,7 +68,7 @@ aufbereitet.
 ├── AGENTS.md                   # Konventionen für KI-gestützte Beiträge
 └── app/
     ├── manage.py
-    ├── db.sqlite3              # lokale SQLite-Datenbank
+    ├── dev.db.sqlite3          # lokale SQLite-Datenbank der Dev-Compose/Bare-Metal
     ├── config/
     │   ├── settings.py         # Django-Settings (liest Umgebungsvariablen)
     │   ├── urls.py             # Root-URL-Konfiguration (healthz, App-Routen)
@@ -127,8 +128,16 @@ docker compose ps             # Status der Container anzeigen
 docker compose down           # Anwendung stoppen
 ```
 
-Standardmäßig wird das Tag `latest` verwendet. Eine bestimmte Version lässt sich
-über `IMAGE_TAG` mögliche Tags einsehbar bei [`Dockerhub`](https://hub.docker.com/repository/docker/choosenmeme/xstandardanwendung/tags) wählen, z. B. `IMAGE_TAG=1.2.3 docker compose up -d`. Die SQLite-Datenbank wird fest in `./app/db.sqlite3` persistiert.
+Standardmäßig wird das Image-Tag `latest` verwendet. Eine bestimmte Version lässt
+sich über `IMAGE_TAG` wählen, z. B. `IMAGE_TAG=1.2.3 docker compose up -d`.
+Verfügbare Tags sind bei
+[`Docker Hub`](https://hub.docker.com/repository/docker/choosenmeme/xstandardanwendung/tags)
+einsehbar. Die SQLite-Datenbank wird bei der produktiven `compose.yaml` lokal
+in `./data/db.sqlite3` persistiert und liegt im Container standardmäßig unter
+`/data/db.sqlite3` (`SQLITE_PATH`).
+In der Entwicklungs-Compose liegt die Datenbank standardmäßig unter
+`./app/dev.db.sqlite3`; ohne gesetztes `SQLITE_PATH` nutzt Django im Debug-Modus
+`app/dev.db.sqlite3` und sonst `/data/db.sqlite3`.
 
 ### Lokale Entwicklung & Mitwirken
 
@@ -162,19 +171,34 @@ Django-Entwicklungsserver gestartet wird.
 ## Konfiguration
 
 Die Konfiguration erfolgt vollständig über Umgebungsvariablen (`.env`, siehe
-`.env.example`). Die echte `.env`-Datei wird **nicht** versioniert.
+`.env.example`). Viele Einträge in `.env.example` sind kommentierte optionale
+Defaults; `SECRET_KEY` muss gesetzt werden. Die echte `.env`-Datei wird
+**nicht** versioniert.
 
 | Variable | Beschreibung | Default |
 | --- | --- | --- |
-| `DEBUG` | Django-Debug-Modus (`1` = an). Nur für Entwicklung! | `0` |
-| `SECRET_KEY` | Django Secret Key, muss in produktiven Umgebungen gesetzt werden | `dev-secret-key` |
-| `DJANGO_ALLOWED_HOSTS` | Leerzeichen-getrennte Liste erlaubter Hosts | – |
+| `DEBUG` | Django-Debug-Modus (`1` = an). Nur für Entwicklung! | `0` in `compose.yaml`, `1` in `compose.dev.yaml` |
+| `IMAGE_TAG` | Docker-Image-Tag für die produktive `compose.yaml` | `latest` |
+| `SQLITE_PATH` | Optionaler Pfad zur SQLite-Datenbank im Container; in `compose.yaml` wird `./data` nach `/data` gemountet, in `compose.dev.yaml` `./app` nach `/app` | `/data/db.sqlite3` in `compose.yaml`, `/app/dev.db.sqlite3` in `compose.dev.yaml`; ohne Variable abhängig von `DEBUG` |
+| `SECRET_KEY` | Django Secret Key, muss gesetzt sein; für Entwicklung siehe `.env.example` | – |
+| `DJANGO_ALLOWED_HOSTS` | Leerzeichen-getrennte Liste erlaubter Hosts | – in `compose.yaml`, `localhost 127.0.0.1 [::1]` in `compose.dev.yaml` |
 | `APP_PATH` | Optionaler URL-Präfix, unter dem die App eingebunden wird (z. B. hinter einem Reverse Proxy) | `""` |
 | `WEB_HOST` | Bind-Adresse des Entwicklungsservers | `0.0.0.0` |
 | `WEB_PORT` | Port des Entwicklungsservers | `8000` |
 | `LANGUAGE_CODE` | Django-Sprachcode | `de-de` |
-| `TZ` | Zeitzone des Containers | `UTC` |
+| `TZ` | Zeitzone des Containers | `Europe/Berlin` |
 | `PUID` / `PGID` | UID/GID, unter der der Container-Prozess läuft | `1000` |
+
+### Lokale Datenbanken und Agent-Testdateien
+
+Lokale SQLite-Dateien wie `app/dev.db.sqlite3`, `data/db.sqlite3` und ihre
+Journal-Dateien werden nicht versioniert. Agents dürfen für Validierungen eigene
+Testdateien anlegen, müssen diese aber nach dem Schema
+`test<endung>.<agent>.<dateiname>.<endung>` benennen, zum Beispiel
+`testsqlite3.codex.import-smoke.sqlite3` oder `testxml.codex.invalid-upload.xml`.
+Diese Dateien sind per `.gitignore` und `.dockerignore` ausgeschlossen, dürfen
+nie committet werden, dürfen nicht ins Docker-Image gelangen und dürfen nach
+erfolgreichem Test wieder gelöscht werden.
 
 ## Nutzung
 

@@ -60,6 +60,12 @@ cover/
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
+dev.db.sqlite3
+dev.db.sqlite3-journal
+# Agent-created test files. Must be named test<ext>.<agent>.<filename>.<ext>.
+test*.*.*.*
+data/*
+!data/.gitkeep
 
 # Flask stuff:
 instance/

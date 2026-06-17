@@ -25,7 +25,13 @@ docs
 
 # Laufzeit-/Build-Artefakte (werden im Container erzeugt)
 app/db.sqlite3
+app/dev.db.sqlite3
 app/staticfiles
+data
+
+# Kurzlebige Agent-Testdateien gehoeren weder ins Repository noch ins Image.
+# Namensschema: test<endung>.<agent>.<dateiname>.<endung>
+test*.*.*.*
 
 # Tests gehoeren nicht ins Release-Image
 **/tests.py

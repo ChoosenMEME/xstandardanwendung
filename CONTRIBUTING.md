@@ -117,6 +117,14 @@ Quellcode live in den Container – Codeänderungen wirken sofort:
 docker compose -f compose.dev.yaml up -d --build
 ```
 
+Die Variable `IMAGE_TAG` betrifft nur die produktive `compose.yaml`. Die
+Entwicklungs-Compose baut lokal und taggt das Image fest als
+`choosenmeme/xstandardanwendung:dev`. `SQLITE_PATH` ist optional und zeigt
+in der Entwicklungs-Compose standardmäßig auf `/app/dev.db.sqlite3`; durch den
+Mount `./app:/app` landet die Datei lokal als `./app/dev.db.sqlite3`.
+Ohne gesetztes `SQLITE_PATH` nutzt Django im Debug-Modus ebenfalls
+`app/dev.db.sqlite3`; im Nicht-Debug-Modus ist der Fallback `/data/db.sqlite3`.
+
 Im Browser **[http://localhost:8000/](http://localhost:8000/)** öffnen. Erscheint die
 Startseite, läuft die Anwendung.
 
@@ -128,8 +136,9 @@ docker compose -f compose.dev.yaml ps        # Läuft der Container?
 docker compose -f compose.dev.yaml down      # Umgebung stoppen
 ```
 
-> Bitte `docker compose down -v` nicht verwenden und keine SQLite-Datenbankdateien (db.sqlite3) löschen
-> sonst können lokale Daten verloren gehen. Siehe auch die verbotenen Befehle in
+> Bitte `docker compose down -v` nicht verwenden und keine lokalen SQLite-Datenbankdateien
+> wie `app/dev.db.sqlite3` oder `data/db.sqlite3` löschen, sonst können lokale Daten
+> verloren gehen. Siehe auch die verbotenen Befehle in
 > [`AGENTS.md`](AGENTS.md#verbotene-oder-gefaehrliche-befehle).
 
 ### Variante B: Ohne Docker (Bare-Metal)
@@ -137,8 +146,10 @@ docker compose -f compose.dev.yaml down      # Umgebung stoppen
 Hier wird die Anwendung direkt mit Python betrieben. Erforderlich ist **Python 3.12 oder
 neuer**.
 
-**1. Virtuelle Umgebung anlegen und aktivieren.** Die „venv" hält die Projekt-Pakete vom
-System getrennt:
+**1. Virtuelle Umgebung im Projekt anlegen und aktivieren.** Alle folgenden Befehle laufen
+im Projekt-Wurzelordner `xstandardanwendung`. Die virtuelle Umgebung liegt dort als
+`.venv/`, hält die Projekt-Pakete vom System getrennt und wird durch `.gitignore` nicht
+committet:
 
 ```bash
 python -m venv .venv
@@ -158,29 +169,34 @@ source .venv/bin/activate
 
 Bei erfolgreicher Aktivierung steht `(.venv)` am Anfang der Eingabezeile.
 
-**2. Abhängigkeiten installieren** (die `requirements.txt` liegt im Projekt-Wurzelordner):
+**2. Abhängigkeiten in die Projekt-venv installieren** (die `requirements.txt` liegt im
+Projekt-Wurzelordner):
 
 ```bash
 pip install -r requirements.txt
 ```
 
 **3. Konfiguration setzen.** Django liest die Einstellungen aus *Umgebungsvariablen*. Für
-die lokale Entwicklung genügt der Debug-Modus – dann lässt der Entwicklungsserver
-`localhost` automatisch zu:
+die lokale Entwicklung werden ein Debug-Modus und ein lokaler Secret Key gesetzt – dann
+lässt der Entwicklungsserver `localhost` automatisch zu:
 
 ```powershell
 # Windows (PowerShell)
 $env:DEBUG = "1"
+$env:SECRET_KEY = "dev-secret-key"
+$env:SQLITE_PATH = "dev.db.sqlite3"
 ```
 
 ```bash
 # macOS / Linux
 export DEBUG=1
+export SECRET_KEY=dev-secret-key
+export SQLITE_PATH=dev.db.sqlite3
 ```
 
-> Diese Variable gilt nur für das **aktuelle Terminalfenster**. In einem neuen Fenster muss
-> sie einfach erneut gesetzt werden. (Die `.env`-Datei wird im Bare-Metal-Betrieb **nicht**
-> automatisch geladen – sie ist nur für Docker gedacht.)
+> Diese Variablen gelten nur für das **aktuelle Terminalfenster**. In einem neuen Fenster
+> müssen sie einfach erneut gesetzt werden. (Die `.env`-Datei wird im Bare-Metal-Betrieb
+> **nicht** automatisch geladen – sie ist nur für Docker gedacht.)
 
 **4. Datenbank vorbereiten und Server starten** (alle `manage.py`-Befehle laufen im
 Unterordner `app/`):
@@ -193,7 +209,8 @@ python manage.py runserver
 
 Im Browser **[http://localhost:8000/](http://localhost:8000/)** öffnen. Mit `Strg+C` wird
 der Server gestoppt. Für einen späteren Neustart genügt es, die venv zu aktivieren,
-`DEBUG=1` zu setzen und `python manage.py runserver` auszuführen.
+`DEBUG=1`, `SECRET_KEY=dev-secret-key` sowie `SQLITE_PATH=dev.db.sqlite3` zu setzen und
+`python manage.py runserver` auszuführen.
 
 ---
 
@@ -258,6 +275,13 @@ XGewerbesteuer-Beispieldateien (Testdaten) steht in [`docs/testdaten.md`](docs/t
 Nach einer **Model**-Änderung wird zusätzlich die Migration erzeugt (`makemigrations`, dann
 `migrate`).
 
+Agents dürfen für solche Validierungen eigene Testdateien anlegen. Diese müssen
+nach dem Schema `test<endung>.<agent>.<dateiname>.<endung>` benannt werden, zum
+Beispiel `testsqlite3.codex.migration-check.sqlite3` oder
+`testxml.codex.invalid-upload.xml`. Sie sind per `.gitignore` und `.dockerignore`
+ausgeschlossen, dürfen nie committet werden, dürfen nicht ins Docker-Image gelangen
+und dürfen nach erfolgreichem Test wieder gelöscht werden.
+
 ---
 
 ## 5. Änderung committen und hochladen (push)
@@ -270,8 +294,8 @@ git status                       # zeigt, was gespeichert wird – kurz kontroll
 git commit -m "Kurz und klar beschreiben, was die Änderung tut"
 ```
 
-> Bitte nicht committen: die echte `.env`, Passwörter, Tokens, Secrets oder die
-> Datenbankdatei. Im Zweifel vorab `git status` prüfen.
+> Bitte nicht committen: die echte `.env`, Passwörter, Tokens, Secrets,
+> Datenbankdateien oder Agent-Testdateien. Im Zweifel vorab `git status` prüfen.
 
 Den Branch zu GitHub hochladen:
 
@@ -399,10 +423,13 @@ cp .env.example .env
 docker compose -f compose.dev.yaml up -d --build
 
 # Umgebung starten – Variante B (Bare-Metal)
+# im Projekt-Wurzelordner:
 python -m venv .venv
-# venv aktivieren (siehe Schritt 2), dann:
+# Projekt-venv aktivieren (siehe Schritt 2), dann:
 pip install -r requirements.txt
 export DEBUG=1            # Windows: $env:DEBUG = "1"
+export SECRET_KEY=dev-secret-key  # Windows: $env:SECRET_KEY = "dev-secret-key"
+export SQLITE_PATH=dev.db.sqlite3  # Windows: $env:SQLITE_PATH = "dev.db.sqlite3"
 cd app && python manage.py migrate && python manage.py runserver
 
 # Pro Änderung
@@ -430,6 +457,7 @@ git push -u origin feature/meine-aenderung
 | --- | --- |
 | `git push` wird auf `main` abgelehnt | Das ist beabsichtigt: Direkte Pushes auf `main` sind gesperrt. Stattdessen einen Branch anlegen ([Schritt 3](#3-aufgabe-wählen-und-branch-anlegen)) und diesen pushen. |
 | Bare-Metal: Seite zeigt „Bad Request (400)" | `DEBUG=1` wurde nicht gesetzt. Variable im aktuellen Terminal setzen und Server neu starten. |
+| Bare-Metal: `SECRET_KEY must be set` | `SECRET_KEY=dev-secret-key` wurde nicht gesetzt. Variable im aktuellen Terminal setzen und Server neu starten. |
 | Bare-Metal: `python` nicht gefunden | `python3` statt `python` verwenden. Unter Windows ggf. Python über den Installer mit „Add to PATH" installieren. |
 | venv-Aktivierung in PowerShell scheitert | Einmalig erlauben: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`, dann erneut aktivieren. |
 | Port 8000 ist belegt | Docker: `WEB_PORT` in der `.env` ändern. Bare-Metal: `python manage.py runserver 8001`. |

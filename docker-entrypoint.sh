@@ -7,6 +7,8 @@ PUID="${PUID:-${UID:-1000}}"
 PGID="${PGID:-${GID:-1000}}"
 WEB_HOST="${WEB_HOST:-0.0.0.0}"
 WEB_PORT="${WEB_PORT:-8000}"
+SQLITE_PATH="${SQLITE_PATH:-/data/db.sqlite3}"
+export SQLITE_PATH
 
 # Simple timestamped logger that writes to stderr.
 log() {
@@ -36,7 +38,7 @@ if [ "$(id -u)" = "0" ]; then
 
   # When the SQLite database is stored outside /app (e.g. on a mounted
   # volume), make sure its directory exists and is writable by the app user.
-  if [ -n "${SQLITE_PATH:-}" ]; then
+  if [ -n "$SQLITE_PATH" ]; then
     SQLITE_DIR="$(dirname "${SQLITE_PATH}")"
     log "INFO" "Preparing database directory ${SQLITE_DIR}"
     mkdir -p "${SQLITE_DIR}"

@@ -16,8 +16,7 @@ services:
       WEB_PORT: ${WEB_PORT:-8000}
       APP_PATH: ${APP_PATH:-}
       LANGUAGE_CODE: ${LANGUAGE_CODE:-de-de}
-      TZ: ${TZ:-UTC}
-      # SQLite-DB im festen Host-Pfad ./app/db.sqlite3 persistieren.
-      SQLITE_PATH: /data/db.sqlite3
+      TZ: ${TZ:-Europe/Berlin}
+      SQLITE_PATH: ${SQLITE_PATH:-/data/db.sqlite3}
     volumes:
-      - ./app/db.sqlite3:/data/db.sqlite3
+      - ./data:/data
