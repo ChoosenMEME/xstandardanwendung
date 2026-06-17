@@ -1,7 +1,6 @@
 services:
   web:
     container_name: xstandardanwendung-dev
-    # Lokaler Build aus dem Dockerfile statt Pull vom Docker Hub.
     build:
       context: .
     image: choosenmeme/xstandardanwendung:dev
@@ -18,9 +17,8 @@ services:
       WEB_PORT: ${WEB_PORT:-8000}
       APP_PATH: ${APP_PATH:-}
       LANGUAGE_CODE: ${LANGUAGE_CODE:-de-de}
-      TZ: ${TZ:-UTC}
-      SQLITE_PATH: ${SQLITE_PATH:-/data/db.sqlite3}
+      TZ: ${TZ:-Europe/Berlin}
+      SQLITE_PATH: ${SQLITE_PATH:-/app/dev.db.sqlite3}
     volumes:
-      # Quellcode live ins Container-/app spiegeln (inkl. db.sqlite3 + Tests).
+      # Quellcode live in Container spiegeln (inkl. Dev-DB + Tests).
       - ./app:/app
-      - ./app/db.sqlite3:${SQLITE_PATH:-/data/db.sqlite3}

@@ -29,6 +29,7 @@ if not SECRET_KEY:
 DEBUG = os.getenv("DEBUG", "0") == "1"
 ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "").split()
 APP_PATH = os.getenv("APP_PATH", "")
+DEFAULT_SQLITE_PATH = BASE_DIR / "dev.db.sqlite3" if DEBUG else Path("/data/db.sqlite3")
 
 
 # Application definition
@@ -79,7 +80,7 @@ WSGI_APPLICATION = 'config.wsgi.application'
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": os.getenv("SQLITE_PATH", str(BASE_DIR / "db.sqlite3")),
+        "NAME": os.getenv("SQLITE_PATH") or str(DEFAULT_SQLITE_PATH),
     }
 }
 

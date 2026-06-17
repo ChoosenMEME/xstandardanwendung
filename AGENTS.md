@@ -20,6 +20,11 @@ Das Projekt nutzt:
 * Keine Secrets, Tokens, Passwoerter oder privaten Schluessel in das Repository schreiben.
 * Keine `.env`-Dateien committen.
 * Keine Datenbankdaten, Uploads oder produktiven Mediendateien loeschen.
+* Agents duerfen fuer Tests eigene Testdateien anlegen, wenn sie das Namensschema
+  `test<endung>.<agent>.<dateiname>.<endung>` verwenden, zum Beispiel
+  `testsqlite3.codex.import-smoke.sqlite3` oder `testxml.codex.invalid-upload.xml`.
+* Solche Agent-Testdateien duerfen nach erfolgreichem Test wieder geloescht werden,
+  duerfen nie committet werden und duerfen nicht ins Docker-Image gelangen.
 * Keine destruktiven Docker-Befehle ohne ausdrueckliche Aufforderung ausfuehren.
 * Keine Migrationen loeschen oder neu schreiben, wenn sie bereits Teil der Projektgeschichte sind.
 * Aenderungen moeglichst klein, nachvollziehbar und thematisch fokussiert halten.
@@ -38,6 +43,7 @@ Aktuelle Struktur:
 ├── requirements.txt
 ├── README.md
 ├── AGENTS.md
+├── data/
 └── app/
     ├── manage.py
     ├── config/
@@ -137,7 +143,12 @@ Zu neuen oder geaenderten Funktionen sollen sinnvolle Kommentare oder Docstrings
 
 ## Datenbank und Migrationen
 
-Das Projekt verwendet SQLite. Die Entwicklungsdatenbank liegt standardmaessig unter `app/db.sqlite3`.
+Das Projekt verwendet SQLite. Die Entwicklungsdatenbank liegt lokal standardmaessig unter `app/dev.db.sqlite3`.
+In `compose.dev.yaml` zeigt `SQLITE_PATH` im Container auf `/app/dev.db.sqlite3`; in der
+produktiven `compose.yaml` zeigt `SQLITE_PATH` auf `/data/db.sqlite3` und `./data` wird
+nach `/data` gemountet.
+Ohne gesetztes `SQLITE_PATH` verwendet `settings.py` im Debug-Modus `app/dev.db.sqlite3`
+und im Nicht-Debug-Modus `/data/db.sqlite3`.
 
 * Bestehende Migrationen nicht nachtraeglich veraendern, wenn sie bereits verwendet wurden.
 * Neue Schemaaenderungen immer ueber neue Migrationen abbilden.
@@ -145,6 +156,10 @@ Das Projekt verwendet SQLite. Die Entwicklungsdatenbank liegt standardmaessig un
 * Keine Testdaten fest in produktiven Migrationscode schreiben.
 * Datenmigrationen muessen nachvollziehbar und reversibel sein, soweit sinnvoll.
 * Lokale SQLite-Datenbanken nicht loeschen, ausser der Nutzer fordert dies ausdruecklich.
+* Ausnahme fuer Agents: selbst angelegte Testdateien mit Namen nach
+  `test<endung>.<agent>.<dateiname>.<endung>` duerfen nach erfolgreicher Validierung
+  geloescht werden. Diese Dateien sind per `.gitignore` und `.dockerignore`
+  ausgeschlossen, duerfen nicht committet werden und duerfen nicht ins Docker-Image gelangen.
 
 ## Static Files
 
@@ -242,8 +257,11 @@ LANGUAGE_CODE=de-de
 TZ=Europe/Berlin
 PUID=1000
 PGID=1000
-SQLITE_PATH=/data/db.sqlite3
+SQLITE_PATH=/app/dev.db.sqlite3
 ```
+
+Fuer die produktive `compose.yaml` ist der Standard fuer `SQLITE_PATH` `/data/db.sqlite3`;
+die lokale Datei liegt dann unter `data/db.sqlite3`.
 
 Die echte `.env` darf nicht committet werden.
 

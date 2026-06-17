@@ -120,7 +120,10 @@ docker compose -f compose.dev.yaml up -d --build
 Die Variable `IMAGE_TAG` betrifft nur die produktive `compose.yaml`. Die
 Entwicklungs-Compose baut lokal und taggt das Image fest als
 `choosenmeme/xstandardanwendung:dev`. `SQLITE_PATH` ist optional und zeigt
-standardmäßig auf `/data/db.sqlite3` im Container.
+in der Entwicklungs-Compose standardmäßig auf `/app/dev.db.sqlite3`; durch den
+Mount `./app:/app` landet die Datei lokal als `./app/dev.db.sqlite3`.
+Ohne gesetztes `SQLITE_PATH` nutzt Django im Debug-Modus ebenfalls
+`app/dev.db.sqlite3`; im Nicht-Debug-Modus ist der Fallback `/data/db.sqlite3`.
 
 Im Browser **[http://localhost:8000/](http://localhost:8000/)** öffnen. Erscheint die
 Startseite, läuft die Anwendung.
@@ -133,8 +136,9 @@ docker compose -f compose.dev.yaml ps        # Läuft der Container?
 docker compose -f compose.dev.yaml down      # Umgebung stoppen
 ```
 
-> Bitte `docker compose down -v` nicht verwenden und keine SQLite-Datenbankdateien (db.sqlite3) löschen
-> sonst können lokale Daten verloren gehen. Siehe auch die verbotenen Befehle in
+> Bitte `docker compose down -v` nicht verwenden und keine lokalen SQLite-Datenbankdateien
+> wie `app/dev.db.sqlite3` oder `data/db.sqlite3` löschen, sonst können lokale Daten
+> verloren gehen. Siehe auch die verbotenen Befehle in
 > [`AGENTS.md`](AGENTS.md#verbotene-oder-gefaehrliche-befehle).
 
 ### Variante B: Ohne Docker (Bare-Metal)
@@ -180,12 +184,14 @@ lässt der Entwicklungsserver `localhost` automatisch zu:
 # Windows (PowerShell)
 $env:DEBUG = "1"
 $env:SECRET_KEY = "dev-secret-key"
+$env:SQLITE_PATH = "dev.db.sqlite3"
 ```
 
 ```bash
 # macOS / Linux
 export DEBUG=1
 export SECRET_KEY=dev-secret-key
+export SQLITE_PATH=dev.db.sqlite3
 ```
 
 > Diese Variablen gelten nur für das **aktuelle Terminalfenster**. In einem neuen Fenster
@@ -203,8 +209,8 @@ python manage.py runserver
 
 Im Browser **[http://localhost:8000/](http://localhost:8000/)** öffnen. Mit `Strg+C` wird
 der Server gestoppt. Für einen späteren Neustart genügt es, die venv zu aktivieren,
-`DEBUG=1` sowie `SECRET_KEY=dev-secret-key` zu setzen und `python manage.py runserver`
-auszuführen.
+`DEBUG=1`, `SECRET_KEY=dev-secret-key` sowie `SQLITE_PATH=dev.db.sqlite3` zu setzen und
+`python manage.py runserver` auszuführen.
 
 ---
 
@@ -269,6 +275,13 @@ XGewerbesteuer-Beispieldateien (Testdaten) steht in [`docs/testdaten.md`](docs/t
 Nach einer **Model**-Änderung wird zusätzlich die Migration erzeugt (`makemigrations`, dann
 `migrate`).
 
+Agents dürfen für solche Validierungen eigene Testdateien anlegen. Diese müssen
+nach dem Schema `test<endung>.<agent>.<dateiname>.<endung>` benannt werden, zum
+Beispiel `testsqlite3.codex.migration-check.sqlite3` oder
+`testxml.codex.invalid-upload.xml`. Sie sind per `.gitignore` und `.dockerignore`
+ausgeschlossen, dürfen nie committet werden, dürfen nicht ins Docker-Image gelangen
+und dürfen nach erfolgreichem Test wieder gelöscht werden.
+
 ---
 
 ## 5. Änderung committen und hochladen (push)
@@ -281,8 +294,8 @@ git status                       # zeigt, was gespeichert wird – kurz kontroll
 git commit -m "Kurz und klar beschreiben, was die Änderung tut"
 ```
 
-> Bitte nicht committen: die echte `.env`, Passwörter, Tokens, Secrets oder die
-> Datenbankdatei. Im Zweifel vorab `git status` prüfen.
+> Bitte nicht committen: die echte `.env`, Passwörter, Tokens, Secrets,
+> Datenbankdateien oder Agent-Testdateien. Im Zweifel vorab `git status` prüfen.
 
 Den Branch zu GitHub hochladen:
 
@@ -416,6 +429,7 @@ python -m venv .venv
 pip install -r requirements.txt
 export DEBUG=1            # Windows: $env:DEBUG = "1"
 export SECRET_KEY=dev-secret-key  # Windows: $env:SECRET_KEY = "dev-secret-key"
+export SQLITE_PATH=dev.db.sqlite3  # Windows: $env:SQLITE_PATH = "dev.db.sqlite3"
 cd app && python manage.py migrate && python manage.py runserver
 
 # Pro Änderung
