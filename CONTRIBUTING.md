@@ -117,6 +117,11 @@ Quellcode live in den Container – Codeänderungen wirken sofort:
 docker compose -f compose.dev.yaml up -d --build
 ```
 
+Die Variable `IMAGE_TAG` betrifft nur die produktive `compose.yaml`. Die
+Entwicklungs-Compose baut lokal und taggt das Image fest als
+`choosenmeme/xstandardanwendung:dev`. `SQLITE_PATH` ist optional und zeigt
+standardmäßig auf `/data/db.sqlite3` im Container.
+
 Im Browser **[http://localhost:8000/](http://localhost:8000/)** öffnen. Erscheint die
 Startseite, läuft die Anwendung.
 
@@ -137,8 +142,10 @@ docker compose -f compose.dev.yaml down      # Umgebung stoppen
 Hier wird die Anwendung direkt mit Python betrieben. Erforderlich ist **Python 3.12 oder
 neuer**.
 
-**1. Virtuelle Umgebung anlegen und aktivieren.** Die „venv" hält die Projekt-Pakete vom
-System getrennt:
+**1. Virtuelle Umgebung im Projekt anlegen und aktivieren.** Alle folgenden Befehle laufen
+im Projekt-Wurzelordner `xstandardanwendung`. Die virtuelle Umgebung liegt dort als
+`.venv/`, hält die Projekt-Pakete vom System getrennt und wird durch `.gitignore` nicht
+committet:
 
 ```bash
 python -m venv .venv
@@ -158,29 +165,32 @@ source .venv/bin/activate
 
 Bei erfolgreicher Aktivierung steht `(.venv)` am Anfang der Eingabezeile.
 
-**2. Abhängigkeiten installieren** (die `requirements.txt` liegt im Projekt-Wurzelordner):
+**2. Abhängigkeiten in die Projekt-venv installieren** (die `requirements.txt` liegt im
+Projekt-Wurzelordner):
 
 ```bash
 pip install -r requirements.txt
 ```
 
 **3. Konfiguration setzen.** Django liest die Einstellungen aus *Umgebungsvariablen*. Für
-die lokale Entwicklung genügt der Debug-Modus – dann lässt der Entwicklungsserver
-`localhost` automatisch zu:
+die lokale Entwicklung werden ein Debug-Modus und ein lokaler Secret Key gesetzt – dann
+lässt der Entwicklungsserver `localhost` automatisch zu:
 
 ```powershell
 # Windows (PowerShell)
 $env:DEBUG = "1"
+$env:SECRET_KEY = "dev-secret-key"
 ```
 
 ```bash
 # macOS / Linux
 export DEBUG=1
+export SECRET_KEY=dev-secret-key
 ```
 
-> Diese Variable gilt nur für das **aktuelle Terminalfenster**. In einem neuen Fenster muss
-> sie einfach erneut gesetzt werden. (Die `.env`-Datei wird im Bare-Metal-Betrieb **nicht**
-> automatisch geladen – sie ist nur für Docker gedacht.)
+> Diese Variablen gelten nur für das **aktuelle Terminalfenster**. In einem neuen Fenster
+> müssen sie einfach erneut gesetzt werden. (Die `.env`-Datei wird im Bare-Metal-Betrieb
+> **nicht** automatisch geladen – sie ist nur für Docker gedacht.)
 
 **4. Datenbank vorbereiten und Server starten** (alle `manage.py`-Befehle laufen im
 Unterordner `app/`):
@@ -193,7 +203,8 @@ python manage.py runserver
 
 Im Browser **[http://localhost:8000/](http://localhost:8000/)** öffnen. Mit `Strg+C` wird
 der Server gestoppt. Für einen späteren Neustart genügt es, die venv zu aktivieren,
-`DEBUG=1` zu setzen und `python manage.py runserver` auszuführen.
+`DEBUG=1` sowie `SECRET_KEY=dev-secret-key` zu setzen und `python manage.py runserver`
+auszuführen.
 
 ---
 
@@ -399,10 +410,12 @@ cp .env.example .env
 docker compose -f compose.dev.yaml up -d --build
 
 # Umgebung starten – Variante B (Bare-Metal)
+# im Projekt-Wurzelordner:
 python -m venv .venv
-# venv aktivieren (siehe Schritt 2), dann:
+# Projekt-venv aktivieren (siehe Schritt 2), dann:
 pip install -r requirements.txt
 export DEBUG=1            # Windows: $env:DEBUG = "1"
+export SECRET_KEY=dev-secret-key  # Windows: $env:SECRET_KEY = "dev-secret-key"
 cd app && python manage.py migrate && python manage.py runserver
 
 # Pro Änderung
@@ -430,6 +443,7 @@ git push -u origin feature/meine-aenderung
 | --- | --- |
 | `git push` wird auf `main` abgelehnt | Das ist beabsichtigt: Direkte Pushes auf `main` sind gesperrt. Stattdessen einen Branch anlegen ([Schritt 3](#3-aufgabe-wählen-und-branch-anlegen)) und diesen pushen. |
 | Bare-Metal: Seite zeigt „Bad Request (400)" | `DEBUG=1` wurde nicht gesetzt. Variable im aktuellen Terminal setzen und Server neu starten. |
+| Bare-Metal: `SECRET_KEY must be set` | `SECRET_KEY=dev-secret-key` wurde nicht gesetzt. Variable im aktuellen Terminal setzen und Server neu starten. |
 | Bare-Metal: `python` nicht gefunden | `python3` statt `python` verwenden. Unter Windows ggf. Python über den Installer mit „Add to PATH" installieren. |
 | venv-Aktivierung in PowerShell scheitert | Einmalig erlauben: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`, dann erneut aktivieren. |
 | Port 8000 ist belegt | Docker: `WEB_PORT` in der `.env` ändern. Bare-Metal: `python manage.py runserver 8001`. |

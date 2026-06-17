@@ -17,7 +17,6 @@ services:
       APP_PATH: ${APP_PATH:-}
       LANGUAGE_CODE: ${LANGUAGE_CODE:-de-de}
       TZ: ${TZ:-UTC}
-      # SQLite-DB im festen Host-Pfad ./app/db.sqlite3 persistieren.
-      SQLITE_PATH: /data/db.sqlite3
+      SQLITE_PATH: ${SQLITE_PATH:-/data/db.sqlite3}
     volumes:
-      - ./app/db.sqlite3:/data/db.sqlite3
+      - ./app/db.sqlite3:${SQLITE_PATH:-/data/db.sqlite3}

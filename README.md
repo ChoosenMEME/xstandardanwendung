@@ -127,8 +127,12 @@ docker compose ps             # Status der Container anzeigen
 docker compose down           # Anwendung stoppen
 ```
 
-Standardmäßig wird das Tag `latest` verwendet. Eine bestimmte Version lässt sich
-über `IMAGE_TAG` mögliche Tags einsehbar bei [`Dockerhub`](https://hub.docker.com/repository/docker/choosenmeme/xstandardanwendung/tags) wählen, z. B. `IMAGE_TAG=1.2.3 docker compose up -d`. Die SQLite-Datenbank wird fest in `./app/db.sqlite3` persistiert.
+Standardmäßig wird das Image-Tag `latest` verwendet. Eine bestimmte Version lässt
+sich über `IMAGE_TAG` wählen, z. B. `IMAGE_TAG=1.2.3 docker compose up -d`.
+Verfügbare Tags sind bei
+[`Docker Hub`](https://hub.docker.com/repository/docker/choosenmeme/xstandardanwendung/tags)
+einsehbar. Die SQLite-Datenbank wird lokal in `./app/db.sqlite3` persistiert
+und liegt im Container standardmäßig unter `/data/db.sqlite3` (`SQLITE_PATH`).
 
 ### Lokale Entwicklung & Mitwirken
 
@@ -167,7 +171,9 @@ Die Konfiguration erfolgt vollständig über Umgebungsvariablen (`.env`, siehe
 | Variable | Beschreibung | Default |
 | --- | --- | --- |
 | `DEBUG` | Django-Debug-Modus (`1` = an). Nur für Entwicklung! | `0` |
-| `SECRET_KEY` | Django Secret Key, muss in produktiven Umgebungen gesetzt werden | `dev-secret-key` |
+| `IMAGE_TAG` | Docker-Image-Tag für die produktive `compose.yaml` | `latest` |
+| `SQLITE_PATH` | Optionaler Pfad zur SQLite-Datenbank im Container | `/data/db.sqlite3` |
+| `SECRET_KEY` | Django Secret Key, muss gesetzt sein; für Entwicklung siehe `.env.example` | – |
 | `DJANGO_ALLOWED_HOSTS` | Leerzeichen-getrennte Liste erlaubter Hosts | – |
 | `APP_PATH` | Optionaler URL-Präfix, unter dem die App eingebunden wird (z. B. hinter einem Reverse Proxy) | `""` |
 | `WEB_HOST` | Bind-Adresse des Entwicklungsservers | `0.0.0.0` |

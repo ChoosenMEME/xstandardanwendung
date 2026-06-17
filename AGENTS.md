@@ -232,6 +232,7 @@ Wichtige Umgebungsvariablen sollten in einer `.env.example` dokumentiert werden,
 Aktuell relevante Variablen:
 
 ```env
+IMAGE_TAG=latest
 DEBUG=1
 SECRET_KEY=change-me
 DJANGO_ALLOWED_HOSTS=localhost 127.0.0.1
@@ -241,6 +242,7 @@ LANGUAGE_CODE=de-de
 TZ=Europe/Berlin
 PUID=1000
 PGID=1000
+SQLITE_PATH=/data/db.sqlite3
 ```
 
 Die echte `.env` darf nicht committet werden.

@@ -19,6 +19,8 @@ services:
       APP_PATH: ${APP_PATH:-}
       LANGUAGE_CODE: ${LANGUAGE_CODE:-de-de}
       TZ: ${TZ:-UTC}
+      SQLITE_PATH: ${SQLITE_PATH:-/data/db.sqlite3}
     volumes:
       # Quellcode live ins Container-/app spiegeln (inkl. db.sqlite3 + Tests).
       - ./app:/app
+      - ./app/db.sqlite3:${SQLITE_PATH:-/data/db.sqlite3}
