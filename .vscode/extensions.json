@@ -1,0 +1,16 @@
+{
+  "recommendations": [
+    "editorconfig.editorconfig",
+    "ms-python.python",
+    "ms-python.vscode-pylance",
+    "ms-python.black-formatter",
+    "ms-python.debugpy",
+    "batisteo.vscode-django",
+    "redhat.vscode-yaml",
+    "ms-azuretools.vscode-containers",
+    "docker.docker",
+    "davidanson.vscode-markdownlint",
+    "openai.chatgpt"
+  ]
+}
+
