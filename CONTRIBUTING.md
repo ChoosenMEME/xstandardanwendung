@@ -43,12 +43,12 @@ Dazu **eine** der beiden Entwicklungsvarianten (Details in [Schritt 2](#2-entwic
   Compose. Lokales Python ist dann nicht erforderlich.
 - **Bare-Metal** (ohne Docker): **Python 3.12 oder neuer**.
 
-Kurzer Funktionstest im Terminal (PowerShell oder Bash):
+Kurzer Funktionstest im Terminal (PowerShell; unter macOS / Linux: Bash):
 
-```bash
+```powershell
 git --version
 docker --version        # nur für Variante A
-python --version        # nur für Variante B (ggf. python3 --version)
+python --version        # nur für Variante B (macOS / Linux: ggf. python3 --version)
 ```
 
 ---
@@ -66,15 +66,31 @@ die einmalige Einrichtung und kann übersprungen werden, wenn das Terminal bevor
 ### Installieren und einrichten
 
 1. **VS Code herunterladen** von <https://code.visualstudio.com/> und installieren.
-2. **Erweiterungen installieren:** links in der Leiste auf das Quadrat-Symbol
-   („Extensions") klicken, den Namen suchen und auf **Install** klicken:
-   - **Python** (von Microsoft) – für die Bare-Metal-Entwicklung, Tests und venv-Auswahl.
-   - **Docker** (von Microsoft) – optional, für die Arbeit mit der Docker-Variante.
+2. **Empfohlene Erweiterungen installieren:** Das Projekt liefert eine Liste empfohlener
+   Erweiterungen in [`.vscode/extensions.json`](.vscode/extensions.json) mit. Beim ersten
+   Öffnen des Projektordners blendet VS Code unten rechts die Frage *„Do you want to install
+   the recommended extensions?"* ein – dort auf **Install** klicken. Alternativ links auf das
+   Quadrat-Symbol („Extensions") klicken, `@recommended` in das Suchfeld eingeben und die
+   Erweiterungen installieren. Enthalten sind u. a.:
+   - **Python**, **Pylance**, **Python Debugger** (von Microsoft) – für die
+     Bare-Metal-Entwicklung, Tests, Code-Vervollständigung und venv-Auswahl.
+   - **Black Formatter** (von Microsoft) – formatiert Python-Code beim Speichern.
+   - **Django** – Syntax-Hervorhebung für Django-Templates (`django-html`).
+   - **EditorConfig**, **YAML** und **markdownlint** – für konsistente Formatierung von
+     Code-, YAML- und Markdown-Dateien.
+   - **Container** / **Docker** – optional, für die Arbeit mit der Docker-Variante.
 3. **Bei GitHub anmelden** (einmalig): unten links auf das Personen-Symbol („Accounts")
    klicken → **Sign in with GitHub** wählen → im Browser bestätigen. Danach kann VS Code
    ohne erneute Anmeldung zu GitHub pushen.
 
-Pull Requests werden im Browser erstellt – siehe [Schritt 6](#6-pull-request-erstellen).
+> **Automatische Formatierung:** Über die EditorConfig-Erweiterung und die mitgelieferten
+> Workspace-Einstellungen ([`.editorconfig`](.editorconfig),
+> [`.vscode/settings.json`](.vscode/settings.json)) stellt sich VS Code von selbst auf die
+> Projektkonventionen ein: 4 Leerzeichen Einrückung in Python (2 in YAML/JSON/Templates),
+> LF-Zeilenenden, eine abschließende Leerzeile und das Entfernen überflüssiger Leerzeichen am
+> Zeilenende. Formatierung beim Speichern und Black als Python-Formatter sind bereits
+> voreingestellt – so entsprechen Beiträge ohne weiteres Zutun dem Projektstil. Diese
+> Einstellungen gelten nur innerhalb dieses Projektordners.
 
 ---
 
@@ -82,7 +98,7 @@ Pull Requests werden im Browser erstellt – siehe [Schritt 6](#6-pull-request-e
 
 „Klonen" lädt eine Kopie des Projekts auf den lokalen Rechner:
 
-```bash
+```powershell
 git clone https://github.com/ChoosenMEME/xstandardanwendung.git
 cd xstandardanwendung
 ```
@@ -98,22 +114,27 @@ Alle weiteren Befehle werden in diesem Ordner ausgeführt.
 
 ## 2. Entwicklungsumgebung starten
 
-Es genügt **eine** der beiden Varianten. Docker ist am unkompliziertesten, da alles
-vorkonfiguriert mitgeliefert wird. Bare-Metal eignet sich, wenn Docker nicht installiert
-werden kann oder soll.
+Es genügt **eine** der beiden Varianten – danach bei der gewählten bleiben:
+
+| | Docker (Variante A) | Bare-Metal (Variante B) |
+| --- | --- | --- |
+| **Einrichtung** | `.env` kopieren, ein Befehl | Python-venv, pip, Umgebungsvariablen |
+| **Voraussetzung** | Docker + Compose | Python 3.12+ |
+| **Vorteil** | Alles vorkonfiguriert, identisch zur CI | Kein Docker nötig, direkter Zugriff |
+| **Empfohlen für** | Die meisten Beitragenden | Wenn Docker nicht installiert werden kann/soll |
 
 ### Variante A: Mit Docker (empfohlen)
 
 Zuerst die lokale Konfiguration aus der Vorlage anlegen:
 
-```bash
+```powershell
 cp .env.example .env
 ```
 
 Anschließend die Entwicklungs-Variante starten. Sie baut das Image lokal und spiegelt den
 Quellcode live in den Container – Codeänderungen wirken sofort:
 
-```bash
+```powershell
 docker compose -f compose.dev.yaml up -d --build
 ```
 
@@ -130,7 +151,7 @@ Startseite, läuft die Anwendung.
 
 Nützliche Befehle während der Arbeit:
 
-```bash
+```powershell
 docker compose -f compose.dev.yaml logs -f   # Logs live ansehen (Strg+C beendet die Ansicht)
 docker compose -f compose.dev.yaml ps        # Läuft der Container?
 docker compose -f compose.dev.yaml down      # Umgebung stoppen
@@ -151,7 +172,7 @@ im Projekt-Wurzelordner `xstandardanwendung`. Die virtuelle Umgebung liegt dort 
 `.venv/`, hält die Projekt-Pakete vom System getrennt und wird durch `.gitignore` nicht
 committet:
 
-```bash
+```powershell
 python -m venv .venv
 ```
 
@@ -172,7 +193,7 @@ Bei erfolgreicher Aktivierung steht `(.venv)` am Anfang der Eingabezeile.
 **2. Abhängigkeiten in die Projekt-venv installieren** (die `requirements.txt` liegt im
 Projekt-Wurzelordner):
 
-```bash
+```powershell
 pip install -r requirements.txt
 ```
 
@@ -201,7 +222,7 @@ export SQLITE_PATH=dev.db.sqlite3
 **4. Datenbank vorbereiten und Server starten** (alle `manage.py`-Befehle laufen im
 Unterordner `app/`):
 
-```bash
+```powershell
 cd app
 python manage.py migrate
 python manage.py runserver
@@ -233,7 +254,7 @@ Anschließend einen eigenen Branch anlegen. Ein Branch ist eine eigene „Arbeit
 `main` sauber bleibt; direkt auf `main` kann nicht gearbeitet werden – das verhindert der
 Branch-Schutz.
 
-```bash
+```powershell
 git checkout main
 git pull
 git checkout -b feature/kurze-beschreibung
@@ -256,15 +277,18 @@ Die Dateien im Editor bearbeiten. Dabei gelten die Konventionen in [`AGENTS.md`]
 (Django-Struktur, Kommentare, Sicherheit, Tests).
 
 **Vor dem Hochladen sollten dieselben Prüfungen wie in der CI lokal grün sein** – andernfalls
-schlagen sie später im Pull Request fehl. Sie werden passend zur gewählten Variante
-ausgeführt:
+schlagen sie später im Pull Request fehl.
 
-```bash
-# Variante A (Docker):
+**Docker:**
+
+```powershell
 docker compose -f compose.dev.yaml exec web python manage.py check
 docker compose -f compose.dev.yaml exec web python manage.py test
+```
 
-# Variante B (Bare-Metal, im Ordner app/ mit aktiver venv):
+**Bare-Metal** (im Ordner `app/` mit aktiver venv):
+
+```powershell
 python manage.py check
 python manage.py test
 ```
@@ -275,20 +299,13 @@ XGewerbesteuer-Beispieldateien (Testdaten) steht in [`docs/testdaten.md`](docs/t
 Nach einer **Model**-Änderung wird zusätzlich die Migration erzeugt (`makemigrations`, dann
 `migrate`).
 
-Agents dürfen für solche Validierungen eigene Testdateien anlegen. Diese müssen
-nach dem Schema `test<endung>.<agent>.<dateiname>.<endung>` benannt werden, zum
-Beispiel `testsqlite3.codex.migration-check.sqlite3` oder
-`testxml.codex.invalid-upload.xml`. Sie sind per `.gitignore` und `.dockerignore`
-ausgeschlossen, dürfen nie committet werden, dürfen nicht ins Docker-Image gelangen
-und dürfen nach erfolgreichem Test wieder gelöscht werden.
-
 ---
 
 ## 5. Änderung committen und hochladen (push)
 
 Ein Commit ist ein gespeicherter Zwischenstand mit kurzer Beschreibung:
 
-```bash
+```powershell
 git add .
 git status                       # zeigt, was gespeichert wird – kurz kontrollieren
 git commit -m "Kurz und klar beschreiben, was die Änderung tut"
@@ -299,7 +316,7 @@ git commit -m "Kurz und klar beschreiben, was die Änderung tut"
 
 Den Branch zu GitHub hochladen:
 
-```bash
+```powershell
 git push -u origin feature/kurze-beschreibung
 ```
 
@@ -362,7 +379,7 @@ meist schnell eingrenzen:
    (bzw. die Docker-Variante).
 4. Das Problem beheben, dann erneut **auf denselben Branch** committen und pushen:
 
-   ```bash
+   ```powershell
    git add .
    git commit -m "Fehler XY behoben"
    git push
@@ -383,7 +400,7 @@ Sobald **alle Prüfungen grün** sind:
 3. Die Aufgabe im GitHub Project nach **Done** ziehen.
 4. Den neuen Stand holen und den lokalen Branch löschen:
 
-   ```bash
+   ```powershell
    git checkout main
    git pull
    git branch -d feature/kurze-beschreibung
@@ -413,40 +430,64 @@ wie in [Schritt 3](#3-aufgabe-wählen-und-branch-anlegen) übernommen werden kö
 
 ## Spickzettel
 
-```bash
-# Einmalig
+**Einmalig – Repository klonen:**
+
+```powershell
 git clone https://github.com/ChoosenMEME/xstandardanwendung.git
 cd xstandardanwendung
+```
 
-# Umgebung starten – Variante A (Docker)
+**Einmalig – Umgebung einrichten (eine Variante wählen):**
+
+Docker:
+
+```powershell
 cp .env.example .env
 docker compose -f compose.dev.yaml up -d --build
+```
 
-# Umgebung starten – Variante B (Bare-Metal)
-# im Projekt-Wurzelordner:
+Bare-Metal:
+
+```powershell
 python -m venv .venv
 # Projekt-venv aktivieren (siehe Schritt 2), dann:
 pip install -r requirements.txt
-export DEBUG=1            # Windows: $env:DEBUG = "1"
-export SECRET_KEY=dev-secret-key  # Windows: $env:SECRET_KEY = "dev-secret-key"
-export SQLITE_PATH=dev.db.sqlite3  # Windows: $env:SQLITE_PATH = "dev.db.sqlite3"
+$env:DEBUG = "1"                    # macOS / Linux: export DEBUG=1
+$env:SECRET_KEY = "dev-secret-key"  # macOS / Linux: export SECRET_KEY=dev-secret-key
+$env:SQLITE_PATH = "dev.db.sqlite3" # macOS / Linux: export SQLITE_PATH=dev.db.sqlite3
 cd app && python manage.py migrate && python manage.py runserver
+```
 
-# Pro Änderung
-# ... im GitHub Project eine Aufgabe auswählen und sich selbst zuweisen ...
+**Pro Änderung:**
+
+```powershell
+# im GitHub Project eine Aufgabe auswählen und sich selbst zuweisen
 git checkout main && git pull
 git checkout -b feature/meine-aenderung
-# ... Dateien bearbeiten, dann lokal prüfen ...
-# Docker:
+# ... Dateien bearbeiten ...
+```
+
+Lokal prüfen – Docker:
+
+```powershell
 docker compose -f compose.dev.yaml exec web python manage.py check
 docker compose -f compose.dev.yaml exec web python manage.py test
-# Bare-Metal (im Ordner app/):
+```
+
+Lokal prüfen – Bare-Metal (im Ordner `app/`):
+
+```powershell
 python manage.py check
 python manage.py test
+```
+
+Committen und pushen:
+
+```powershell
 git add .
 git commit -m "Beschreibung der Änderung"
 git push -u origin feature/meine-aenderung
-# ... auf GitHub Pull Request erstellen, grüne Prüfungen abwarten, mergen ...
+# auf GitHub Pull Request erstellen, grüne Prüfungen abwarten, mergen
 ```
 
 ---
