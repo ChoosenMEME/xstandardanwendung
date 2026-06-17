@@ -56,6 +56,10 @@ aufbereitet.
 ├── docker-entrypoint.sh        # Migrationen, collectstatic, Start des Dev-Servers
 ├── requirements.txt            # Python-Abhängigkeiten
 ├── .env.example                # Beispiel-Konfiguration (siehe Konfiguration)
+├── .editorconfig               # editorübergreifende Formatierungsregeln (Einrückung, Zeilenenden)
+├── .vscode/                    # empfohlene Einrichtung für Visual Studio Code
+│   ├── extensions.json         # empfohlene Erweiterungen (Installations-Hinweis beim Öffnen)
+│   └── settings.json           # Workspace-Einstellungen (Formatierung, Django-HTML, Suche)
 ├── data/                       # lokale Runtime-Daten der produktiven Compose (ignoriert)
 ├── docs/
 │   ├── design-thinking.md      # Dokumentation des Design-Thinking-Prozesses
@@ -189,16 +193,10 @@ Defaults; `SECRET_KEY` muss gesetzt werden. Die echte `.env`-Datei wird
 | `TZ` | Zeitzone des Containers | `Europe/Berlin` |
 | `PUID` / `PGID` | UID/GID, unter der der Container-Prozess läuft | `1000` |
 
-### Lokale Datenbanken und Agent-Testdateien
+### Lokale Datenbanken
 
 Lokale SQLite-Dateien wie `app/dev.db.sqlite3`, `data/db.sqlite3` und ihre
-Journal-Dateien werden nicht versioniert. Agents dürfen für Validierungen eigene
-Testdateien anlegen, müssen diese aber nach dem Schema
-`test<endung>.<agent>.<dateiname>.<endung>` benennen, zum Beispiel
-`testsqlite3.codex.import-smoke.sqlite3` oder `testxml.codex.invalid-upload.xml`.
-Diese Dateien sind per `.gitignore` und `.dockerignore` ausgeschlossen, dürfen
-nie committet werden, dürfen nicht ins Docker-Image gelangen und dürfen nach
-erfolgreichem Test wieder gelöscht werden.
+Journal-Dateien werden nicht versioniert.
 
 ## Nutzung
 

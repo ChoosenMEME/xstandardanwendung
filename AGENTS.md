@@ -38,11 +38,19 @@ Aktuelle Struktur:
 ```text
 .
 ├── compose.yaml
+├── compose.dev.yaml
 ├── Dockerfile
 ├── docker-entrypoint.sh
 ├── requirements.txt
+├── .env.example
+├── .editorconfig
+├── .vscode/
+│   ├── extensions.json
+│   └── settings.json
 ├── README.md
+├── CONTRIBUTING.md
 ├── AGENTS.md
+├── docs/
 ├── data/
 └── app/
     ├── manage.py
@@ -128,6 +136,18 @@ docker compose exec web python manage.py makemigrations
 docker compose exec web python manage.py migrate
 docker compose exec web python manage.py check
 ```
+
+## Code-Stil und Formatierung
+
+Formatierungsregeln sind projektweit in `.editorconfig` festgelegt und gelten
+editorunabhaengig; VS Code uebernimmt zusaetzlich Einstellungen aus `.vscode/settings.json`.
+Agents sollen diese Konventionen einhalten:
+
+* UTF-8, LF-Zeilenenden, abschliessende Leerzeile, keine ueberfluessigen Leerzeichen am
+  Zeilenende (Ausnahme: Markdown).
+* Einrueckung mit Leerzeichen: 4 fuer Python, 2 fuer YAML, JSON und Django-HTML-Templates.
+* Python-Code orientiert sich an Black (Zeilenlaenge 88; Orientierungslinien bei 88 und 120).
+* Nur die tatsaechlich geaenderten Stellen anpassen, nicht unbeteiligte Dateien umformatieren.
 
 ## Kommentare und Dokumentation
 
