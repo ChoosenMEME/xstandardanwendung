@@ -67,12 +67,18 @@ Gewerbesteuerbescheid-Assistent
 </form>
 
 {% if uploaded_file_name %}
-    <h2>Upload erfolgreich</h2>
+    <h2>Upload und Prüfung erfolgreich</h2>
     <p>
         Die Datei <strong>{{ uploaded_file_name }}</strong> wurde erfolgreich hochgeladen.
     </p>
     <p>
         Dateigröße: {{ uploaded_file_size }} Byte
+    </p>
+{% endif %}
+
+{% if validation_success %}
+    <p>
+        <strong>{{ validation_success }}</strong>
     </p>
 {% endif %}
 
