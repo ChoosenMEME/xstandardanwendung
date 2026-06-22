@@ -44,17 +44,42 @@ Gewerbesteuerbescheid-Assistent
         Zusammenfassung für den Nutzer zu erzeugen.
     </p>
 
-    <h2>Nächster Schritt</h2>
+<h2>Nächster Schritt</h2>
+
+<p>
+    Im nächsten Schritt kann ein XGewerbesteuer-Bescheid als XML-Datei
+    hochgeladen und verarbeitet werden.
+</p>
+
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
 
     <p>
-        Im nächsten Schritt kann ein XGewerbesteuer-Bescheid als XML-Datei
-        hochgeladen und verarbeitet werden.
+        <label for="bescheid">XGewerbesteuer-Bescheid auswählen:</label><br>
+        <input type="file" id="bescheid" name="bescheid" accept=".xml">
     </p>
 
     <p>
-        <a href="#" role="button">
+        <button type="submit">
             Bescheid hochladen
-        </a>
+        </button>
     </p>
+</form>
+
+{% if uploaded_file_name %}
+    <h2>Upload erfolgreich</h2>
+    <p>
+        Die Datei <strong>{{ uploaded_file_name }}</strong> wurde erfolgreich hochgeladen.
+    </p>
+    <p>
+        Dateigröße: {{ uploaded_file_size }} Byte
+    </p>
+{% endif %}
+
+{% if upload_error %}
+    <p>
+        <strong>{{ upload_error }}</strong>
+    </p>
+{% endif %}
 </section>
 {% endblock %}
