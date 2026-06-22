@@ -1,15 +1,60 @@
-{% extends "base.html" %} 
-{% block title %} 
-    XGewerbesteuer Daten (mit KERN UX)
-{%endblock %} 
-{% block content %} 
-    Lorem ipsum dolor sit amet, consetetur
-    sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore
-    magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo
-    dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est
-    Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet, consetetur sadipscing
-    elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam
-    erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea
-    rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor
-    sit amet. 
+{% extends "base.html" %}
+
+{% block title %}
+Gewerbesteuerbescheid-Assistent
+{% endblock %}
+
+{% block content %}
+<section>
+    <h1>Gewerbesteuerbescheid-Assistent</h1>
+
+    <p>
+        Diese Anwendung unterstützt kleine Unternehmen dabei, digitale
+        Gewerbesteuerbescheide im XGewerbesteuer-Format verständlich auszuwerten.
+    </p>
+
+    <p>
+        Laden Sie einen Gewerbesteuerbescheid als XML-Datei hoch. Die Anwendung
+        liest zentrale Informationen aus dem Bescheid aus und stellt diese
+        übersichtlich und verständlich dar.
+    </p>
+
+    <h2>Was kann die Anwendung?</h2>
+
+    <ul>
+        <li>Anzeige des fälligen Zahlbetrags</li>
+        <li>Anzeige der Gemeinde oder Kommune</li>
+        <li>Anzeige des Steuerjahres oder Erhebungszeitraums</li>
+        <li>Anzeige des Gewerbesteuermessbetrags</li>
+        <li>Anzeige des Hebesatzes</li>
+        <li>Übersicht über wichtige Fälligkeiten</li>
+    </ul>
+
+    <h2>Warum ist das hilfreich?</h2>
+
+    <p>
+        Gewerbesteuerbescheide enthalten viele fachliche Informationen, die für
+        Unternehmen nicht immer sofort verständlich sind. Der Assistent soll dabei
+        helfen, wichtige Beträge, Fristen und Berechnungsgrundlagen schneller zu
+        erkennen.
+    </p>
+
+    <p>
+        Ziel ist es, aus einem technischen XML-Bescheid eine verständliche
+        Zusammenfassung für den Nutzer zu erzeugen.
+    </p>
+
+    <h2>Nächster Schritt</h2>
+
+    <p>
+        Im nächsten Schritt kann ein XGewerbesteuer-Bescheid als XML-Datei
+        hochgeladen und verarbeitet werden.
+    </p>
+
+    <p>
+        <a href="#" role="button">
+            Bescheid hochladen
+        </a>
+    </p>
+</section>
 {% endblock %}
