@@ -1,0 +1,404 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:adr="urn:xoev-de:xunternehmen:standard:basismodul:adressen_1.2"
+           xmlns:bdt="urn:xoev-de:xunternehmen:standard:basismodul:basisdatentypen_1.2"
+           xmlns:xoev-code="http://xoev.de/schemata/code/1_0"
+           targetNamespace="urn:xoev-de:xunternehmen:standard:basismodul:adressen_1.2"
+           version="1.2"
+           elementFormDefault="qualified"
+           attributeFormDefault="unqualified">
+   <xs:annotation>
+      <xs:appinfo>
+         <standard>
+            <nameLang>XUnternehmen.Basismodul</nameLang>
+            <nameKurz>XUnternehmen.Basismodul</nameKurz>
+            <nameTechnisch>basismodul</nameTechnisch>
+            <kennung>urn:xoev-de:xunternehmen:standard:basismodul</kennung>
+            <beschreibung>Basismodul des Standards XUnternehmen.</beschreibung>
+         </standard>
+         <versionStandard>
+            <version>1.2</version>
+            <versionXOEVProfil>2.1.0_p3</versionXOEVProfil>
+            <versionXOEVHandbuch>2.5</versionXOEVHandbuch>
+            <versionXGenerator>3.0.1</versionXGenerator>
+            <versionModellierungswerkzeug>19.0 SP 2</versionModellierungswerkzeug>
+            <nameModellierungswerkzeug>MagicDraw</nameModellierungswerkzeug>
+         </versionStandard>
+      </xs:appinfo>
+   </xs:annotation>
+   <xs:import schemaLocation="xoev-code.xsd"
+              namespace="http://xoev.de/schemata/code/1_0"/>
+   <xs:import schemaLocation="xunternehmen-basismodul-basisdatentypen_1_2.xsd"
+              namespace="urn:xoev-de:xunternehmen:standard:basismodul:basisdatentypen_1.2"/>
+   <xs:complexType name="AnschriftAuslandType">
+      <xs:annotation>
+         <xs:documentation>Angaben für die Adressierung im Ausland.</xs:documentation>
+      </xs:annotation>
+      <xs:sequence>
+         <xs:element ref="adr:artAnschrift" minOccurs="0">
+            <xs:annotation>
+               <xs:documentation>Die Art (Funktion, Rolle) dieser Anschrift.</xs:documentation>
+            </xs:annotation>
+         </xs:element>
+         <xs:element ref="adr:strasse" minOccurs="0">
+            <xs:annotation>
+               <xs:documentation>Es ist die Bezeichnung der Straße anzugeben.</xs:documentation>
+            </xs:annotation>
+         </xs:element>
+         <xs:element ref="adr:hausnummer" minOccurs="0">
+            <xs:annotation>
+               <xs:documentation>Die vollständige Hausnummer, ggf. inkl. Buchstabe/Zusatzziffern und Teilnummer.</xs:documentation>
+            </xs:annotation>
+         </xs:element>
+         <xs:element ref="adr:zusatzangaben" minOccurs="0">
+            <xs:annotation>
+               <xs:documentation>Es sind Zusatzangaben zur Anschrift anzugeben.</xs:documentation>
+            </xs:annotation>
+         </xs:element>
+         <xs:element ref="adr:postleitzahl" minOccurs="0">
+            <xs:annotation>
+               <xs:documentation>Es ist die Postleitzahl anzugeben.</xs:documentation>
+            </xs:annotation>
+         </xs:element>
+         <xs:element ref="adr:ort" minOccurs="0">
+            <xs:annotation>
+               <xs:documentation>Der Name des Ortes (Gemeinde, Ortschaft oder Stadt).</xs:documentation>
+            </xs:annotation>
+         </xs:element>
+         <xs:element ref="adr:staat">
+            <xs:annotation>
+               <xs:documentation>(siehe Dokumentation von Staat).</xs:documentation>
+            </xs:annotation>
+         </xs:element>
+      </xs:sequence>
+   </xs:complexType>
+   <xs:complexType name="AnschriftInlandType">
+      <xs:annotation>
+         <xs:documentation>Angaben für die Adressierung im Inland. Eine Inlandsanschrift ist entweder eine Straßenanschrift oder eine Postfachanschrift.</xs:documentation>
+      </xs:annotation>
+      <xs:choice>
+         <xs:element ref="adr:strassenanschriftInland">
+            <xs:annotation>
+               <xs:documentation>Angaben für die Adressierung im Inland, soweit es sich um die Anschrift eines Gebäudes handelt.</xs:documentation>
+            </xs:annotation>
+         </xs:element>
+         <xs:element ref="adr:postfachanschriftInland">
+            <xs:annotation>
+               <xs:documentation>Angaben für die Adressierung im Inland, soweit es sich um die Anschrift eines Postfachs handelt.</xs:documentation>
+            </xs:annotation>
+         </xs:element>
+         <xs:element ref="adr:grossempfaengerAnschriftInland">
+            <xs:annotation>
+               <xs:documentation>Angaben für die Adressierung im Inland, soweit es sich um die Anschrift eines Großempfängers handelt.</xs:documentation>
+            </xs:annotation>
+         </xs:element>
+      </xs:choice>
+   </xs:complexType>
+   <xs:complexType name="AnschriftType">
+      <xs:annotation>
+         <xs:documentation>Angaben für die Adressierung. Eine Anschrift ist entweder eine Inlands- oder eine Auslandsanschrift.</xs:documentation>
+      </xs:annotation>
+      <xs:choice>
+         <xs:element ref="adr:strassenanschriftInland">
+            <xs:annotation>
+               <xs:documentation>Angaben für die Adressierung im Inland, soweit es sich um die Anschrift eines Gebäudes handelt.</xs:documentation>
+            </xs:annotation>
+         </xs:element>
+         <xs:element ref="adr:postfachanschriftInland">
+            <xs:annotation>
+               <xs:documentation>Angaben für die Adressierung im Inland, soweit es sich um die Anschrift eines Postfachs handelt.</xs:documentation>
+            </xs:annotation>
+         </xs:element>
+         <xs:element ref="adr:grossempfaengerAnschriftInland">
+            <xs:annotation>
+               <xs:documentation>Angaben für die Adressierung im Inland, soweit es sich um die Anschrift eines Großempfängers handelt.</xs:documentation>
+            </xs:annotation>
+         </xs:element>
+         <xs:element ref="adr:anschriftAusland">
+            <xs:annotation>
+               <xs:documentation>Angaben für die Adressierung im Ausland.</xs:documentation>
+            </xs:annotation>
+         </xs:element>
+      </xs:choice>
+   </xs:complexType>
+   <xs:complexType name="Code.ArtAnschrift">
+      <xs:annotation>
+         <xs:appinfo>
+            <codeliste>
+               <nameLang>Art der Anschrift</nameLang>
+               <nameKurz>Art der Anschrift</nameKurz>
+               <nameTechnisch>artanschrift</nameTechnisch>
+               <kennung>urn:xoev-de:xunternehmen:codeliste:artanschrift</kennung>
+               <beschreibung>Codierung der Art (Funktion, Rolle) einer Anschrift</beschreibung>
+               <herausgebernameLang>XUnternehmen</herausgebernameLang>
+               <herausgebernameKurz>XUnternehmen</herausgebernameKurz>
+            </codeliste>
+         </xs:appinfo>
+      </xs:annotation>
+      <xs:complexContent>
+         <xs:restriction base="xoev-code:Code">
+            <xs:sequence>
+               <xs:element name="code" type="xs:token" form="unqualified"/>
+            </xs:sequence>
+            <xs:attribute name="listURI"
+                          type="xs:anyURI"
+                          use="optional"
+                          fixed="urn:xoev-de:xunternehmen:codeliste:artanschrift"/>
+            <xs:attribute name="listVersionID" type="xs:normalizedString" use="required"/>
+         </xs:restriction>
+      </xs:complexContent>
+   </xs:complexType>
+   <xs:complexType name="Code.Gemeindeschluessel">
+      <xs:annotation>
+         <xs:appinfo>
+            <codeliste>
+               <nameLang>Gemeinden, dargestellt durch den Amtlichen Gemeindeschlüssel (AGS) des Statistischen Bundesamtes</nameLang>
+               <nameKurz>AGS</nameKurz>
+               <nameTechnisch>AGS</nameTechnisch>
+               <kennung>urn:de:bund:destatis:bevoelkerungsstatistik:schluessel:ags</kennung>
+               <beschreibung>Diese Codeliste stellt alle Gemeinden Deutschlands durch den Amtlichen Gemeindeschlüssel (AGS) dar, wie im Gemeindeverzeichnis des Statistischen Bundesamtes enthalten. Darüber hinaus enthält die Codeliste für die Stadtstaaten Hamburg, Bremen und Berlin Einträge für Stadt-/Ortsteile bzw. Stadtbezirke. Diese Einträge sind mit einem entsprechenden Hinweis versehen.</beschreibung>
+               <herausgebernameLang>Statistisches Bundesamt, Wiesbaden</herausgebernameLang>
+               <herausgebernameKurz>Destatis</herausgebernameKurz>
+            </codeliste>
+         </xs:appinfo>
+         <xs:documentation>In diesem Kontext dürfen aus der Codeliste nur die Codes der amtlichen Gemeinden verwendet werden, nicht die Codes für die Stadtbezirke bzw. Stadtteile.</xs:documentation>
+      </xs:annotation>
+      <xs:complexContent>
+         <xs:restriction base="xoev-code:Code">
+            <xs:sequence>
+               <xs:element name="code" type="xs:token" form="unqualified"/>
+            </xs:sequence>
+            <xs:attribute name="listURI"
+                          type="xs:anyURI"
+                          use="optional"
+                          fixed="urn:de:bund:destatis:bevoelkerungsstatistik:schluessel:ags"/>
+            <xs:attribute name="listVersionID" type="xs:normalizedString" use="required"/>
+         </xs:restriction>
+      </xs:complexContent>
+   </xs:complexType>
+   <xs:complexType name="Code.Staat">
+      <xs:complexContent>
+         <xs:restriction base="xoev-code:Code">
+            <xs:sequence>
+               <xs:element name="code" type="xs:token" form="unqualified"/>
+            </xs:sequence>
+            <xs:attribute name="listURI" type="xs:anyURI" use="required"/>
+            <xs:attribute name="listVersionID" type="xs:normalizedString" use="required"/>
+         </xs:restriction>
+      </xs:complexContent>
+   </xs:complexType>
+   <xs:complexType name="GrossempfaengerAnschriftInlandType">
+      <xs:annotation>
+         <xs:documentation>Angaben für die Adressierung im Inland, soweit es sich um die Anschrift eines Großempfängers handelt.</xs:documentation>
+      </xs:annotation>
+      <xs:sequence>
+         <xs:element ref="adr:artAnschrift" minOccurs="0">
+            <xs:annotation>
+               <xs:documentation>Die Art (Funktion, Rolle) dieser Anschrift.</xs:documentation>
+            </xs:annotation>
+         </xs:element>
+         <xs:element ref="adr:postleitzahl">
+            <xs:annotation>
+               <xs:documentation>Postleitzahl des Postfachs.</xs:documentation>
+            </xs:annotation>
+         </xs:element>
+         <xs:element ref="adr:ort">
+            <xs:annotation>
+               <xs:documentation>Der Name des Ortes (Gemeinde, Ortschaft oder Stadt).</xs:documentation>
+            </xs:annotation>
+         </xs:element>
+      </xs:sequence>
+   </xs:complexType>
+   <xs:complexType name="PostfachanschriftInlandType">
+      <xs:annotation>
+         <xs:documentation>Angaben für die Adressierung im Inland, soweit es sich um die Anschrift eines Postfachs handelt.</xs:documentation>
+      </xs:annotation>
+      <xs:sequence>
+         <xs:element ref="adr:artAnschrift" minOccurs="0">
+            <xs:annotation>
+               <xs:documentation>Die Art (Funktion, Rolle) dieser Anschrift.</xs:documentation>
+            </xs:annotation>
+         </xs:element>
+         <xs:element ref="adr:postfach" minOccurs="0">
+            <xs:annotation>
+               <xs:documentation>Ein Postfach (oft Postfachnummer) ist ein Schlüssel zur Identifikation eines Postfaches in einer Postfiliale.</xs:documentation>
+            </xs:annotation>
+         </xs:element>
+         <xs:element ref="adr:postleitzahl">
+            <xs:annotation>
+               <xs:documentation>Es ist die Postleitzahl anzugeben.</xs:documentation>
+            </xs:annotation>
+         </xs:element>
+         <xs:element ref="adr:ort">
+            <xs:annotation>
+               <xs:documentation>Der Name des Ortes (Gemeinde, Ortschaft oder Stadt).</xs:documentation>
+            </xs:annotation>
+         </xs:element>
+      </xs:sequence>
+   </xs:complexType>
+   <xs:complexType name="StaatType">
+      <xs:annotation>
+         <xs:documentation>Angabe eines Staats oder eines Staatsgebiets. Je nach fachlichem und rechtlichem Kontext bzw. dem jeweiligen Ziel der Datenerhebung kann diese Angabe mit unterschiedlich umfangreichen und unterschiedlich fein aufgelösten Codelisten codiert werden. Der Standard XUnternehmen.Kerndatenmodell gibt entsprechend keine einheitliche Codeliste vor, sondern lässt die Verwendung unterschiedlicher Codelisten, im Wesentlichen aus der Staats- und Gebietssystematik (BEV) des Statistischen Bundesamts, zu: Verzeichnis der Staaten aus der Staats- und Gebietssystematik (BEV) Verzeichnis der Staatsangehörigkeiten der Staats- und Gebietssystematik (BEV) Verzeichnis der Staatsgebiete und deren unselbständigen Teile der Staats- und Gebietssystematik (BEV) Country Codes der ISO 3166-1:2013 Das Verhältnis dieser Codelisten zueinander und die Mapping-Möglichkeiten können der tabellarischen Synopse der Staats- und Gebietssystematik entnommen werden. Im Sinne einer einfachen Anwendbarkeit des Standards sieht dieser zudem vor, dass Angaben zu Staaten immer (auch) in unkodierter Form, als Freitext übermittelt werden.</xs:documentation>
+      </xs:annotation>
+      <xs:sequence>
+         <xs:element ref="adr:staat.code" minOccurs="0">
+            <xs:annotation>
+               <xs:documentation>Identifikation des Staats bzw. Staatsgebiets anhand einer Codeliste. Die Angabe der verwendeten Codeliste gehört neben der Angabe der verwendeten Version dieser Codeliste zu den zwingend anzugebenden Metadaten (in XÖV: Pflichtangabe der Attribute "listURI" und "listVersionID") Die möglichen Ausprägungen dieses Attributes sind durch eine der folgenden Codelisten Codeliste Staat aus der Staats- und Gebietssystematik des Statistischen Bundesamtes (urn:de:bund: destatis:bevoelkerungsstatistik:schluessel:staat) Codeliste Staatsgebiete aus der Staats- und Gebietssystematik des Statistischen Bundesamtes (urn:de: bund:destatis:bevoelkerungsstatistik:schluessel:staatsgebiete) Codeliste Staatsangehörigkeit aus der Staats- und Gebietssystematik des Statistischen Bundesamtes (urn:de:bund:destatis:bevoelkerungsstatistik:schluessel:staatsangehoerigkeit) Country Codes (urn:xoev-de:kosit:codeliste:country-codes) im XRepository zu bestimmen.</xs:documentation>
+            </xs:annotation>
+         </xs:element>
+         <xs:element ref="adr:staat.freitext">
+            <xs:annotation>
+               <xs:documentation>Die Bezeichnung des Staats- bzw. Staatsgebiets.</xs:documentation>
+            </xs:annotation>
+         </xs:element>
+      </xs:sequence>
+   </xs:complexType>
+   <xs:complexType name="StrassenanschriftInlandType">
+      <xs:annotation>
+         <xs:documentation>Angaben für die Adressierung im Inland, soweit es sich um die Anschrift eines Gebäudes handelt.</xs:documentation>
+      </xs:annotation>
+      <xs:sequence>
+         <xs:element ref="adr:artAnschrift" minOccurs="0">
+            <xs:annotation>
+               <xs:documentation>Die Art (Funktion, Rolle) dieser Anschrift.</xs:documentation>
+            </xs:annotation>
+         </xs:element>
+         <xs:element ref="adr:strasse" minOccurs="0">
+            <xs:annotation>
+               <xs:documentation>Es ist die Bezeichnung der Straße anzugeben.</xs:documentation>
+            </xs:annotation>
+         </xs:element>
+         <xs:element ref="adr:hausnummer" minOccurs="0">
+            <xs:annotation>
+               <xs:documentation>Die vollständige Hausnummer, ggf. inkl. Buchstabe/Zusatzziffern und Teilnummer.</xs:documentation>
+            </xs:annotation>
+         </xs:element>
+         <xs:element ref="adr:postleitzahl" minOccurs="0">
+            <xs:annotation>
+               <xs:documentation>Es ist die Postleitzahl anzugeben.</xs:documentation>
+            </xs:annotation>
+         </xs:element>
+         <xs:element ref="adr:ort">
+            <xs:annotation>
+               <xs:documentation>Der Name des Ortes (Gemeinde, Ortschaft oder Stadt).</xs:documentation>
+            </xs:annotation>
+         </xs:element>
+         <xs:element ref="adr:fruehererGemeindename" minOccurs="0">
+            <xs:annotation>
+               <xs:documentation>Der frühere Gemeindename, der als Stadt- bzw. Ortsteilname dem jetzigen Gemeindenamen hinzugefügt wird. Der frühere Gemeindename (jetziger Ortsteil- oder Stadtteilname) ist bei Adressierungen unterhalb des Namens (oberhalb der Straßenbezeichnung) anzugeben.</xs:documentation>
+            </xs:annotation>
+         </xs:element>
+         <xs:element ref="adr:wohnungsinhaber" minOccurs="0">
+            <xs:annotation>
+               <xs:documentation>Der Name des Wohnungsinhabers, soweit dies zur Adressierung erforderlich ist. Max Mustermann bei Müller; Max Mustermann c/o Schmidt.</xs:documentation>
+            </xs:annotation>
+         </xs:element>
+         <xs:element ref="adr:zusatzangaben" minOccurs="0">
+            <xs:annotation>
+               <xs:documentation>Es sind Zusatzangaben zur Anschrift anzugeben.</xs:documentation>
+            </xs:annotation>
+         </xs:element>
+         <xs:element ref="adr:gemeindeschluessel" minOccurs="0">
+            <xs:annotation>
+               <xs:documentation>Der vom Statistischen Bundesamt herausgegebene bundeseinheitliche Gemeindeschlüssel der Gemeinde, in welcher die Anschrift liegt.</xs:documentation>
+            </xs:annotation>
+         </xs:element>
+      </xs:sequence>
+   </xs:complexType>
+   <xs:element name="anschrift" type="adr:AnschriftType">
+      <xs:annotation>
+         <xs:documentation>Angaben für die Adressierung. Eine Anschrift ist entweder eine Inlands- oder eine Auslandsanschrift.</xs:documentation>
+      </xs:annotation>
+   </xs:element>
+   <xs:element name="anschriftAusland" type="adr:AnschriftAuslandType">
+      <xs:annotation>
+         <xs:documentation>Angaben für die Adressierung im Ausland.</xs:documentation>
+      </xs:annotation>
+   </xs:element>
+   <xs:element name="anschriftInland" type="adr:AnschriftInlandType">
+      <xs:annotation>
+         <xs:documentation>Angaben für die Adressierung im Inland. Eine Inlandsanschrift ist entweder eine Straßenanschrift oder eine Postfachanschrift.</xs:documentation>
+      </xs:annotation>
+   </xs:element>
+   <xs:element name="artAnschrift" type="adr:Code.ArtAnschrift">
+      <xs:annotation>
+         <xs:documentation>Die Art (Funktion, Rolle) dieser Anschrift.</xs:documentation>
+      </xs:annotation>
+   </xs:element>
+   <xs:element name="fruehererGemeindename" type="bdt:String.DIN91379.C">
+      <xs:annotation>
+         <xs:documentation>Der frühere Gemeindename, der als Stadt- bzw. Ortsteilname dem jetzigen Gemeindenamen hinzugefügt wird. Der frühere Gemeindename (jetziger Ortsteil- oder Stadtteilname) ist bei Adressierungen unterhalb des Namens (oberhalb der Straßenbezeichnung) anzugeben.</xs:documentation>
+      </xs:annotation>
+   </xs:element>
+   <xs:element name="gemeindeschluessel" type="adr:Code.Gemeindeschluessel">
+      <xs:annotation>
+         <xs:documentation>Der vom Statistischen Bundesamt herausgegebene bundeseinheitliche Gemeindeschlüssel der Gemeinde, in welcher die Anschrift liegt.</xs:documentation>
+      </xs:annotation>
+   </xs:element>
+   <xs:element name="grossempfaengerAnschriftInland"
+               type="adr:GrossempfaengerAnschriftInlandType">
+      <xs:annotation>
+         <xs:documentation>Angaben für die Adressierung im Inland, soweit es sich um die Anschrift eines Großempfängers handelt.</xs:documentation>
+      </xs:annotation>
+   </xs:element>
+   <xs:element name="hausnummer" type="bdt:String.DIN91379.C">
+      <xs:annotation>
+         <xs:documentation>Die vollständige Hausnummer, ggf. inkl. Buchstabe/Zusatzziffern und Teilnummer.</xs:documentation>
+      </xs:annotation>
+   </xs:element>
+   <xs:element name="ort" type="bdt:String.DIN91379.C">
+      <xs:annotation>
+         <xs:documentation>Der Name des Ortes (Gemeinde, Ortschaft oder Stadt).</xs:documentation>
+      </xs:annotation>
+   </xs:element>
+   <xs:element name="postfach" type="bdt:String.DIN91379.C">
+      <xs:annotation>
+         <xs:documentation>Ein Postfach (oft Postfachnummer) ist ein Schlüssel zur Identifikation eines Postfaches in einer Postfiliale.</xs:documentation>
+      </xs:annotation>
+   </xs:element>
+   <xs:element name="postfachanschriftInland" type="adr:PostfachanschriftInlandType">
+      <xs:annotation>
+         <xs:documentation>Angaben für die Adressierung im Inland, soweit es sich um die Anschrift eines Postfachs handelt.</xs:documentation>
+      </xs:annotation>
+   </xs:element>
+   <xs:element name="postleitzahl" type="bdt:String.DIN91379.C">
+      <xs:annotation>
+         <xs:documentation>Es ist die Postleitzahl anzugeben.</xs:documentation>
+      </xs:annotation>
+   </xs:element>
+   <xs:element name="staat" type="adr:StaatType">
+      <xs:annotation>
+         <xs:documentation>Angabe eines Staats oder eines Staatsgebiets. Je nach fachlichem und rechtlichem Kontext bzw. dem jeweiligen Ziel der Datenerhebung kann diese Angabe mit unterschiedlich umfangreichen und unterschiedlich fein aufgelösten Codelisten codiert werden. Der Standard XUnternehmen.Kerndatenmodell gibt entsprechend keine einheitliche Codeliste vor, sondern lässt die Verwendung unterschiedlicher Codelisten, im Wesentlichen aus der Staats- und Gebietssystematik (BEV) des Statistischen Bundesamts, zu: Verzeichnis der Staaten aus der Staats- und Gebietssystematik (BEV) Verzeichnis der Staatsangehörigkeiten der Staats- und Gebietssystematik (BEV) Verzeichnis der Staatsgebiete und deren unselbständigen Teile der Staats- und Gebietssystematik (BEV) Country Codes der ISO 3166-1:2013 Das Verhältnis dieser Codelisten zueinander und die Mapping-Möglichkeiten können der tabellarischen Synopse der Staats- und Gebietssystematik entnommen werden. Im Sinne einer einfachen Anwendbarkeit des Standards sieht dieser zudem vor, dass Angaben zu Staaten immer (auch) in unkodierter Form, als Freitext übermittelt werden.</xs:documentation>
+      </xs:annotation>
+   </xs:element>
+   <xs:element name="staat.code" type="adr:Code.Staat">
+      <xs:annotation>
+         <xs:documentation>Identifikation des Staats bzw. Staatsgebiets anhand einer Codeliste. Die Angabe der verwendeten Codeliste gehört neben der Angabe der verwendeten Version dieser Codeliste zu den zwingend anzugebenden Metadaten (in XÖV: Pflichtangabe der Attribute "listURI" und "listVersionID") Die möglichen Ausprägungen dieses Attributes sind durch eine der folgenden Codelisten Codeliste Staat aus der Staats- und Gebietssystematik des Statistischen Bundesamtes (urn:de:bund: destatis:bevoelkerungsstatistik:schluessel:staat) Codeliste Staatsgebiete aus der Staats- und Gebietssystematik des Statistischen Bundesamtes (urn:de: bund:destatis:bevoelkerungsstatistik:schluessel:staatsgebiete) Codeliste Staatsangehörigkeit aus der Staats- und Gebietssystematik des Statistischen Bundesamtes (urn:de:bund:destatis:bevoelkerungsstatistik:schluessel:staatsangehoerigkeit) Country Codes (urn:xoev-de:kosit:codeliste:country-codes) im XRepository zu bestimmen.</xs:documentation>
+      </xs:annotation>
+   </xs:element>
+   <xs:element name="staat.freitext" type="bdt:String.DIN91379.C">
+      <xs:annotation>
+         <xs:documentation>Die Bezeichnung des Staats- bzw. Staatsgebiets.</xs:documentation>
+      </xs:annotation>
+   </xs:element>
+   <xs:element name="strasse" type="bdt:String.DIN91379.C">
+      <xs:annotation>
+         <xs:documentation>Es ist die Bezeichnung der Straße anzugeben.</xs:documentation>
+      </xs:annotation>
+   </xs:element>
+   <xs:element name="strassenanschriftInland" type="adr:StrassenanschriftInlandType">
+      <xs:annotation>
+         <xs:documentation>Angaben für die Adressierung im Inland, soweit es sich um die Anschrift eines Gebäudes handelt.</xs:documentation>
+      </xs:annotation>
+   </xs:element>
+   <xs:element name="wohnungsinhaber" type="bdt:String.DIN91379.C">
+      <xs:annotation>
+         <xs:documentation>Der Name des Wohnungsinhabers, soweit dies zur Adressierung erforderlich ist. Max Mustermann bei Müller; Max Mustermann c/o Schmidt.</xs:documentation>
+      </xs:annotation>
+   </xs:element>
+   <xs:element name="zusatzangaben" type="bdt:String.DIN91379.C">
+      <xs:annotation>
+         <xs:documentation>Es sind Zusatzangaben zur Anschrift anzugeben.</xs:documentation>
+      </xs:annotation>
+   </xs:element>
+</xs:schema>

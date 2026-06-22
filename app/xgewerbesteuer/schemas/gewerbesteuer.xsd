@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:xoev-de:xunternehmen:standard:gewerbesteuer_1.4"
+           version="1.4"
+           elementFormDefault="qualified"
+           attributeFormDefault="unqualified">
+   <xs:include schemaLocation="xunternehmen-gewerbesteuer.xsd"/>
+</xs:schema>
