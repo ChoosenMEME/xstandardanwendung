@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gewst:berechnung.gewerbesteuer.0021 xmlns:gewst="urn:xoev-de:xunternehmen:standard:gewerbesteuer_1.4"
+            xmlns:adr="urn:xoev-de:xunternehmen:standard:basismodul:adressen_1.2">
+   <nachrichtenkopf>
+      <nachrichtenID>00000000-0000-0000-0000-000000000212</nachrichtenID>
+      <zeitstempel>2022-01-15T10:00:00</zeitstempel>
+      <nameStandard>GewSt</nameStandard>
+      <versionStandard>1.4</versionStandard>
+      <fachverfahren>test</fachverfahren>
+   </nachrichtenkopf>
+   <briefkopf>
+      <berechnungsDatum>2022-01-15</berechnungsDatum>
+      <stichtag>2022-01-15</stichtag>
+      <steuernummerBund>1234567890000</steuernummerBund>
+      <buchungsnummer>1</buchungsnummer>
+      <insolvenzeroeffnung>2020-01-01</insolvenzeroeffnung>
+   </briefkopf>
+   <kommune>
+      <nameBehoerde>Stadt Musterhausen</nameBehoerde>
+      <anschrift><ort>Musterhausen</ort></anschrift>
+      <adr:gemeindeschluessel listVersionID="2025-01-31"><code>12345678</code></adr:gemeindeschluessel>
+   </kommune>
+   <inhaltsAdressat>
+      <strukturiert><name>Musterbetrieb</name><anschrift><ort>Musterhausen</ort></anschrift></strukturiert>
+   </inhaltsAdressat>   <berechnungsEmpfaenger>
+      <strukturiert><name>Musterbetrieb</name><anschrift><ort>Musterhausen</ort></anschrift></strukturiert>
+   </berechnungsEmpfaenger>   <gwstBerechnung>
+      <berechnungsAngaben>
+         <abgabeart><code>GV</code></abgabeart>
+         <berechnungsart><code>EF</code></berechnungsart>
+         <SOLLoderIST><code>SOLL</code></SOLLoderIST>
+         <erhebungszeitraum><bezugsjahr>2022</bezugsjahr></erhebungszeitraum>
+         <berechnungAktuell>512.50</berechnungAktuell>
+      </berechnungsAngaben>
+      <messbetrag>125.00</messbetrag>
+      <hebesatz>410</hebesatz>
+   </gwstBerechnung>
+</gewst:berechnung.gewerbesteuer.0021>
+
+
