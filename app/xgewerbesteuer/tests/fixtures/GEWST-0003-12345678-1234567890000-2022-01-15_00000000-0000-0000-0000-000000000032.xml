@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gewst:bescheide.vorauszahlung.0003 xmlns:gewst="urn:xoev-de:xunternehmen:standard:gewerbesteuer_1.4"
+            xmlns:adr="urn:xoev-de:xunternehmen:standard:basismodul:adressen_1.2">
+   <nachrichtenkopf>
+      <nachrichtenID>00000000-0000-0000-0000-000000000032</nachrichtenID>
+      <zeitstempel>2022-01-15T10:00:00</zeitstempel>
+      <nameStandard>GewSt</nameStandard>
+      <versionStandard>1.4</versionStandard>
+      <fachverfahren>test</fachverfahren>
+   </nachrichtenkopf>
+   <briefkopf>
+      <bescheidDatum>2022-01-15</bescheidDatum>
+      <stichtag>2022-01-15</stichtag>
+      <steuernummerBund>1234567890000</steuernummerBund>
+      <buchungsnummer>1</buchungsnummer>
+
+   </briefkopf>
+   <kommune>
+      <nameBehoerde>Stadt Musterhausen</nameBehoerde>
+      <anschrift><ort>Musterhausen</ort></anschrift>
+      <adr:gemeindeschluessel listVersionID="2025-01-31"><code>12345678</code></adr:gemeindeschluessel>
+   </kommune>
+   <inhaltsAdressat>
+      <strukturiert><name>Musterbetrieb</name><anschrift><ort>Musterhausen</ort></anschrift></strukturiert>
+   </inhaltsAdressat>   <bescheidEmpfaenger>
+      <strukturiert><name>Musterbetrieb</name><anschrift><ort>Musterhausen</ort></anschrift></strukturiert>
+   </bescheidEmpfaenger>   <gwstVorauszahlungen>
+      <festsetzungsAngaben>
+         <abgabeart><code>VZ</code></abgabeart>
+         <festsetzungsart><code>EF</code></festsetzungsart>
+         <erhebungszeitraum><bezugsjahr>2022</bezugsjahr></erhebungszeitraum>
+         <festsetzungAktuell>123.00</festsetzungAktuell>
+      </festsetzungsAngaben>
+      <messbetrag>30.00</messbetrag>
+      <hebesatz>410</hebesatz>
+   </gwstVorauszahlungen>   <rechtsbehelfsBelehrung>Test.</rechtsbehelfsBelehrung>
+</gewst:bescheide.vorauszahlung.0003>
+
+
