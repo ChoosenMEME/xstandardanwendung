@@ -37,6 +37,10 @@ Benötigt werden in jedem Fall:
 - **[Git](https://git-scm.com/downloads)** – zum Verwalten der Änderungen.
 - Ein **[GitHub](https://github.com/)-Konto** – ohne Konto lässt sich kein Pull Request erstellen.
 
+Falls Git noch nicht installiert ist, zeigt VS Code das meist direkt an: links auf das
+**Git-Symbol** („Source Control") klicken. Wenn dort ein Hinweis erscheint, dass Git fehlt,
+den angebotenen Link **Install Git** öffnen, Git installieren und VS Code danach neu starten.
+
 Dazu **eine** der beiden Entwicklungsvarianten (Details in [Schritt 2](#2-entwicklungsumgebung-starten)):
 
 - **Docker** (empfohlen): [Docker](https://docs.docker.com/get-docker/) inkl. Docker
