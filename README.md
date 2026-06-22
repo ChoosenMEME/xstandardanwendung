@@ -90,12 +90,17 @@ aufbereitet.
         ├── admin.py
         ├── apps.py
         ├── migrations/
+        ├── schemas/            # XGewerbesteuer-XSD-Dateien fuer XML-Validierung
         ├── templates/
         └── tests/
             ├── test_views.py   # Routing- und View-Tests
             ├── test_imports.py # Struktur-Tests fuer XGewerbesteuer-Beispieldateien
             └── fixtures/       # XGewerbesteuer-1.4-Beispieldateien (siehe docs/testdaten.md)
 ```
+
+Die XSD-Dateien fuer XGewerbesteuer liegen unter `app/xgewerbesteuer/schemas/`
+(`gewerbesteuer.xsd` sowie die eingebundenen Basis-, Adress-, Code- und
+Datentyp-Schemas).
 
 ## Voraussetzungen
 
