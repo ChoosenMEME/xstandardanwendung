@@ -69,6 +69,7 @@ Aktuelle Struktur:
         ├── urls.py
         ├── admin.py
         ├── migrations/
+        ├── schemas/
         ├── templates/
         └── tests/
             ├── test_views.py
@@ -245,6 +246,8 @@ Falls XGewerbesteuer-Dateien importiert werden:
 * Dateityp pruefen.
 * Dateigroesse begrenzen.
 * XML-Struktur validieren.
+* Die XSD-Dateien unter `app/xgewerbesteuer/schemas/` beruecksichtigen
+  (`gewerbesteuer.xsd` und eingebundene Basis-, Adress-, Code- und Datentyp-Schemas).
 * XML-Parser sicher konfigurieren.
 * Fehlermeldungen fuer Nutzer verstaendlich formulieren.
 * Keine vertraulichen Bescheiddaten in Logs schreiben.
