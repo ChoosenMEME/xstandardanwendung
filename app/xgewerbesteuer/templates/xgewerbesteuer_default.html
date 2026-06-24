@@ -162,6 +162,57 @@ Gewerbesteuerbescheid-Assistent
             </p>
         {% endif %}
 
+        {% if advance_payments %}
+            <h2>Vorauszahlungen</h2>
+
+            <p>
+                Die folgenden Vorauszahlungen wurden separat aus dem Bescheid ausgelesen.
+                Es handelt sich um zukünftige oder gesonderte Zahlungspflichten.
+            </p>
+
+            <table style="border-collapse: collapse; margin-left: 0; text-align: left;">
+                <thead>
+                    <tr>
+                        <th scope="col" style="text-align: left; padding: 4px 24px 4px 0;">
+                            Betrag
+                        </th>
+                        <th scope="col" style="text-align: left; padding: 4px 24px 4px 0;">
+                            Fälligkeit / Zahlungstermin
+                        </th>
+                        <th scope="col" style="text-align: left; padding: 4px 24px 4px 0;">
+                            Zeitraum / Bezugsjahr
+                        </th>
+                        <th scope="col" style="text-align: left; padding: 4px 0;">
+                            Art
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for payment in advance_payments %}
+                        <tr>
+                            <td style="text-align: left; padding: 4px 24px 4px 0;">
+                                <strong>{{ payment.amount }}</strong>
+                            </td>
+                            <td style="text-align: left; padding: 4px 24px 4px 0;">
+                                {{ payment.due_date }}
+                            </td>
+                            <td style="text-align: left; padding: 4px 24px 4px 0;">
+                                {{ payment.period }}
+                            </td>
+                            <td style="text-align: left; padding: 4px 0;">
+                                {{ payment.type }}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <p>
+                Hinweis: Vorauszahlungen werden getrennt von endgültigen Festsetzungen,
+                Nachzahlungen und Erstattungen angezeigt.
+            </p>
+        {% endif %}
+
         <p>
             Hinweis: Diese Zusammenfassung dient nur der verständlichen Darstellung
             der ausgelesenen Daten und ersetzt keine steuerliche Beratung.
