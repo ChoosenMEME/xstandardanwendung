@@ -28,8 +28,8 @@ def validate_xml_against_xsd(xml_data):
 
     try:
         xml_document = etree.fromstring(xml_data, parser=xml_parser)
-    except etree.XMLSyntaxError as error:
-        return False, None, f"Die XML-Datei ist nicht wohlgeformt: {error}"
+    except etree.XMLSyntaxError:
+        return False, None, "Die XML-Datei ist nicht wohlgeformt."
 
     for schema_file_name in XSD_SCHEMA_FILES:
         schema_path = SCHEMA_DIR / schema_file_name
@@ -47,16 +47,17 @@ def validate_xml_against_xsd(xml_data):
 
         except etree.DocumentInvalid as error:
             last_error = error.error_log.last_error
+
             if last_error is not None:
                 validation_errors.append(f"{schema_file_name}: {last_error.message}")
             else:
                 validation_errors.append(f"{schema_file_name}: XML passt nicht zum Schema.")
 
-        except etree.XMLSchemaParseError as error:
-            validation_errors.append(f"{schema_file_name}: Schema konnte nicht gelesen werden: {error}")
+        except etree.XMLSchemaParseError:
+            validation_errors.append(f"{schema_file_name}: Schema konnte nicht gelesen werden.")
 
-        except OSError as error:
-            validation_errors.append(f"{schema_file_name}: Schema-Datei konnte nicht geöffnet werden: {error}")
+        except OSError:
+            validation_errors.append(f"{schema_file_name}: Schema-Datei konnte nicht geöffnet werden.")
 
     if validation_errors:
         return False, None, " | ".join(validation_errors)
@@ -88,8 +89,8 @@ def xgewerbesteuer_default(request):
                     context["uploaded_file_name"] = uploaded_file.name
                     context["uploaded_file_size"] = uploaded_file.size
                     context["validation_success"] = (
-                        f"Die Datei wurde erfolgreich geprüft und ist XML-konform. "
-                        f"Die XSD-Validierung war mit dem Schema {schema_name} erfolgreich."
+                        "Die Datei wurde erfolgreich geprüft und entspricht dem erwarteten "
+                        f"XGewerbesteuer-Schema. Verwendetes Schema: {schema_name}"
                     )
                 else:
                     context["upload_error"] = (
