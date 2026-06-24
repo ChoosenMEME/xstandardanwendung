@@ -280,6 +280,24 @@ Empfohlen wird ein sprechender Name, z. B.:
 Die Dateien im Editor bearbeiten. Dabei gelten die Konventionen in [`AGENTS.md`](AGENTS.md)
 (Django-Struktur, Kommentare, Sicherheit, Tests).
 
+### Testgetrieben arbeiten
+
+Dieses Projekt arbeitet testgetrieben: Erst werden die Anforderungen in konkrete,
+automatisierte Tests übersetzt, danach wird die Implementierung gegen diese Tests gebaut.
+
+Vor dem Programmieren einer Funktion oder eines Bugfixes:
+
+1. Aus Issue, Beschreibung oder fachlicher Regel ableiten, welches Verhalten testbar ist.
+2. Tests für den Normalfall, relevante Fehlerfälle und wichtige Randfälle schreiben oder
+   bestehende Tests entsprechend erweitern.
+3. Die Implementierung so anpassen, dass die neuen Tests und die bestehende Testsuite grün
+   werden.
+
+Für XGewerbesteuer-Funktionen bedeutet das insbesondere: Parser, Upload-Validierung,
+Fachberechnungen, View-Kontextdaten und sichtbare Ergebnis-/Fehlerzustände müssen
+automatisiert getestet werden. Wenn ein Teil nicht sinnvoll automatisiert testbar ist,
+soll der Grund im Pull Request kurz genannt werden.
+
 **Vor dem Hochladen sollten dieselben Prüfungen wie in der CI lokal grün sein** – andernfalls
 schlagen sie später im Pull Request fehl.
 
@@ -297,7 +315,7 @@ python manage.py check
 python manage.py test
 ```
 
-Bei Codeänderungen sollten passende **Tests** ergänzt oder aktualisiert werden (siehe
+Bei Codeänderungen müssen passende **Tests** ergänzt oder aktualisiert werden (siehe
 Abschnitt „Tests und Qualitaetspruefung" in [`AGENTS.md`](AGENTS.md)). Eine Übersicht der
 XGewerbesteuer-Beispieldateien (Testdaten) steht in [`docs/testdaten.md`](docs/testdaten.md).
 Nach einer **Model**-Änderung wird zusätzlich die Migration erzeugt (`makemigrations`, dann

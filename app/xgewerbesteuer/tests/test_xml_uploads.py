@@ -9,11 +9,14 @@ from django.urls import reverse
 
 from xgewerbesteuer.views import (
     MAX_UPLOAD_SIZE_BYTES,
+    clean_text,
     extract_amount_due,
     extract_assessment_rate,
+    extract_due_dates,
     extract_municipality,
     extract_tax_period,
     extract_trade_tax_assessment_amount,
+    get_local_name,
     validate_xml_against_xsd,
 )
 
@@ -33,6 +36,18 @@ def uploaded_xml(name, content):
 class XGewerbesteuerExtractionTests(SimpleTestCase):
     def parse(self, xml_text):
         return ElementTree.fromstring(xml_text.encode("utf-8"))
+
+    def test_clean_text_normalizes_whitespace_and_empty_values(self):
+        self.assertEqual(clean_text("  Stadt   Musterhausen\nNord  "), "Stadt Musterhausen Nord")
+        self.assertIsNone(clean_text("   \n  "))
+        self.assertIsNone(clean_text(None))
+
+    def test_get_local_name_removes_xml_namespace(self):
+        self.assertEqual(
+            get_local_name("{urn:xoev-de:xunternehmen:standard:gewerbesteuer_1.4}kommune"),
+            "kommune",
+        )
+        self.assertEqual(get_local_name("kommune"), "kommune")
 
     def test_extracts_core_values_from_fixture(self):
         root = ElementTree.parse(VALID_BESCHEID_FIXTURE).getroot()
@@ -57,6 +72,51 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
 
         self.assertEqual(extract_amount_due(root), "123.45")
         self.assertEqual(extract_trade_tax_assessment_amount(root), "42.00")
+
+    def test_extract_tax_period_formats_range_and_quarter_variants(self):
+        range_root = self.parse(
+            """
+            <nachricht>
+              <zeitraum>
+                <beginn>2025-01-01</beginn>
+                <ende>2025-12-31</ende>
+              </zeitraum>
+            </nachricht>
+            """
+        )
+        quarter_root = self.parse(
+            """
+            <nachricht>
+              <erhebungszeitraum>
+                <steuerjahr>2025</steuerjahr>
+                <quartal>2</quartal>
+              </erhebungszeitraum>
+            </nachricht>
+            """
+        )
+
+        self.assertEqual(extract_tax_period(range_root), "2025-01-01 bis 2025-12-31")
+        self.assertEqual(extract_tax_period(quarter_root), "2025, Quartal 2")
+
+    def test_extract_due_dates_deduplicates_known_due_date_tags(self):
+        root = self.parse(
+            """
+            <nachricht>
+              <faelligkeitsdatum>2025-02-15</faelligkeitsdatum>
+              <zahlungstermin>2025-03-15</zahlungstermin>
+              <fälligkeitsdatum>2025-02-15</fälligkeitsdatum>
+            </nachricht>
+            """
+        )
+
+        self.assertEqual(extract_due_dates(root), "2025-02-15, 2025-03-15")
+
+    def test_extract_helpers_return_not_found_for_missing_optional_values(self):
+        root = self.parse("<nachricht />")
+
+        self.assertEqual(extract_amount_due(root), "Nicht gefunden")
+        self.assertEqual(extract_assessment_rate(root), "Nicht gefunden")
+        self.assertEqual(extract_due_dates(root), "Nicht gefunden")
 
 
 class XGewerbesteuerXsdValidationTests(SimpleTestCase):
@@ -88,6 +148,38 @@ class XGewerbesteuerXsdValidationTests(SimpleTestCase):
 
 
 class XGewerbesteuerUploadViewTests(SimpleTestCase):
+    def test_start_page_renders_upload_form_and_expected_summary_scope(self):
+        response = self.client.get(reverse("xgewerbesteuer_default"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Gewerbesteuerbescheid-Assistent")
+        self.assertContains(response, 'name="bescheid"')
+        self.assertContains(response, 'accept=".xml"')
+        self.assertContains(response, "Anzeige des fälligen Zahlbetrags")
+
+    def test_post_without_file_shows_missing_file_error(self):
+        response = self.client.post(reverse("xgewerbesteuer_default"), data={})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.context["upload_error"],
+            "Bitte wählen Sie eine XML-Datei aus.",
+        )
+        self.assertNotIn("uploaded_file_name", response.context)
+
+    def test_post_rejects_non_xml_filename_before_parsing(self):
+        response = self.client.post(
+            reverse("xgewerbesteuer_default"),
+            data={"bescheid": uploaded_xml("bescheid.txt", b"<nachricht/>")},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.context["upload_error"],
+            "Die hochgeladene Datei muss eine XML-Datei sein.",
+        )
+        self.assertNotIn("uploaded_file_name", response.context)
+
     def test_post_rejects_oversized_xml_before_parsing(self):
         response = self.client.post(
             reverse("xgewerbesteuer_default"),
@@ -103,6 +195,20 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertEqual(
             response.context["upload_error"],
             "Die hochgeladene Datei ist zu groß.",
+        )
+        self.assertNotIn("uploaded_file_name", response.context)
+
+    def test_post_rejects_malformed_xml_with_user_safe_message(self):
+        response = self.client.post(
+            reverse("xgewerbesteuer_default"),
+            data={"bescheid": uploaded_xml("bescheid.xml", b"<nachricht>")},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.context["upload_error"],
+            "Die Datei ist nicht XML-konform oder enthält unsichere XML-Inhalte "
+            "und konnte nicht verarbeitet werden.",
         )
         self.assertNotIn("uploaded_file_name", response.context)
 
