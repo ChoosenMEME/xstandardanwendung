@@ -55,13 +55,22 @@ Gewerbesteuerbescheid-Assistent
         {% csrf_token %}
 
         <p>
-            <label for="bescheid">XGewerbesteuer-Bescheid auswählen:</label><br>
+            <label for="bescheid">Aktuellen XGewerbesteuer-Bescheid auswählen (Pflicht):</label><br>
             <input type="file" id="bescheid" name="bescheid" accept=".xml">
         </p>
 
         <p>
+            <label for="vorjahresbescheid">Vorjahresbescheid optional auswählen:</label><br>
+            <input type="file" id="vorjahresbescheid" name="vorjahresbescheid" accept=".xml">
+        </p>
+
+        <p>
+            Beide Dateien werden nur für diese Anfrage verarbeitet und nicht dauerhaft gespeichert.
+        </p>
+
+        <p>
             <button type="submit">
-                Bescheid hochladen
+                Bescheide hochladen
             </button>
         </p>
     </form>
@@ -90,6 +99,30 @@ Gewerbesteuerbescheid-Assistent
             </p>
             <p>
                 Bitte wählen Sie eine gültige XML-Datei im XGewerbesteuer-Format aus.
+            </p>
+        </div>
+    {% endif %}
+
+    {% if previous_upload_error %}
+        <div role="alert" style="border: 1px solid #b00020; padding: 12px; margin-top: 16px;">
+            <h2>Upload des Vorjahresbescheids nicht möglich</h2>
+            <p>
+                <strong>{{ previous_upload_error }}</strong>
+            </p>
+            <p>
+                Der aktuelle Bescheid wurde trotzdem verarbeitet, sofern er gültig ist.
+            </p>
+        </div>
+    {% endif %}
+
+    {% if previous_validation_error %}
+        <div role="alert" style="border: 1px solid #b00020; padding: 12px; margin-top: 16px;">
+            <h2>Validierungsfehler beim Vorjahresbescheid</h2>
+            <p>
+                <strong>{{ previous_validation_error }}</strong>
+            </p>
+            <p>
+                Der aktuelle Bescheid wurde trotzdem verarbeitet, sofern er gültig ist.
             </p>
         </div>
     {% endif %}
@@ -126,6 +159,52 @@ Gewerbesteuerbescheid-Assistent
                 {% endfor %}
             </tbody>
         </table>
+
+        {% if previous_bescheid %}
+            <h2>Vergleich mit Vorjahresbescheid</h2>
+
+            <p>
+                Der Vorjahresbescheid wurde zusätzlich hochgeladen und erfolgreich geprüft.
+                Die Steuerjahre bzw. Erhebungszeiträume werden hier getrennt angezeigt.
+            </p>
+
+            <table style="border-collapse: collapse; margin-left: 0; text-align: left;">
+                <thead>
+                    <tr>
+                        <th scope="col" style="text-align: left; padding: 4px 24px 4px 0;">
+                            Bescheid
+                        </th>
+                        <th scope="col" style="text-align: left; padding: 4px 0;">
+                            Steuerjahr / Erhebungszeitraum
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <th scope="row" style="text-align: left; padding: 4px 24px 4px 0;">
+                            Aktueller Bescheid
+                        </th>
+                        <td style="text-align: left; padding: 4px 0;">
+                            <strong>{{ current_bescheid.tax_period }}</strong>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row" style="text-align: left; padding: 4px 24px 4px 0;">
+                            Vorjahresbescheid
+                        </th>
+                        <td style="text-align: left; padding: 4px 0;">
+                            <strong>{{ previous_bescheid.tax_period }}</strong>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            {% if period_comparison_notice %}
+                <p>
+                    {{ period_comparison_notice }}
+                </p>
+            {% endif %}
+        {% endif %}
 
         {% if payment_classification %}
             <h2>Einordnung der Zahlung</h2>

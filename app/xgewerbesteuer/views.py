@@ -415,81 +415,184 @@ def validate_xml_against_xsd(xml_data):
     return False, None, "Es konnte keine passende XSD-Schema-Datei für die Validierung gefunden werden."
 
 
+def get_upload_error(uploaded_file):
+    if not uploaded_file.name.lower().endswith(".xml"):
+        return "Die hochgeladene Datei muss eine XML-Datei sein."
+
+    if uploaded_file.size > MAX_UPLOAD_SIZE_BYTES:
+        return "Die hochgeladene Datei ist zu groß."
+
+    return None
+
+
+def build_bescheid_data(uploaded_file, root, schema_name):
+    municipality = extract_municipality(root)
+    tax_period = extract_tax_period(root)
+    amount_due = extract_amount_due(root)
+    trade_tax_assessment_amount = extract_trade_tax_assessment_amount(root)
+    assessment_rate = extract_assessment_rate(root)
+    due_dates = extract_due_dates(root)
+    advance_payments = extract_advance_payments(root)
+    payment_classification = classify_payment_type(amount_due, advance_payments)
+
+    summary_items = [
+        {"label": "Gemeinde / Kommune", "value": municipality},
+        {"label": "Steuerjahr / Erhebungszeitraum", "value": tax_period},
+        {"label": "Zahlbetrag", "value": amount_due},
+        {"label": "Zahlungsart", "value": payment_classification["type"]},
+        {"label": "Gewerbesteuermessbetrag", "value": trade_tax_assessment_amount},
+        {"label": "Hebesatz", "value": assessment_rate},
+        {"label": "Fälligkeiten", "value": due_dates},
+    ]
+
+    calculation_explanation = build_calculation_explanation(
+        trade_tax_assessment_amount,
+        assessment_rate,
+    )
+
+    return {
+        "file_name": uploaded_file.name,
+        "file_size": uploaded_file.size,
+        "schema_name": schema_name,
+        "municipality": municipality,
+        "tax_period": tax_period,
+        "amount_due": amount_due,
+        "trade_tax_assessment_amount": trade_tax_assessment_amount,
+        "assessment_rate": assessment_rate,
+        "due_dates": due_dates,
+        "summary_items": summary_items,
+        "calculation_explanation": calculation_explanation,
+        "advance_payments": advance_payments,
+        "payment_classification": payment_classification,
+    }
+
+
+def process_uploaded_bescheid(uploaded_file):
+    upload_error = get_upload_error(uploaded_file)
+
+    if upload_error:
+        return {
+            "is_valid": False,
+            "error_type": "upload",
+            "message": upload_error,
+        }
+
+    try:
+        xml_data = uploaded_file.read()
+        root = ElementTree.fromstring(xml_data)
+
+        is_valid, schema_name, schema_error = validate_xml_against_xsd(xml_data)
+
+        if not is_valid:
+            return {
+                "is_valid": False,
+                "error_type": "validation",
+                "message": (
+                    "Die Datei konnte nicht vollständig validiert werden. "
+                    "Bitte prüfen Sie, ob es sich um einen gültigen "
+                    "XGewerbesteuer-Bescheid handelt."
+                ),
+            }
+
+        return {
+            "is_valid": True,
+            "bescheid": build_bescheid_data(uploaded_file, root, schema_name),
+        }
+
+    except (ParseError, DefusedXmlException):
+        return {
+            "is_valid": False,
+            "error_type": "upload",
+            "message": (
+                "Die Datei ist nicht XML-konform oder enthält unsichere XML-Inhalte "
+                "und konnte nicht verarbeitet werden."
+            ),
+        }
+
+    except Exception:
+        return {
+            "is_valid": False,
+            "error_type": "upload",
+            "message": (
+                "Die Datei konnte nicht verarbeitet werden. "
+                "Bitte prüfen Sie die Datei und versuchen Sie es erneut."
+            ),
+        }
+
+
+def build_period_comparison_notice(current_tax_period, previous_tax_period):
+    if current_tax_period == "Nicht gefunden" or previous_tax_period == "Nicht gefunden":
+        return (
+            "Die Steuerjahre konnten nicht vollständig verglichen werden. "
+            "Bitte prüfen Sie die Bescheide manuell."
+        )
+
+    if current_tax_period == previous_tax_period:
+        return (
+            "Beide Bescheide enthalten denselben Steuerzeitraum. "
+            "Bitte prüfen Sie, ob wirklich ein Vorjahresbescheid hochgeladen wurde."
+        )
+
+    return (
+        "Die Bescheide haben unterschiedliche Steuerjahre. "
+        "Der Vergleich kann für den Vorjahresbezug genutzt werden."
+    )
+
+
 def xgewerbesteuer_default(request):
     context = {}
 
     if request.method == "POST":
         uploaded_file = request.FILES.get("bescheid")
+        previous_uploaded_file = request.FILES.get("vorjahresbescheid")
 
         if not uploaded_file:
             context["upload_error"] = "Bitte wählen Sie eine XML-Datei aus."
 
-        elif not uploaded_file.name.lower().endswith(".xml"):
-            context["upload_error"] = "Die hochgeladene Datei muss eine XML-Datei sein."
-
-        elif uploaded_file.size > MAX_UPLOAD_SIZE_BYTES:
-            context["upload_error"] = "Die hochgeladene Datei ist zu groß."
-
         else:
-            try:
-                xml_data = uploaded_file.read()
+            current_result = process_uploaded_bescheid(uploaded_file)
 
-                root = ElementTree.fromstring(xml_data)
-
-                is_valid, schema_name, schema_error = validate_xml_against_xsd(xml_data)
-
-                if not is_valid:
-                    context["validation_error"] = (
-                        "Die Datei konnte nicht vollständig validiert werden. "
-                        "Bitte prüfen Sie, ob es sich um einen gültigen "
-                        "XGewerbesteuer-Bescheid handelt."
-                    )
+            if not current_result["is_valid"]:
+                if current_result["error_type"] == "validation":
+                    context["validation_error"] = current_result["message"]
                 else:
-                    municipality = extract_municipality(root)
-                    tax_period = extract_tax_period(root)
-                    amount_due = extract_amount_due(root)
-                    trade_tax_assessment_amount = extract_trade_tax_assessment_amount(root)
-                    assessment_rate = extract_assessment_rate(root)
-                    due_dates = extract_due_dates(root)
-                    advance_payments = extract_advance_payments(root)
-                    payment_classification = classify_payment_type(amount_due, advance_payments)
+                    context["upload_error"] = current_result["message"]
 
-                    summary_items = [
-                        {"label": "Gemeinde / Kommune", "value": municipality},
-                        {"label": "Steuerjahr / Erhebungszeitraum", "value": tax_period},
-                        {"label": "Zahlbetrag", "value": amount_due},
-                        {"label": "Zahlungsart", "value": payment_classification["type"]},
-                        {"label": "Gewerbesteuermessbetrag", "value": trade_tax_assessment_amount},
-                        {"label": "Hebesatz", "value": assessment_rate},
-                        {"label": "Fälligkeiten", "value": due_dates},
-                    ]
+            else:
+                current_bescheid = current_result["bescheid"]
 
-                    calculation_explanation = build_calculation_explanation(
-                        trade_tax_assessment_amount,
-                        assessment_rate,
-                    )
-
-                    context["uploaded_file_name"] = uploaded_file.name
-                    context["uploaded_file_size"] = uploaded_file.size
-                    context["summary_items"] = summary_items
-                    context["calculation_explanation"] = calculation_explanation
-                    context["advance_payments"] = advance_payments
-                    context["payment_classification"] = payment_classification
-                    context["validation_success"] = (
-                        "Die Datei wurde erfolgreich geprüft und entspricht dem erwarteten "
-                        f"XGewerbesteuer-Schema. Verwendetes Schema: {schema_name}"
-                    )
-
-            except (ParseError, DefusedXmlException):
-                context["upload_error"] = (
-                    "Die Datei ist nicht XML-konform oder enthält unsichere XML-Inhalte "
-                    "und konnte nicht verarbeitet werden."
+                context["current_bescheid"] = current_bescheid
+                context["uploaded_file_name"] = current_bescheid["file_name"]
+                context["uploaded_file_size"] = current_bescheid["file_size"]
+                context["summary_items"] = current_bescheid["summary_items"]
+                context["calculation_explanation"] = current_bescheid["calculation_explanation"]
+                context["advance_payments"] = current_bescheid["advance_payments"]
+                context["payment_classification"] = current_bescheid["payment_classification"]
+                context["validation_success"] = (
+                    "Die Datei wurde erfolgreich geprüft und entspricht dem erwarteten "
+                    f"XGewerbesteuer-Schema. Verwendetes Schema: {current_bescheid['schema_name']}"
                 )
 
-            except Exception:
-                context["upload_error"] = (
-                    "Die Datei konnte nicht verarbeitet werden. "
-                    "Bitte prüfen Sie die Datei und versuchen Sie es erneut."
-                )
+                if previous_uploaded_file:
+                    previous_result = process_uploaded_bescheid(previous_uploaded_file)
+
+                    if not previous_result["is_valid"]:
+                        if previous_result["error_type"] == "validation":
+                            context["previous_validation_error"] = (
+                                f"Vorjahresbescheid: {previous_result['message']}"
+                            )
+                        else:
+                            context["previous_upload_error"] = (
+                                f"Vorjahresbescheid: {previous_result['message']}"
+                            )
+
+                    else:
+                        previous_bescheid = previous_result["bescheid"]
+
+                        context["previous_bescheid"] = previous_bescheid
+                        context["period_comparison_notice"] = build_period_comparison_notice(
+                            current_bescheid["tax_period"],
+                            previous_bescheid["tax_period"],
+                        )
 
     return render(request, "xgewerbesteuer_default.html", context)
