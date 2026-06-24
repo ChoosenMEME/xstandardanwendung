@@ -82,6 +82,12 @@ Gewerbesteuerbescheid-Assistent
         </p>
     {% endif %}
 
+    {% if validation_error %}
+        <p>
+            <strong>{{ validation_error }}</strong>
+        </p>
+    {% endif %}
+
     {% if summary_items %}
         <h2>Zusammenfassung des Bescheids</h2>
 
