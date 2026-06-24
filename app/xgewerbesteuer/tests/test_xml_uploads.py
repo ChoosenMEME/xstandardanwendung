@@ -219,11 +219,15 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         )
 
         self.assertEqual(response.status_code, 200)
+        self.assertNotIn("uploaded_file_name", response.context)
+        self.assertNotIn("summary_items", response.context)
+        self.assertNotIn("calculation_explanation", response.context)
         self.assertNotIn("validation_success", response.context)
         self.assertIn("validation_error", response.context)
+        self.assertContains(response, "Validierungsfehler")
         self.assertContains(
             response,
-            "Die vollständige XSD-Validierung war nicht erfolgreich.",
+            "Bitte wählen Sie eine gültige XML-Datei im XGewerbesteuer-Format aus.",
         )
 
     def test_post_rejects_xml_with_unsafe_entity_declaration(self):

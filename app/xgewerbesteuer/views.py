@@ -323,50 +323,55 @@ def xgewerbesteuer_default(request):
 
                 root = ElementTree.fromstring(xml_data)
 
-                municipality = extract_municipality(root)
-                tax_period = extract_tax_period(root)
-                amount_due = extract_amount_due(root)
-                trade_tax_assessment_amount = extract_trade_tax_assessment_amount(root)
-                assessment_rate = extract_assessment_rate(root)
-                due_dates = extract_due_dates(root)
-
-                summary_items = [
-                    {"label": "Gemeinde / Kommune", "value": municipality},
-                    {"label": "Steuerjahr / Erhebungszeitraum", "value": tax_period},
-                    {"label": "Zahlbetrag", "value": amount_due},
-                    {"label": "Gewerbesteuermessbetrag", "value": trade_tax_assessment_amount},
-                    {"label": "Hebesatz", "value": assessment_rate},
-                    {"label": "Fälligkeiten", "value": due_dates},
-                ]
-
-                calculation_explanation = build_calculation_explanation(
-                    trade_tax_assessment_amount,
-                    assessment_rate,
-                )
-
                 is_valid, schema_name, schema_error = validate_xml_against_xsd(xml_data)
 
-                context["uploaded_file_name"] = uploaded_file.name
-                context["uploaded_file_size"] = uploaded_file.size
-                context["summary_items"] = summary_items
-                context["calculation_explanation"] = calculation_explanation
+                if not is_valid:
+                    context["validation_error"] = (
+                        "Die Datei konnte nicht vollständig validiert werden. "
+                        "Bitte prüfen Sie, ob es sich um einen gültigen "
+                        "XGewerbesteuer-Bescheid handelt."
+                    )
+                else:
+                    municipality = extract_municipality(root)
+                    tax_period = extract_tax_period(root)
+                    amount_due = extract_amount_due(root)
+                    trade_tax_assessment_amount = extract_trade_tax_assessment_amount(root)
+                    assessment_rate = extract_assessment_rate(root)
+                    due_dates = extract_due_dates(root)
 
-                if is_valid:
+                    summary_items = [
+                        {"label": "Gemeinde / Kommune", "value": municipality},
+                        {"label": "Steuerjahr / Erhebungszeitraum", "value": tax_period},
+                        {"label": "Zahlbetrag", "value": amount_due},
+                        {"label": "Gewerbesteuermessbetrag", "value": trade_tax_assessment_amount},
+                        {"label": "Hebesatz", "value": assessment_rate},
+                        {"label": "Fälligkeiten", "value": due_dates},
+                    ]
+
+                    calculation_explanation = build_calculation_explanation(
+                        trade_tax_assessment_amount,
+                        assessment_rate,
+                    )
+
+                    context["uploaded_file_name"] = uploaded_file.name
+                    context["uploaded_file_size"] = uploaded_file.size
+                    context["summary_items"] = summary_items
+                    context["calculation_explanation"] = calculation_explanation
                     context["validation_success"] = (
                         "Die Datei wurde erfolgreich geprüft und entspricht dem erwarteten "
                         f"XGewerbesteuer-Schema. Verwendetes Schema: {schema_name}"
                     )
-                else:
-                    context["validation_error"] = (
-                        "Die vollständige XSD-Validierung war nicht erfolgreich."
-                    )
 
             except (ParseError, DefusedXmlException):
                 context["upload_error"] = (
-                    "Die Datei ist nicht XML-konform oder enthält unsichere XML-Inhalte und konnte nicht verarbeitet werden."
+                    "Die Datei ist nicht XML-konform oder enthält unsichere XML-Inhalte "
+                    "und konnte nicht verarbeitet werden."
                 )
 
             except Exception:
-                context["upload_error"] = "Die Datei konnte nicht gelesen werden."
+                context["upload_error"] = (
+                    "Die Datei konnte nicht verarbeitet werden. "
+                    "Bitte prüfen Sie die Datei und versuchen Sie es erneut."
+                )
 
     return render(request, "xgewerbesteuer_default.html", context)
