@@ -9,6 +9,7 @@ from django.urls import reverse
 
 from xgewerbesteuer.views import (
     MAX_UPLOAD_SIZE_BYTES,
+    build_period_comparison_notice,
     clean_text,
     classify_payment_type,
     extract_amount_due,
@@ -28,6 +29,11 @@ VALID_BESCHEID_FIXTURE = (
     FIXTURES_DIR
     / "GEWST-0010-12345678-1234567890000-2023-01-15_"
     "00000000-0000-0000-0000-000000000103.xml"
+)
+PREVIOUS_BESCHEID_FIXTURE = (
+    FIXTURES_DIR
+    / "GEWST-0010-12345678-1234567890000-2022-01-15_"
+    "00000000-0000-0000-0000-000000000102.xml"
 )
 ADVANCE_PAYMENT_FIXTURE = (
     FIXTURES_DIR
@@ -176,6 +182,20 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
 
         self.assertEqual(classification["type"], "Nicht eindeutig bestimmbar")
 
+    def test_period_comparison_notice_handles_different_same_and_missing_years(self):
+        self.assertIn(
+            "unterschiedliche Steuerjahre",
+            build_period_comparison_notice("2023", "2022"),
+        )
+        self.assertIn(
+            "denselben Steuerzeitraum",
+            build_period_comparison_notice("2023", "2023"),
+        )
+        self.assertIn(
+            "nicht vollständig",
+            build_period_comparison_notice("Nicht gefunden", "2022"),
+        )
+
 
 class XGewerbesteuerXsdValidationTests(SimpleTestCase):
     def test_valid_fixture_matches_an_xgewerbesteuer_schema(self):
@@ -212,6 +232,7 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Gewerbesteuerbescheid-Assistent")
         self.assertContains(response, 'name="bescheid"')
+        self.assertContains(response, 'name="vorjahresbescheid"')
         self.assertContains(response, 'accept=".xml"')
         self.assertContains(response, "Anzeige des fälligen Zahlbetrags")
 
@@ -356,3 +377,92 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertContains(response, "147.00")
         self.assertContains(response, "Vorauszahlung")
         self.assertContains(response, "Einordnung der Zahlung")
+
+    def test_post_valid_current_and_previous_fixture_displays_previous_year_comparison(self):
+        current_content = VALID_BESCHEID_FIXTURE.read_bytes()
+        previous_content = PREVIOUS_BESCHEID_FIXTURE.read_bytes()
+
+        response = self.client.post(
+            reverse("xgewerbesteuer_default"),
+            data={
+                "bescheid": uploaded_xml(VALID_BESCHEID_FIXTURE.name, current_content),
+                "vorjahresbescheid": uploaded_xml(
+                    PREVIOUS_BESCHEID_FIXTURE.name,
+                    previous_content,
+                ),
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("current_bescheid", response.context)
+        self.assertIn("previous_bescheid", response.context)
+        self.assertEqual(response.context["current_bescheid"]["tax_period"], "2023")
+        self.assertEqual(response.context["previous_bescheid"]["tax_period"], "2022")
+        self.assertContains(response, "Vergleich mit Vorjahresbescheid")
+        self.assertContains(response, "Aktueller Bescheid")
+        self.assertContains(response, "Vorjahresbescheid")
+        self.assertContains(response, "2023")
+        self.assertContains(response, "2022")
+
+    def test_post_valid_current_with_invalid_previous_filename_keeps_current_summary(self):
+        current_content = VALID_BESCHEID_FIXTURE.read_bytes()
+
+        response = self.client.post(
+            reverse("xgewerbesteuer_default"),
+            data={
+                "bescheid": uploaded_xml(VALID_BESCHEID_FIXTURE.name, current_content),
+                "vorjahresbescheid": uploaded_xml("vorjahr.txt", b"<nachricht/>"),
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("summary_items", response.context)
+        self.assertNotIn("previous_bescheid", response.context)
+        self.assertEqual(
+            response.context["previous_upload_error"],
+            "Vorjahresbescheid: Die hochgeladene Datei muss eine XML-Datei sein.",
+        )
+        self.assertContains(response, "Zusammenfassung des Bescheids")
+        self.assertContains(response, "Upload des Vorjahresbescheids nicht möglich")
+
+    def test_post_valid_current_with_schema_invalid_previous_keeps_current_summary(self):
+        current_content = VALID_BESCHEID_FIXTURE.read_bytes()
+
+        response = self.client.post(
+            reverse("xgewerbesteuer_default"),
+            data={
+                "bescheid": uploaded_xml(VALID_BESCHEID_FIXTURE.name, current_content),
+                "vorjahresbescheid": uploaded_xml("vorjahr.xml", b"<nachricht/>"),
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("summary_items", response.context)
+        self.assertNotIn("previous_bescheid", response.context)
+        self.assertIn("previous_validation_error", response.context)
+        self.assertContains(response, "Zusammenfassung des Bescheids")
+        self.assertContains(response, "Validierungsfehler beim Vorjahresbescheid")
+
+    def test_post_valid_current_with_oversized_previous_file_keeps_current_summary(self):
+        current_content = VALID_BESCHEID_FIXTURE.read_bytes()
+
+        response = self.client.post(
+            reverse("xgewerbesteuer_default"),
+            data={
+                "bescheid": uploaded_xml(VALID_BESCHEID_FIXTURE.name, current_content),
+                "vorjahresbescheid": uploaded_xml(
+                    "vorjahr.xml",
+                    b"x" * (MAX_UPLOAD_SIZE_BYTES + 1),
+                ),
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("summary_items", response.context)
+        self.assertNotIn("previous_bescheid", response.context)
+        self.assertEqual(
+            response.context["previous_upload_error"],
+            "Vorjahresbescheid: Die hochgeladene Datei ist zu groß.",
+        )
+        self.assertContains(response, "Zusammenfassung des Bescheids")
+        self.assertContains(response, "Upload des Vorjahresbescheids nicht möglich")
