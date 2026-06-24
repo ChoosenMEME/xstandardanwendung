@@ -83,9 +83,15 @@ Gewerbesteuerbescheid-Assistent
     {% endif %}
 
     {% if validation_error %}
-        <p>
-            <strong>{{ validation_error }}</strong>
-        </p>
+        <div role="alert" style="border: 1px solid #b00020; padding: 12px; margin-top: 16px;">
+            <h2>Validierungsfehler</h2>
+            <p>
+                <strong>{{ validation_error }}</strong>
+            </p>
+            <p>
+                Bitte wählen Sie eine gültige XML-Datei im XGewerbesteuer-Format aus.
+            </p>
+        </div>
     {% endif %}
 
     {% if summary_items %}
@@ -163,9 +169,15 @@ Gewerbesteuerbescheid-Assistent
     {% endif %}
 
     {% if upload_error %}
-        <p>
-            <strong>{{ upload_error }}</strong>
-        </p>
+        <div role="alert" style="border: 1px solid #b00020; padding: 12px; margin-top: 16px;">
+            <h2>Upload nicht möglich</h2>
+            <p>
+                <strong>{{ upload_error }}</strong>
+            </p>
+            <p>
+                Bitte prüfen Sie die Datei und versuchen Sie es erneut.
+            </p>
+        </div>
     {% endif %}
 </section>
 {% endblock %}
