@@ -226,6 +226,71 @@ def build_calculation_explanation(trade_tax_assessment_amount, assessment_rate):
     }
 
 
+def extract_advance_payment_period(payment_element):
+    for element in payment_element.iter():
+        tag_name = get_local_name(element.tag).lower()
+        value = clean_text(element.text)
+
+        if not value:
+            continue
+
+        if tag_name in ["bezugsjahr", "steuerjahr", "jahr"]:
+            return value
+
+    return "Nicht gefunden"
+
+
+def extract_advance_payments(root):
+    advance_payments = []
+
+    for element in root.iter():
+        tag_name = get_local_name(element.tag).lower()
+
+        if tag_name in ["gwstvorauszahlungen", "vorauszahlungen", "vorauszahlung"]:
+            amount = find_first_text_by_tag_names(
+                element,
+                [
+                    "vorauszahlungsbetrag",
+                    "vorauszahlungbetrag",
+                    "festsetzungaktuell",
+                    "zahlbetrag",
+                    "betrag",
+                ],
+            )
+
+            due_date = find_first_text_by_tag_names(
+                element,
+                [
+                    "faelligkeit",
+                    "fälligkeit",
+                    "faelligkeitsdatum",
+                    "fälligkeitsdatum",
+                    "zahlungstermin",
+                    "zahlungsfrist",
+                ],
+            )
+
+            period = extract_advance_payment_period(element)
+
+            advance_payments.append(
+                {
+                    "amount": amount,
+                    "due_date": due_date,
+                    "period": period,
+                    "type": "Vorauszahlung",
+                }
+            )
+
+    return sorted(
+        advance_payments,
+        key=lambda item: (
+            item["period"],
+            item["due_date"],
+            item["amount"],
+        ),
+    )
+
+
 def extract_due_dates(root):
     due_dates = []
 
@@ -338,6 +403,7 @@ def xgewerbesteuer_default(request):
                     trade_tax_assessment_amount = extract_trade_tax_assessment_amount(root)
                     assessment_rate = extract_assessment_rate(root)
                     due_dates = extract_due_dates(root)
+                    advance_payments = extract_advance_payments(root)
 
                     summary_items = [
                         {"label": "Gemeinde / Kommune", "value": municipality},
@@ -357,6 +423,7 @@ def xgewerbesteuer_default(request):
                     context["uploaded_file_size"] = uploaded_file.size
                     context["summary_items"] = summary_items
                     context["calculation_explanation"] = calculation_explanation
+                    context["advance_payments"] = advance_payments
                     context["validation_success"] = (
                         "Die Datei wurde erfolgreich geprüft und entspricht dem erwarteten "
                         f"XGewerbesteuer-Schema. Verwendetes Schema: {schema_name}"

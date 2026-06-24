@@ -12,6 +12,7 @@ from xgewerbesteuer.views import (
     clean_text,
     extract_amount_due,
     extract_assessment_rate,
+    extract_advance_payments,
     extract_due_dates,
     extract_municipality,
     extract_tax_period,
@@ -26,6 +27,11 @@ VALID_BESCHEID_FIXTURE = (
     FIXTURES_DIR
     / "GEWST-0010-12345678-1234567890000-2023-01-15_"
     "00000000-0000-0000-0000-000000000103.xml"
+)
+ADVANCE_PAYMENT_FIXTURE = (
+    FIXTURES_DIR
+    / "GEWST-0003-12345678-1234567890000-2023-01-15_"
+    "00000000-0000-0000-0000-000000000033.xml"
 )
 
 
@@ -117,6 +123,22 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
         self.assertEqual(extract_amount_due(root), "Nicht gefunden")
         self.assertEqual(extract_assessment_rate(root), "Nicht gefunden")
         self.assertEqual(extract_due_dates(root), "Nicht gefunden")
+
+    def test_extract_advance_payments_from_fixture(self):
+        root = ElementTree.parse(ADVANCE_PAYMENT_FIXTURE).getroot()
+
+        advance_payments = extract_advance_payments(root)
+
+        self.assertEqual(len(advance_payments), 1)
+        self.assertEqual(advance_payments[0]["amount"], "147.00")
+        self.assertEqual(advance_payments[0]["due_date"], "Nicht gefunden")
+        self.assertEqual(advance_payments[0]["period"], "2023")
+        self.assertEqual(advance_payments[0]["type"], "Vorauszahlung")
+
+    def test_extract_advance_payments_returns_empty_list_when_missing(self):
+        root = self.parse("<nachricht />")
+
+        self.assertEqual(extract_advance_payments(root), [])
 
 
 class XGewerbesteuerXsdValidationTests(SimpleTestCase):
@@ -276,3 +298,20 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertEqual(summary_items["Hebesatz"], "420")
         self.assertIn("validation_success", response.context)
         self.assertContains(response, "Zusammenfassung des Bescheids")
+
+    def test_post_advance_payment_fixture_displays_advance_payments_section(self):
+        content = ADVANCE_PAYMENT_FIXTURE.read_bytes()
+
+        response = self.client.post(
+            reverse("xgewerbesteuer_default"),
+            data={"bescheid": uploaded_xml(ADVANCE_PAYMENT_FIXTURE.name, content)},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("advance_payments", response.context)
+        self.assertEqual(len(response.context["advance_payments"]), 1)
+        self.assertEqual(response.context["advance_payments"][0]["amount"], "147.00")
+        self.assertEqual(response.context["advance_payments"][0]["period"], "2023")
+        self.assertContains(response, "Vorauszahlungen")
+        self.assertContains(response, "147.00")
+        self.assertContains(response, "Vorauszahlung")
