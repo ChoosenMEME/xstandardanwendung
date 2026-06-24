@@ -539,6 +539,122 @@ def build_period_comparison_notice(current_tax_period, previous_tax_period):
     )
 
 
+def format_signed_decimal_value(value):
+    if value > Decimal("0"):
+        return f"+{format_decimal_value(value)}"
+
+    return format_decimal_value(value)
+
+
+def compare_decimal_values(current_value, previous_value):
+    current_decimal = parse_decimal_value(current_value)
+    previous_decimal = parse_decimal_value(previous_value)
+
+    if current_decimal is None or previous_decimal is None:
+        return {
+            "difference": "Nicht vergleichbar",
+            "percentage": "Nicht vergleichbar",
+            "change_type": "Nicht vergleichbar",
+        }
+
+    difference = current_decimal - previous_decimal
+
+    if difference > Decimal("0"):
+        change_type = "Erhöhung"
+    elif difference < Decimal("0"):
+        change_type = "Senkung"
+    else:
+        change_type = "Unverändert"
+
+    if previous_decimal == Decimal("0"):
+        percentage = "Nicht vergleichbar"
+    else:
+        percentage_difference = difference / previous_decimal * Decimal("100")
+        percentage = f"{format_signed_decimal_value(percentage_difference)} %"
+
+    return {
+        "difference": format_signed_decimal_value(difference),
+        "percentage": percentage,
+        "change_type": change_type,
+    }
+
+
+def compare_text_values(current_value, previous_value):
+    if current_value == "Nicht gefunden" or previous_value == "Nicht gefunden":
+        return {
+            "difference": "Nicht vergleichbar",
+            "percentage": "Nicht vergleichbar",
+            "change_type": "Nicht vergleichbar",
+        }
+
+    if current_value == previous_value:
+        return {
+            "difference": "Keine Änderung",
+            "percentage": "Nicht vergleichbar",
+            "change_type": "Unverändert",
+        }
+
+    return {
+        "difference": "Geändert",
+        "percentage": "Nicht vergleichbar",
+        "change_type": "Geändert",
+    }
+
+
+def build_change_comparison(current_bescheid, previous_bescheid):
+    comparison_fields = [
+        {
+            "label": "Zahlbetrag",
+            "key": "amount_due",
+            "type": "decimal",
+        },
+        {
+            "label": "Gewerbesteuermessbetrag",
+            "key": "trade_tax_assessment_amount",
+            "type": "decimal",
+        },
+        {
+            "label": "Hebesatz",
+            "key": "assessment_rate",
+            "type": "decimal",
+        },
+        {
+            "label": "Fälligkeiten",
+            "key": "due_dates",
+            "type": "text",
+        },
+        {
+            "label": "Steuerjahr / Erhebungszeitraum",
+            "key": "tax_period",
+            "type": "text",
+        },
+    ]
+
+    comparison_items = []
+
+    for field in comparison_fields:
+        current_value = current_bescheid.get(field["key"], "Nicht gefunden")
+        previous_value = previous_bescheid.get(field["key"], "Nicht gefunden")
+
+        if field["type"] == "decimal":
+            comparison_result = compare_decimal_values(current_value, previous_value)
+        else:
+            comparison_result = compare_text_values(current_value, previous_value)
+
+        comparison_items.append(
+            {
+                "label": field["label"],
+                "current_value": current_value,
+                "previous_value": previous_value,
+                "difference": comparison_result["difference"],
+                "percentage": comparison_result["percentage"],
+                "change_type": comparison_result["change_type"],
+            }
+        )
+
+    return comparison_items
+
+
 def xgewerbesteuer_default(request):
     context = {}
 
@@ -593,6 +709,10 @@ def xgewerbesteuer_default(request):
                         context["period_comparison_notice"] = build_period_comparison_notice(
                             current_bescheid["tax_period"],
                             previous_bescheid["tax_period"],
+                        )
+                        context["change_comparison_items"] = build_change_comparison(
+                            current_bescheid,
+                            previous_bescheid,
                         )
 
     return render(request, "xgewerbesteuer_default.html", context)
