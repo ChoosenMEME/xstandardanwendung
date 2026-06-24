@@ -82,35 +82,42 @@ Gewerbesteuerbescheid-Assistent
         </p>
     {% endif %}
 
-    {% if municipality %}
-        <h2>Zuständige Gemeinde / Kommune</h2>
-        <p>
-            Die zuständige Gemeinde / Kommune ist:
-            <strong>{{ municipality }}</strong>
-        </p>
-    {% endif %}
+    {% if summary_items %}
+        <h2>Zusammenfassung des Bescheids</h2>
 
-    {% if tax_period %}
-        <h2>Steuerjahr / Erhebungszeitraum</h2>
         <p>
-            Der Bescheid gilt für:
-            <strong>{{ tax_period }}</strong>
+            Die wichtigsten Informationen aus dem hochgeladenen Gewerbesteuerbescheid
+            werden hier gemeinsam dargestellt.
         </p>
-    {% endif %}
 
-    {% if trade_tax_assessment_amount %}
-        <h2>Gewerbesteuermessbetrag</h2>
-        <p>
-            Der Gewerbesteuermessbetrag beträgt:
-            <strong>{{ trade_tax_assessment_amount }}</strong>
-        </p>
-    {% endif %}
+        <table style="border-collapse: collapse; margin-left: 0; text-align: left;">
+            <thead>
+                <tr>
+                    <th scope="col" style="text-align: left; padding: 4px 24px 4px 0;">
+                        Information
+                    </th>
+                    <th scope="col" style="text-align: left; padding: 4px 0;">
+                        Wert
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in summary_items %}
+                    <tr>
+                        <th scope="row" style="text-align: left; padding: 4px 24px 4px 0;">
+                            {{ item.label }}
+                        </th>
+                        <td style="text-align: left; padding: 4px 0;">
+                            <strong>{{ item.value }}</strong>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
 
-    {% if assessment_rate %}
-        <h2>Hebesatz</h2>
         <p>
-            Der verwendete kommunale Hebesatz beträgt:
-            <strong>{{ assessment_rate }}</strong>
+            Hinweis: Diese Zusammenfassung dient nur der verständlichen Darstellung
+            der ausgelesenen Daten und ersetzt keine steuerliche Beratung.
         </p>
     {% endif %}
 
