@@ -83,6 +83,14 @@ Gewerbesteuerbescheid-Assistent
 {% endif %}
 
 {% if extracted_data %}
+    <div style="border:2px solid #2e7d32; padding:15px; margin-bottom:20px;">
+        <h2>Fälliger Gewerbesteuerbetrag</h2>
+
+        <p style="font-size:24px;">
+            <strong>{{ extracted_data.Zahlbetrag }}</strong>
+        </p>
+    </div>
+
     <h2>Ausgelesene Bescheiddaten</h2>
 
     <table border="1" cellpadding="6">
@@ -95,6 +103,15 @@ Gewerbesteuerbescheid-Assistent
             {% endfor %}
         </tbody>
     </table>
+{% endif %}
+
+{% if extracted_data.Zahlbetrag != "Nicht gefunden" %}
+    <div style="border:2px solid #2e7d32; padding:15px; margin-bottom:20px;">
+        <h2>Fälliger Gewerbesteuerbetrag</h2>
+        <p style="font-size:24px;">
+            <strong>{{ extracted_data.Zahlbetrag }}</strong>
+        </p>
+    </div>
 {% endif %}
 
 {% if upload_error %}
