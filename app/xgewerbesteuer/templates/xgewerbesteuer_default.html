@@ -44,63 +44,48 @@ Gewerbesteuerbescheid-Assistent
         Zusammenfassung für den Nutzer zu erzeugen.
     </p>
 
-<h2>Nächster Schritt</h2>
-
-<p>
-    Im nächsten Schritt kann ein XGewerbesteuer-Bescheid als XML-Datei
-    hochgeladen und verarbeitet werden.
-</p>
-
-<form method="post" enctype="multipart/form-data">
-    {% csrf_token %}
+    <h2>Nächster Schritt</h2>
 
     <p>
-        <label for="bescheid">XGewerbesteuer-Bescheid auswählen:</label><br>
-        <input type="file" id="bescheid" name="bescheid" accept=".xml">
+        Im nächsten Schritt kann ein XGewerbesteuer-Bescheid als XML-Datei
+        hochgeladen und verarbeitet werden.
     </p>
 
-    <p>
-        <button type="submit">
-            Bescheid hochladen
-        </button>
-    </p>
-</form>
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
 
-{% if uploaded_file_name %}
-    <h2>Upload erfolgreich</h2>
-    <p>
-        Die Datei <strong>{{ uploaded_file_name }}</strong> wurde erfolgreich hochgeladen.
-    </p>
-    <p>
-        Dateigröße: {{ uploaded_file_size }} Byte
-    </p>
-{% endif %}
+        <p>
+            <label for="bescheid">XGewerbesteuer-Bescheid auswählen:</label><br>
+            <input type="file" id="bescheid" name="bescheid" accept=".xml">
+        </p>
 
-{% if validation_success %}
-    <p>
-        <strong>{{ validation_success }}</strong>
-    </p>
-{% endif %}
+        <p>
+            <button type="submit">
+                Bescheid hochladen
+            </button>
+        </p>
+    </form>
 
-{% if extracted_data %}
-    <h2>Ausgelesene Bescheiddaten</h2>
+    {% if uploaded_file_name %}
+        <h2>Upload erfolgreich</h2>
+        <p>
+            Die Datei <strong>{{ uploaded_file_name }}</strong> wurde erfolgreich hochgeladen.
+        </p>
+        <p>
+            Dateigröße: {{ uploaded_file_size }} Byte
+        </p>
+    {% endif %}
 
-    <table border="1" cellpadding="6">
-        <tbody>
-            {% for label, value in extracted_data.items %}
-                <tr>
-                    <th>{{ label }}</th>
-                    <td>{{ value }}</td>
-                </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-{% endif %}
+    {% if validation_success %}
+        <p>
+            <strong>{{ validation_success }}</strong>
+        </p>
+    {% endif %}
 
-{% if upload_error %}
-    <p>
-        <strong>{{ upload_error }}</strong>
-    </p>
-{% endif %}
+    {% if upload_error %}
+        <p>
+            <strong>{{ upload_error }}</strong>
+        </p>
+    {% endif %}
 </section>
 {% endblock %}
