@@ -106,6 +106,14 @@ Gewerbesteuerbescheid-Assistent
         </p>
     {% endif %}
 
+    {% if assessment_rate %}
+        <h2>Hebesatz</h2>
+        <p>
+            Der verwendete kommunale Hebesatz beträgt:
+            <strong>{{ assessment_rate }}</strong>
+        </p>
+    {% endif %}
+
     {% if upload_error %}
         <p>
             <strong>{{ upload_error }}</strong>
