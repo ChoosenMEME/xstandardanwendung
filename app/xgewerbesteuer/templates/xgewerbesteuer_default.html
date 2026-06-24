@@ -76,6 +76,27 @@ Gewerbesteuerbescheid-Assistent
     </p>
 {% endif %}
 
+{% if validation_success %}
+    <p>
+        <strong>{{ validation_success }}</strong>
+    </p>
+{% endif %}
+
+{% if extracted_data %}
+    <h2>Ausgelesene Bescheiddaten</h2>
+
+    <table border="1" cellpadding="6">
+        <tbody>
+            {% for label, value in extracted_data.items %}
+                <tr>
+                    <th>{{ label }}</th>
+                    <td>{{ value }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endif %}
+
 {% if upload_error %}
     <p>
         <strong>{{ upload_error }}</strong>
