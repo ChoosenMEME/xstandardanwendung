@@ -73,6 +73,53 @@ def extract_municipality(root):
     )
 
 
+def extract_tax_period(root):
+    for element in root.iter():
+        tag_name = get_local_name(element.tag).lower()
+
+        if tag_name in ["erhebungszeitraum", "zeitraum"]:
+            bezugsjahr = None
+            beginn = None
+            ende = None
+            quartal = None
+
+            for child in element.iter():
+                child_tag_name = get_local_name(child.tag).lower()
+                value = clean_text(child.text)
+
+                if not value:
+                    continue
+
+                if child_tag_name in ["bezugsjahr", "steuerjahr", "jahr"]:
+                    bezugsjahr = value
+                elif child_tag_name == "beginn":
+                    beginn = value
+                elif child_tag_name == "ende":
+                    ende = value
+                elif child_tag_name == "quartal":
+                    quartal = value
+
+            if bezugsjahr and quartal:
+                return f"{bezugsjahr}, Quartal {quartal}"
+
+            if beginn and ende:
+                return f"{beginn} bis {ende}"
+
+            if bezugsjahr:
+                return bezugsjahr
+
+    return find_first_text(
+        root,
+        [
+            "steuerjahr",
+            "bezugsjahr",
+            "erhebungsjahr",
+            "veranlagungsjahr",
+            "erhebungszeitraum",
+        ],
+    )
+
+
 def validate_xml_against_xsd(xml_data):
     validation_errors = []
 
@@ -142,12 +189,14 @@ def xgewerbesteuer_default(request):
                 root = ElementTree.fromstring(xml_data)
 
                 municipality = extract_municipality(root)
+                tax_period = extract_tax_period(root)
 
                 is_valid, schema_name, schema_error = validate_xml_against_xsd(xml_data)
 
                 context["uploaded_file_name"] = uploaded_file.name
                 context["uploaded_file_size"] = uploaded_file.size
                 context["municipality"] = municipality
+                context["tax_period"] = tax_period
 
                 if is_valid:
                     context["validation_success"] = (

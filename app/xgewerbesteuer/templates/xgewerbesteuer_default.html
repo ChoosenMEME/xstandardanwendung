@@ -90,6 +90,14 @@ Gewerbesteuerbescheid-Assistent
         </p>
     {% endif %}
 
+    {% if tax_period %}
+        <h2>Steuerjahr / Erhebungszeitraum</h2>
+        <p>
+            Der Bescheid gilt für:
+            <strong>{{ tax_period }}</strong>
+        </p>
+    {% endif %}
+
     {% if upload_error %}
         <p>
             <strong>{{ upload_error }}</strong>
