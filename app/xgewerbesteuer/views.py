@@ -120,21 +120,22 @@ def extract_tax_period(root):
     )
 
 
+def extract_amount_due(root):
+    return find_first_text(
+        root,
+        [
+            "zahlbetrag",
+            "faelligerzahlbetrag",
+            "fälligerzahlbetrag",
+            "zahlungsbetrag",
+            "betragzuzahlen",
+            "festgesetztegewerbesteuer",
+            "gewerbesteuerbetrag",
+        ],
+    )
+
+
 def extract_trade_tax_assessment_amount(root):
-    for element in root.iter():
-        tag_name = get_local_name(element.tag).lower()
-
-        if tag_name in [
-            "gewerbesteuermessbetrag",
-            "steuermessbetrag",
-            "messbetrag",
-            "festgesetztergewerbesteuermessbetrag",
-        ]:
-            value = clean_text(element.text)
-
-            if value:
-                return value
-
     return find_first_text(
         root,
         [
@@ -147,20 +148,6 @@ def extract_trade_tax_assessment_amount(root):
 
 
 def extract_assessment_rate(root):
-    for element in root.iter():
-        tag_name = get_local_name(element.tag).lower()
-
-        if tag_name in [
-            "hebesatz",
-            "gewerbesteuerhebesatz",
-            "hebensatz",
-            "kommunalerhebesatz",
-        ]:
-            value = clean_text(element.text)
-
-            if value:
-                return value
-
     return find_first_text(
         root,
         [
@@ -170,6 +157,32 @@ def extract_assessment_rate(root):
             "kommunalerhebesatz",
         ],
     )
+
+
+def extract_due_dates(root):
+    due_dates = []
+
+    for element in root.iter():
+        tag_name = get_local_name(element.tag).lower()
+
+        if tag_name in [
+            "faelligkeit",
+            "fälligkeit",
+            "faelligkeitsdatum",
+            "fälligkeitsdatum",
+            "zahlungstermin",
+            "zahlungsfrist",
+            "datumfaelligkeit",
+        ]:
+            value = clean_text(element.text)
+
+            if value and value not in due_dates:
+                due_dates.append(value)
+
+    if due_dates:
+        return ", ".join(due_dates)
+
+    return "Nicht gefunden"
 
 
 def validate_xml_against_xsd(xml_data):
@@ -242,17 +255,25 @@ def xgewerbesteuer_default(request):
 
                 municipality = extract_municipality(root)
                 tax_period = extract_tax_period(root)
+                amount_due = extract_amount_due(root)
                 trade_tax_assessment_amount = extract_trade_tax_assessment_amount(root)
                 assessment_rate = extract_assessment_rate(root)
+                due_dates = extract_due_dates(root)
+
+                summary_items = [
+                    {"label": "Gemeinde / Kommune", "value": municipality},
+                    {"label": "Steuerjahr / Erhebungszeitraum", "value": tax_period},
+                    {"label": "Zahlbetrag", "value": amount_due},
+                    {"label": "Gewerbesteuermessbetrag", "value": trade_tax_assessment_amount},
+                    {"label": "Hebesatz", "value": assessment_rate},
+                    {"label": "Fälligkeiten", "value": due_dates},
+                ]
 
                 is_valid, schema_name, schema_error = validate_xml_against_xsd(xml_data)
 
                 context["uploaded_file_name"] = uploaded_file.name
                 context["uploaded_file_size"] = uploaded_file.size
-                context["municipality"] = municipality
-                context["tax_period"] = tax_period
-                context["trade_tax_assessment_amount"] = trade_tax_assessment_amount
-                context["assessment_rate"] = assessment_rate
+                context["summary_items"] = summary_items
 
                 if is_valid:
                     context["validation_success"] = (
