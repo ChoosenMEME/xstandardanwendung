@@ -14,6 +14,8 @@ XSD_SCHEMA_FILES = [
     "gewerbesteuer.xsd",
 ]
 
+MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024
+
 
 def get_local_name(tag):
     if "}" in tag:
@@ -27,16 +29,17 @@ def clean_text(text):
     return None
 
 
-def find_first_text(root, keywords):
+def find_first_text_by_tag_names(root, tag_names):
+    normalized_tag_names = {tag_name.lower() for tag_name in tag_names}
+
     for element in root.iter():
         tag_name = get_local_name(element.tag).lower()
 
-        for keyword in keywords:
-            if keyword.lower() in tag_name:
-                value = clean_text(element.text)
+        if tag_name in normalized_tag_names:
+            value = clean_text(element.text)
 
-                if value:
-                    return value
+            if value:
+                return value
 
     return "Nicht gefunden"
 
@@ -55,7 +58,7 @@ def extract_municipality(root):
                     if value:
                         return value
 
-    return find_first_text(
+    return find_first_text_by_tag_names(
         root,
         [
             "namebehoerde",
@@ -108,7 +111,7 @@ def extract_tax_period(root):
             if bezugsjahr:
                 return bezugsjahr
 
-    return find_first_text(
+    return find_first_text_by_tag_names(
         root,
         [
             "steuerjahr",
@@ -121,7 +124,7 @@ def extract_tax_period(root):
 
 
 def extract_amount_due(root):
-    return find_first_text(
+    return find_first_text_by_tag_names(
         root,
         [
             "zahlbetrag",
@@ -131,12 +134,14 @@ def extract_amount_due(root):
             "betragzuzahlen",
             "festgesetztegewerbesteuer",
             "gewerbesteuerbetrag",
+            "festsetzungaktuell",
+            "berechnungaktuell",
         ],
     )
 
 
 def extract_trade_tax_assessment_amount(root):
-    return find_first_text(
+    return find_first_text_by_tag_names(
         root,
         [
             "gewerbesteuermessbetrag",
@@ -148,7 +153,7 @@ def extract_trade_tax_assessment_amount(root):
 
 
 def extract_assessment_rate(root):
-    return find_first_text(
+    return find_first_text_by_tag_names(
         root,
         [
             "hebesatz",
@@ -247,6 +252,9 @@ def xgewerbesteuer_default(request):
         elif not uploaded_file.name.lower().endswith(".xml"):
             context["upload_error"] = "Die hochgeladene Datei muss eine XML-Datei sein."
 
+        elif uploaded_file.size > MAX_UPLOAD_SIZE_BYTES:
+            context["upload_error"] = "Die hochgeladene Datei ist zu groß."
+
         else:
             try:
                 xml_data = uploaded_file.read()
@@ -281,9 +289,8 @@ def xgewerbesteuer_default(request):
                         f"XGewerbesteuer-Schema. Verwendetes Schema: {schema_name}"
                     )
                 else:
-                    context["validation_success"] = (
-                        "Die Datei ist grundsätzlich XML-konform. Zentrale Bescheiddaten wurden ausgelesen. "
-                        "Die vollständige XSD-Validierung ist jedoch nicht erfolgreich gewesen."
+                    context["validation_error"] = (
+                        "Die vollständige XSD-Validierung war nicht erfolgreich."
                     )
 
             except (ParseError, DefusedXmlException):
