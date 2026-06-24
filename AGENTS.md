@@ -74,6 +74,7 @@ Aktuelle Struktur:
         └── tests/
             ├── test_views.py
             ├── test_imports.py
+            ├── test_xml_uploads.py
             └── fixtures/
 ```
 
@@ -290,13 +291,24 @@ Die echte `.env` darf nicht committet werden.
 
 ## Tests und Qualitaetspruefung
 
+Das Projekt arbeitet testgetrieben. Fuer neue Anforderungen, Bugfixes und fachliche
+Aenderungen sollen zuerst die erwarteten Testfaelle beschrieben und als automatisierte
+Tests umgesetzt werden. Danach wird die Implementierung gegen diese Tests gebaut.
+
 Zu Codeaenderungen sollen passende Tests erstellt oder angepasst werden.
 
+* Vor der Implementierung die testbaren Anforderungen aus Issue, Beschreibung oder
+  fachlicher Regel ableiten.
+* Erst Tests fuer erwartetes Verhalten, Fehlerfaelle und relevante Randfaelle schreiben
+  oder bestehende Tests entsprechend erweitern.
+* Danach Code so implementieren, dass diese Tests und die bestehende Suite gruenden.
 * Neue Models, Views, Forms, Services, Parser, Importfunktionen und fachliche Berechnungen brauchen Tests.
 * Bugfixes sollen einen Regressionstest enthalten, der den behobenen Fehler abdeckt.
 * Bei XGewerbesteuer-Importen sollen gueltige und ungueltige XML-Beispiele getestet werden.
 * Bei fachlichen Berechnungen sollen typische Faelle, Grenzfaelle und Rundungsverhalten getestet werden.
 * Bei Views sollen Statuscode, verwendetes Template und wichtige Kontextdaten geprueft werden.
+* Sicherheitsrelevante Upload- und XML-Pfade brauchen Tests fuer Ablehnung, Fehlermeldung
+  und sichere Parser-Konfiguration.
 * Wenn fuer eine Aenderung kein Test sinnvoll ist, soll der Grund kurz dokumentiert werden.
 
 Tests liegen in `app/xgewerbesteuer/tests/` als Testpaket:
@@ -306,6 +318,7 @@ app/xgewerbesteuer/tests/
 ├── __init__.py
 ├── test_views.py
 ├── test_imports.py
+├── test_xml_uploads.py
 └── fixtures/
 ```
 
@@ -350,10 +363,13 @@ docker compose exec web mypy .
 ## Arbeitsweise fuer Agents
 
 * Vor Aenderungen relevante Dateien lesen.
+* Testgetrieben arbeiten: Anforderungen in konkrete Tests uebersetzen, diese Tests zuerst
+  anlegen oder erweitern und erst danach die Implementierung anpassen.
 * Kleine, fokussierte Commits oder Aenderungsbloecke bevorzugen.
 * Bestehende Nutzerarbeit nicht zuruecksetzen.
 * Keine generierten Dateien manuell anfassen, wenn die Quelle bearbeitet werden kann.
 * Zu neuen oder geaenderten Funktionen passende Tests erstellen oder bestehende Tests aktualisieren.
 * Sinnvolle Kommentare oder Docstrings ergaenzen, wenn Logik, Fachregeln oder Sicherheitsentscheidungen sonst schwer nachvollziehbar sind.
 * Nach Aenderungen die passenden Checks ausfuehren oder klar dokumentieren, warum sie nicht ausgefuehrt wurden.
+* Zum Abschluss einer Aenderung immer eine passende Commit-Message vorschlagen.
 * Bei fachlichen Steuerfragen vorsichtig formulieren und keine verbindliche Beratung geben.
