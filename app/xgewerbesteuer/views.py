@@ -146,6 +146,32 @@ def extract_trade_tax_assessment_amount(root):
     )
 
 
+def extract_assessment_rate(root):
+    for element in root.iter():
+        tag_name = get_local_name(element.tag).lower()
+
+        if tag_name in [
+            "hebesatz",
+            "gewerbesteuerhebesatz",
+            "hebensatz",
+            "kommunalerhebesatz",
+        ]:
+            value = clean_text(element.text)
+
+            if value:
+                return value
+
+    return find_first_text(
+        root,
+        [
+            "hebesatz",
+            "gewerbesteuerhebesatz",
+            "hebensatz",
+            "kommunalerhebesatz",
+        ],
+    )
+
+
 def validate_xml_against_xsd(xml_data):
     validation_errors = []
 
@@ -217,6 +243,7 @@ def xgewerbesteuer_default(request):
                 municipality = extract_municipality(root)
                 tax_period = extract_tax_period(root)
                 trade_tax_assessment_amount = extract_trade_tax_assessment_amount(root)
+                assessment_rate = extract_assessment_rate(root)
 
                 is_valid, schema_name, schema_error = validate_xml_against_xsd(xml_data)
 
@@ -225,6 +252,7 @@ def xgewerbesteuer_default(request):
                 context["municipality"] = municipality
                 context["tax_period"] = tax_period
                 context["trade_tax_assessment_amount"] = trade_tax_assessment_amount
+                context["assessment_rate"] = assessment_rate
 
                 if is_valid:
                     context["validation_success"] = (
