@@ -120,6 +120,32 @@ def extract_tax_period(root):
     )
 
 
+def extract_trade_tax_assessment_amount(root):
+    for element in root.iter():
+        tag_name = get_local_name(element.tag).lower()
+
+        if tag_name in [
+            "gewerbesteuermessbetrag",
+            "steuermessbetrag",
+            "messbetrag",
+            "festgesetztergewerbesteuermessbetrag",
+        ]:
+            value = clean_text(element.text)
+
+            if value:
+                return value
+
+    return find_first_text(
+        root,
+        [
+            "gewerbesteuermessbetrag",
+            "steuermessbetrag",
+            "messbetrag",
+            "festgesetztergewerbesteuermessbetrag",
+        ],
+    )
+
+
 def validate_xml_against_xsd(xml_data):
     validation_errors = []
 
@@ -190,6 +216,7 @@ def xgewerbesteuer_default(request):
 
                 municipality = extract_municipality(root)
                 tax_period = extract_tax_period(root)
+                trade_tax_assessment_amount = extract_trade_tax_assessment_amount(root)
 
                 is_valid, schema_name, schema_error = validate_xml_against_xsd(xml_data)
 
@@ -197,6 +224,7 @@ def xgewerbesteuer_default(request):
                 context["uploaded_file_size"] = uploaded_file.size
                 context["municipality"] = municipality
                 context["tax_period"] = tax_period
+                context["trade_tax_assessment_amount"] = trade_tax_assessment_amount
 
                 if is_valid:
                     context["validation_success"] = (
@@ -205,7 +233,7 @@ def xgewerbesteuer_default(request):
                     )
                 else:
                     context["validation_success"] = (
-                        "Die Datei ist grundsätzlich XML-konform. Die Gemeinde / Kommune wurde ausgelesen. "
+                        "Die Datei ist grundsätzlich XML-konform. Zentrale Bescheiddaten wurden ausgelesen. "
                         "Die vollständige XSD-Validierung ist jedoch nicht erfolgreich gewesen."
                     )
 

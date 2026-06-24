@@ -98,6 +98,14 @@ Gewerbesteuerbescheid-Assistent
         </p>
     {% endif %}
 
+    {% if trade_tax_assessment_amount %}
+        <h2>Gewerbesteuermessbetrag</h2>
+        <p>
+            Der Gewerbesteuermessbetrag beträgt:
+            <strong>{{ trade_tax_assessment_amount }}</strong>
+        </p>
+    {% endif %}
+
     {% if upload_error %}
         <p>
             <strong>{{ upload_error }}</strong>
