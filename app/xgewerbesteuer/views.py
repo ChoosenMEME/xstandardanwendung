@@ -291,6 +291,54 @@ def extract_advance_payments(root):
     )
 
 
+def classify_payment_type(amount_due, advance_payments):
+    if advance_payments:
+        return {
+            "type": "Vorauszahlung",
+            "message": (
+                "Dieser Bescheid enthält Vorauszahlungen. Diese werden getrennt "
+                "von endgültigen Festsetzungen, Nachzahlungen und Erstattungen angezeigt."
+            ),
+        }
+
+    parsed_amount_due = parse_decimal_value(amount_due)
+
+    if parsed_amount_due is None:
+        return {
+            "type": "Nicht eindeutig bestimmbar",
+            "message": (
+                "Die Zahlungsart konnte aus den vorhandenen Daten nicht eindeutig "
+                "bestimmt werden."
+            ),
+        }
+
+    if parsed_amount_due > Decimal("0"):
+        return {
+            "type": "Nachzahlung",
+            "message": (
+                "Der Bescheid weist einen positiven Zahlbetrag aus. Das spricht "
+                "für eine noch zu zahlende Nachzahlung."
+            ),
+        }
+
+    if parsed_amount_due < Decimal("0"):
+        return {
+            "type": "Erstattung",
+            "message": (
+                "Der Bescheid weist einen negativen Betrag aus. Das spricht "
+                "für eine Erstattung oder Verrechnung zugunsten des Unternehmens."
+            ),
+        }
+
+    return {
+        "type": "Keine Zahlung",
+        "message": (
+            "Der Bescheid weist einen Zahlbetrag von 0,00 aus. Daraus ergibt "
+            "sich keine direkte Zahlungspflicht."
+        ),
+    }
+
+
 def extract_due_dates(root):
     due_dates = []
 
@@ -404,11 +452,13 @@ def xgewerbesteuer_default(request):
                     assessment_rate = extract_assessment_rate(root)
                     due_dates = extract_due_dates(root)
                     advance_payments = extract_advance_payments(root)
+                    payment_classification = classify_payment_type(amount_due, advance_payments)
 
                     summary_items = [
                         {"label": "Gemeinde / Kommune", "value": municipality},
                         {"label": "Steuerjahr / Erhebungszeitraum", "value": tax_period},
                         {"label": "Zahlbetrag", "value": amount_due},
+                        {"label": "Zahlungsart", "value": payment_classification["type"]},
                         {"label": "Gewerbesteuermessbetrag", "value": trade_tax_assessment_amount},
                         {"label": "Hebesatz", "value": assessment_rate},
                         {"label": "Fälligkeiten", "value": due_dates},
@@ -424,6 +474,7 @@ def xgewerbesteuer_default(request):
                     context["summary_items"] = summary_items
                     context["calculation_explanation"] = calculation_explanation
                     context["advance_payments"] = advance_payments
+                    context["payment_classification"] = payment_classification
                     context["validation_success"] = (
                         "Die Datei wurde erfolgreich geprüft und entspricht dem erwarteten "
                         f"XGewerbesteuer-Schema. Verwendetes Schema: {schema_name}"

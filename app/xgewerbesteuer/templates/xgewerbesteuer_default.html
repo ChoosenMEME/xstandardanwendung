@@ -127,6 +127,24 @@ Gewerbesteuerbescheid-Assistent
             </tbody>
         </table>
 
+        {% if payment_classification %}
+            <h2>Einordnung der Zahlung</h2>
+
+            <p>
+                Zahlungsart:
+                <strong>{{ payment_classification.type }}</strong>
+            </p>
+
+            <p>
+                {{ payment_classification.message }}
+            </p>
+
+            <p>
+                Hinweis: Diese Einordnung ist eine verständliche Orientierung anhand der
+                ausgelesenen Daten und ersetzt keine steuerliche Beratung.
+            </p>
+        {% endif %}
+
         {% if calculation_explanation %}
             <h2>Erklärung der Berechnungslogik</h2>
 

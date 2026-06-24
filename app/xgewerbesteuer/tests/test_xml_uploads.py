@@ -10,6 +10,7 @@ from django.urls import reverse
 from xgewerbesteuer.views import (
     MAX_UPLOAD_SIZE_BYTES,
     clean_text,
+    classify_payment_type,
     extract_amount_due,
     extract_assessment_rate,
     extract_advance_payments,
@@ -139,6 +140,41 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
         root = self.parse("<nachricht />")
 
         self.assertEqual(extract_advance_payments(root), [])
+
+    def test_classifies_advance_payment_when_advance_payments_exist(self):
+        classification = classify_payment_type(
+            "147.00",
+            [
+                {
+                    "amount": "147.00",
+                    "due_date": "Nicht gefunden",
+                    "period": "2023",
+                    "type": "Vorauszahlung",
+                }
+            ],
+        )
+
+        self.assertEqual(classification["type"], "Vorauszahlung")
+
+    def test_classifies_positive_amount_as_back_payment(self):
+        classification = classify_payment_type("630.00", [])
+
+        self.assertEqual(classification["type"], "Nachzahlung")
+
+    def test_classifies_negative_amount_as_refund(self):
+        classification = classify_payment_type("-25.00", [])
+
+        self.assertEqual(classification["type"], "Erstattung")
+
+    def test_classifies_zero_amount_as_no_payment(self):
+        classification = classify_payment_type("0.00", [])
+
+        self.assertEqual(classification["type"], "Keine Zahlung")
+
+    def test_classifies_missing_amount_as_not_determinable(self):
+        classification = classify_payment_type("Nicht gefunden", [])
+
+        self.assertEqual(classification["type"], "Nicht eindeutig bestimmbar")
 
 
 class XGewerbesteuerXsdValidationTests(SimpleTestCase):
@@ -294,10 +330,13 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertEqual(summary_items["Gemeinde / Kommune"], "Stadt Musterhausen")
         self.assertEqual(summary_items["Steuerjahr / Erhebungszeitraum"], "2023")
         self.assertEqual(summary_items["Zahlbetrag"], "630.00")
+        self.assertEqual(summary_items["Zahlungsart"], "Nachzahlung")
         self.assertEqual(summary_items["Gewerbesteuermessbetrag"], "150.00")
         self.assertEqual(summary_items["Hebesatz"], "420")
         self.assertIn("validation_success", response.context)
         self.assertContains(response, "Zusammenfassung des Bescheids")
+        self.assertContains(response, "Einordnung der Zahlung")
+        self.assertContains(response, "Nachzahlung")
 
     def test_post_advance_payment_fixture_displays_advance_payments_section(self):
         content = ADVANCE_PAYMENT_FIXTURE.read_bytes()
@@ -312,6 +351,8 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertEqual(len(response.context["advance_payments"]), 1)
         self.assertEqual(response.context["advance_payments"][0]["amount"], "147.00")
         self.assertEqual(response.context["advance_payments"][0]["period"], "2023")
+        self.assertEqual(response.context["payment_classification"]["type"], "Vorauszahlung")
         self.assertContains(response, "Vorauszahlungen")
         self.assertContains(response, "147.00")
         self.assertContains(response, "Vorauszahlung")
+        self.assertContains(response, "Einordnung der Zahlung")
