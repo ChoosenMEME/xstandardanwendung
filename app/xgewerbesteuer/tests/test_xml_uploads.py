@@ -9,6 +9,7 @@ from django.urls import reverse
 
 from xgewerbesteuer.views import (
     MAX_UPLOAD_SIZE_BYTES,
+    build_change_comparison,
     build_period_comparison_notice,
     clean_text,
     classify_payment_type,
@@ -196,6 +197,83 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
             build_period_comparison_notice("Nicht gefunden", "2022"),
         )
 
+    def test_build_change_comparison_calculates_differences(self):
+        current_bescheid = {
+            "amount_due": "630.00",
+            "trade_tax_assessment_amount": "150.00",
+            "assessment_rate": "420",
+            "due_dates": "Nicht gefunden",
+            "tax_period": "2023",
+        }
+        previous_bescheid = {
+            "amount_due": "512.50",
+            "trade_tax_assessment_amount": "125.00",
+            "assessment_rate": "420",
+            "due_dates": "Nicht gefunden",
+            "tax_period": "2022",
+        }
+
+        comparison_items = build_change_comparison(current_bescheid, previous_bescheid)
+        comparison_by_label = {item["label"]: item for item in comparison_items}
+
+        self.assertEqual(comparison_by_label["Zahlbetrag"]["difference"], "+117.50")
+        self.assertEqual(comparison_by_label["Zahlbetrag"]["percentage"], "+22.93 %")
+        self.assertEqual(comparison_by_label["Zahlbetrag"]["change_type"], "Erhöhung")
+
+        self.assertEqual(
+            comparison_by_label["Gewerbesteuermessbetrag"]["difference"],
+            "+25.00",
+        )
+        self.assertEqual(
+            comparison_by_label["Gewerbesteuermessbetrag"]["percentage"],
+            "+20.00 %",
+        )
+        self.assertEqual(
+            comparison_by_label["Gewerbesteuermessbetrag"]["change_type"],
+            "Erhöhung",
+        )
+
+        self.assertEqual(comparison_by_label["Hebesatz"]["difference"], "0.00")
+        self.assertEqual(comparison_by_label["Hebesatz"]["percentage"], "0.00 %")
+        self.assertEqual(comparison_by_label["Hebesatz"]["change_type"], "Unverändert")
+
+        self.assertEqual(
+            comparison_by_label["Fälligkeiten"]["change_type"],
+            "Nicht vergleichbar",
+        )
+        self.assertEqual(
+            comparison_by_label["Steuerjahr / Erhebungszeitraum"]["change_type"],
+            "Geändert",
+        )
+
+    def test_build_change_comparison_does_not_divide_by_zero(self):
+        current_bescheid = {
+            "amount_due": "100.00",
+            "trade_tax_assessment_amount": "50.00",
+            "assessment_rate": "420",
+            "due_dates": "2025-02-15",
+            "tax_period": "2025",
+        }
+        previous_bescheid = {
+            "amount_due": "0.00",
+            "trade_tax_assessment_amount": "50.00",
+            "assessment_rate": "420",
+            "due_dates": "2025-02-15",
+            "tax_period": "2025",
+        }
+
+        comparison_items = build_change_comparison(current_bescheid, previous_bescheid)
+        comparison_by_label = {item["label"]: item for item in comparison_items}
+
+        self.assertEqual(
+            comparison_by_label["Zahlbetrag"]["percentage"],
+            "Nicht vergleichbar",
+        )
+        self.assertEqual(
+            comparison_by_label["Zahlbetrag"]["change_type"],
+            "Erhöhung",
+        )
+
 
 class XGewerbesteuerXsdValidationTests(SimpleTestCase):
     def test_valid_fixture_matches_an_xgewerbesteuer_schema(self):
@@ -359,6 +437,18 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertContains(response, "Einordnung der Zahlung")
         self.assertContains(response, "Nachzahlung")
 
+    def test_post_valid_current_without_previous_hides_change_comparison(self):
+        content = VALID_BESCHEID_FIXTURE.read_bytes()
+
+        response = self.client.post(
+            reverse("xgewerbesteuer_default"),
+            data={"bescheid": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("change_comparison_items", response.context)
+        self.assertNotContains(response, "Änderungsvergleich zum Vorjahr")
+
     def test_post_advance_payment_fixture_displays_advance_payments_section(self):
         content = ADVANCE_PAYMENT_FIXTURE.read_bytes()
 
@@ -403,6 +493,11 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertContains(response, "Vorjahresbescheid")
         self.assertContains(response, "2023")
         self.assertContains(response, "2022")
+        self.assertIn("change_comparison_items", response.context)
+        self.assertContains(response, "Änderungsvergleich zum Vorjahr")
+        self.assertContains(response, "+117.50")
+        self.assertContains(response, "+22.93 %")
+        self.assertContains(response, "Erhöhung")
 
     def test_post_valid_current_with_invalid_previous_filename_keeps_current_summary(self):
         current_content = VALID_BESCHEID_FIXTURE.read_bytes()

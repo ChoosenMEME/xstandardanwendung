@@ -204,6 +204,64 @@ Gewerbesteuerbescheid-Assistent
                     {{ period_comparison_notice }}
                 </p>
             {% endif %}
+
+            {% if change_comparison_items %}
+                <h2>Änderungsvergleich zum Vorjahr</h2>
+
+                <p>
+                    Die folgenden Werte werden mit dem Vorjahresbescheid verglichen.
+                    Es handelt sich um einen neutralen Datenvergleich und nicht um eine steuerliche Bewertung.
+                </p>
+
+                <table style="border-collapse: collapse; margin-left: 0; text-align: left;">
+                    <thead>
+                        <tr>
+                            <th scope="col" style="text-align: left; padding: 4px 24px 4px 0;">
+                                Wert
+                            </th>
+                            <th scope="col" style="text-align: left; padding: 4px 24px 4px 0;">
+                                Aktueller Bescheid
+                            </th>
+                            <th scope="col" style="text-align: left; padding: 4px 24px 4px 0;">
+                                Vorjahresbescheid
+                            </th>
+                            <th scope="col" style="text-align: left; padding: 4px 24px 4px 0;">
+                                Differenz
+                            </th>
+                            <th scope="col" style="text-align: left; padding: 4px 24px 4px 0;">
+                                Prozentuale Änderung
+                            </th>
+                            <th scope="col" style="text-align: left; padding: 4px 0;">
+                                Einordnung
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in change_comparison_items %}
+                            <tr>
+                                <th scope="row" style="text-align: left; padding: 4px 24px 4px 0;">
+                                    {{ item.label }}
+                                </th>
+                                <td style="text-align: left; padding: 4px 24px 4px 0;">
+                                    <strong>{{ item.current_value }}</strong>
+                                </td>
+                                <td style="text-align: left; padding: 4px 24px 4px 0;">
+                                    {{ item.previous_value }}
+                                </td>
+                                <td style="text-align: left; padding: 4px 24px 4px 0;">
+                                    {{ item.difference }}
+                                </td>
+                                <td style="text-align: left; padding: 4px 24px 4px 0;">
+                                    {{ item.percentage }}
+                                </td>
+                                <td style="text-align: left; padding: 4px 0;">
+                                    {{ item.change_type }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% endif %}
         {% endif %}
 
         {% if payment_classification %}
