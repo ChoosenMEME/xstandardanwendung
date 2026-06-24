@@ -121,6 +121,41 @@ Gewerbesteuerbescheid-Assistent
             </tbody>
         </table>
 
+        {% if calculation_explanation %}
+            <h2>Erklärung der Berechnungslogik</h2>
+
+            {% if calculation_explanation.can_calculate %}
+                <p>
+                    Die Gewerbesteuer wird vereinfacht mit folgender Formel berechnet:
+                </p>
+
+                <p>
+                    <strong>{{ calculation_explanation.formula }}</strong>
+                </p>
+
+                <p>
+                    Mit den ausgelesenen Werten aus dem Bescheid ergibt sich:
+                </p>
+
+                <p>
+                    <strong>{{ calculation_explanation.example }}</strong>
+                </p>
+
+                <p>
+                    {{ calculation_explanation.message }}
+                </p>
+            {% else %}
+                <p>
+                    {{ calculation_explanation.message }}
+                </p>
+            {% endif %}
+
+            <p>
+                Hinweis: Die Berechnung ist eine einfache Erklärung der angezeigten Werte.
+                Rundungen oder Abweichungen im echten Bescheid können vorkommen.
+            </p>
+        {% endif %}
+
         <p>
             Hinweis: Diese Zusammenfassung dient nur der verständlichen Darstellung
             der ausgelesenen Daten und ersetzt keine steuerliche Beratung.
