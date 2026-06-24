@@ -1,3 +1,4 @@
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from pathlib import Path
 from xml.etree.ElementTree import ParseError
 
@@ -164,6 +165,67 @@ def extract_assessment_rate(root):
     )
 
 
+def parse_decimal_value(value):
+    if not value or value == "Nicht gefunden":
+        return None
+
+    cleaned_value = (
+        value.replace("EUR", "")
+        .replace("€", "")
+        .replace("%", "")
+        .replace(" ", "")
+        .strip()
+    )
+
+    if "," in cleaned_value and "." in cleaned_value:
+        cleaned_value = cleaned_value.replace(".", "").replace(",", ".")
+    elif "," in cleaned_value:
+        cleaned_value = cleaned_value.replace(",", ".")
+
+    try:
+        return Decimal(cleaned_value)
+    except InvalidOperation:
+        return None
+
+
+def format_decimal_value(value):
+    rounded_value = value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    return f"{rounded_value:.2f}"
+
+
+def build_calculation_explanation(trade_tax_assessment_amount, assessment_rate):
+    parsed_trade_tax_assessment_amount = parse_decimal_value(trade_tax_assessment_amount)
+    parsed_assessment_rate = parse_decimal_value(assessment_rate)
+
+    if parsed_trade_tax_assessment_amount is None or parsed_assessment_rate is None:
+        return {
+            "can_calculate": False,
+            "message": (
+                "Die Berechnung kann nicht angezeigt werden, weil der "
+                "Gewerbesteuermessbetrag oder der Hebesatz fehlt."
+            ),
+        }
+
+    calculated_trade_tax = (
+        parsed_trade_tax_assessment_amount * parsed_assessment_rate / Decimal("100")
+    )
+
+    return {
+        "can_calculate": True,
+        "formula": "Gewerbesteuer = Gewerbesteuermessbetrag × Hebesatz / 100",
+        "example": (
+            f"{format_decimal_value(parsed_trade_tax_assessment_amount)} × "
+            f"{format_decimal_value(parsed_assessment_rate)} / 100 = "
+            f"{format_decimal_value(calculated_trade_tax)} EUR"
+        ),
+        "message": (
+            "Der Gewerbesteuermessbetrag wird mit dem kommunalen Hebesatz "
+            "multipliziert. Danach wird durch 100 geteilt, weil der Hebesatz "
+            "als Prozentwert verwendet wird."
+        ),
+    }
+
+
 def extract_due_dates(root):
     due_dates = []
 
@@ -277,11 +339,17 @@ def xgewerbesteuer_default(request):
                     {"label": "Fälligkeiten", "value": due_dates},
                 ]
 
+                calculation_explanation = build_calculation_explanation(
+                    trade_tax_assessment_amount,
+                    assessment_rate,
+                )
+
                 is_valid, schema_name, schema_error = validate_xml_against_xsd(xml_data)
 
                 context["uploaded_file_name"] = uploaded_file.name
                 context["uploaded_file_size"] = uploaded_file.size
                 context["summary_items"] = summary_items
+                context["calculation_explanation"] = calculation_explanation
 
                 if is_valid:
                     context["validation_success"] = (
