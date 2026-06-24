@@ -15,6 +15,64 @@ XSD_SCHEMA_FILES = [
 ]
 
 
+def get_local_name(tag):
+    if "}" in tag:
+        return tag.split("}", 1)[1]
+    return tag
+
+
+def clean_text(text):
+    if text and text.strip():
+        return " ".join(text.split())
+    return None
+
+
+def find_first_text(root, keywords):
+    for element in root.iter():
+        tag_name = get_local_name(element.tag).lower()
+
+        for keyword in keywords:
+            if keyword.lower() in tag_name:
+                value = clean_text(element.text)
+
+                if value:
+                    return value
+
+    return "Nicht gefunden"
+
+
+def extract_municipality(root):
+    for element in root.iter():
+        tag_name = get_local_name(element.tag).lower()
+
+        if tag_name == "kommune":
+            for child in element.iter():
+                child_tag_name = get_local_name(child.tag).lower()
+
+                if child_tag_name in ["namebehoerde", "namebehörde", "name"]:
+                    value = clean_text(child.text)
+
+                    if value:
+                        return value
+
+    return find_first_text(
+        root,
+        [
+            "namebehoerde",
+            "namebehörde",
+            "behoerde",
+            "behörde",
+            "gemeinde",
+            "kommune",
+            "gemeindename",
+            "gebietskörperschaft",
+            "gebietskoerperschaft",
+            "steuerberechtigtegemeinde",
+            "hebeberechtigtegemeinde",
+        ],
+    )
+
+
 def validate_xml_against_xsd(xml_data):
     validation_errors = []
 
@@ -81,21 +139,25 @@ def xgewerbesteuer_default(request):
             try:
                 xml_data = uploaded_file.read()
 
-                ElementTree.fromstring(xml_data)
+                root = ElementTree.fromstring(xml_data)
+
+                municipality = extract_municipality(root)
 
                 is_valid, schema_name, schema_error = validate_xml_against_xsd(xml_data)
 
+                context["uploaded_file_name"] = uploaded_file.name
+                context["uploaded_file_size"] = uploaded_file.size
+                context["municipality"] = municipality
+
                 if is_valid:
-                    context["uploaded_file_name"] = uploaded_file.name
-                    context["uploaded_file_size"] = uploaded_file.size
                     context["validation_success"] = (
                         "Die Datei wurde erfolgreich geprüft und entspricht dem erwarteten "
                         f"XGewerbesteuer-Schema. Verwendetes Schema: {schema_name}"
                     )
                 else:
-                    context["upload_error"] = (
-                        "Die Datei ist zwar grundsätzlich XML-konform, entspricht aber nicht dem erwarteten "
-                        "XGewerbesteuer-Schema. Bitte laden Sie einen gültigen XGewerbesteuer-Bescheid hoch."
+                    context["validation_success"] = (
+                        "Die Datei ist grundsätzlich XML-konform. Die Gemeinde / Kommune wurde ausgelesen. "
+                        "Die vollständige XSD-Validierung ist jedoch nicht erfolgreich gewesen."
                     )
 
             except (ParseError, DefusedXmlException):
