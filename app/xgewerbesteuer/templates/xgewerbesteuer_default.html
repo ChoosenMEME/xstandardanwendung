@@ -153,6 +153,19 @@ Gewerbesteuerbescheid-Assistent
             </div>
         {% endif %}
 
+        <h2>PDF-Bericht</h2>
+
+        <p>
+            Die Auswertung kann als PDF-Bericht heruntergeladen werden.
+            Der Bericht enthält die verständliche Zusammenfassung, Hinweise, Status und verfügbare Vergleichswerte.
+        </p>
+
+        <p>
+            <a href="{% url 'xgewerbesteuer_pdf_report' %}">
+                PDF-Bericht herunterladen
+            </a>
+        </p>
+
         <table style="border-collapse: collapse; margin-left: 0; text-align: left;">
             <thead>
                 <tr>
