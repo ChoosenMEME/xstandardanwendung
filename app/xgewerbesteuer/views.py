@@ -913,6 +913,114 @@ def build_notice_area(current_bescheid, change_comparison_items=None):
     return sort_notice_items(notices)
 
 
+STATUS_PRIORITY = {
+    "warning": 1,
+    "deadline": 2,
+    "change": 3,
+    "incomplete": 4,
+    "ok": 5,
+}
+
+STATUS_DEFINITIONS = {
+    "warning": {
+        "label": "Warnung / Auffälligkeit",
+        "message": (
+            "Der Bescheid enthält Auffälligkeiten, die besonders geprüft werden sollten."
+        ),
+        "css_class": "status-warning",
+    },
+    "deadline": {
+        "label": "Frist beachten",
+        "message": (
+            "Der Bescheid enthält einen Zahlbetrag oder Vorauszahlungen. Bitte beachten Sie mögliche Fristen."
+        ),
+        "css_class": "status-deadline",
+    },
+    "change": {
+        "label": "Änderung beachten",
+        "message": (
+            "Im Vergleich zum Vorjahresbescheid wurden Änderungen erkannt."
+        ),
+        "css_class": "status-change",
+    },
+    "incomplete": {
+        "label": "Daten unvollständig",
+        "message": (
+            "Einige Angaben konnten nicht vollständig oder nicht eindeutig ausgelesen werden."
+        ),
+        "css_class": "status-incomplete",
+    },
+    "ok": {
+        "label": "Unauffällig",
+        "message": (
+            "Aus den automatisch ausgewerteten Daten ergibt sich aktuell kein auffälliger Status."
+        ),
+        "css_class": "status-ok",
+    },
+}
+
+
+def build_status_indicator(current_bescheid, notice_items=None, change_comparison_items=None):
+    status_candidates = []
+    notice_items = notice_items or []
+    change_comparison_items = change_comparison_items or []
+
+    has_missing_core_data = any(
+        is_missing_value(current_bescheid.get(key))
+        for key in ["amount_due", "tax_period", "municipality"]
+    )
+
+    payment_classification = current_bescheid.get("payment_classification", {})
+    payment_type = payment_classification.get("type")
+    due_dates = current_bescheid.get("due_dates", "Nicht gefunden")
+
+    if has_missing_core_data or payment_type == "Nicht eindeutig bestimmbar":
+        status_candidates.append("incomplete")
+
+    has_warning_notice = any(
+        notice.get("severity") == "warning"
+        and notice.get("source_rule") not in [
+            "missing-amount-due",
+            "missing-tax-period",
+            "payment-type-unknown",
+        ]
+        for notice in notice_items
+    )
+
+    has_important_change = any(
+        item.get("importance") == "important"
+        for item in change_comparison_items
+    )
+
+    has_notice_change = any(
+        item.get("importance") == "notice"
+        for item in change_comparison_items
+    )
+
+    if has_warning_notice or has_important_change:
+        status_candidates.append("warning")
+
+    if payment_type in ["Nachzahlung", "Vorauszahlung"] or not is_missing_value(due_dates):
+        status_candidates.append("deadline")
+
+    if has_notice_change:
+        status_candidates.append("change")
+
+    if not status_candidates:
+        status_candidates.append("ok")
+
+    selected_status = min(
+        status_candidates,
+        key=lambda status: STATUS_PRIORITY.get(status, 99),
+    )
+
+    status_definition = STATUS_DEFINITIONS[selected_status].copy()
+    status_definition["status"] = selected_status
+    status_definition["priority"] = STATUS_PRIORITY[selected_status]
+
+    return status_definition
+
+
 def xgewerbesteuer_default(request):
     context = {}
 
@@ -975,6 +1083,11 @@ def xgewerbesteuer_default(request):
 
                 context["notice_items"] = build_notice_area(
                     current_bescheid,
+                    context.get("change_comparison_items"),
+                )
+                context["status_indicator"] = build_status_indicator(
+                    current_bescheid,
+                    context.get("notice_items"),
                     context.get("change_comparison_items"),
                 )
 

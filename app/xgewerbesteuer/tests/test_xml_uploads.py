@@ -12,6 +12,7 @@ from xgewerbesteuer.views import (
     build_change_comparison,
     build_notice_area,
     build_period_comparison_notice,
+    build_status_indicator,
     clean_text,
     classify_change_importance,
     classify_payment_type,
@@ -265,6 +266,109 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
         self.assertEqual(notice_items[0]["severity"], "neutral")
         self.assertEqual(notice_items[0]["title"], "Keine Auffälligkeiten erkannt")
 
+    def test_build_status_indicator_prioritizes_warning_before_deadline(self):
+        current_bescheid = {
+            "municipality": "Stadt Musterhausen",
+            "tax_period": "2023",
+            "amount_due": "630.00",
+            "due_dates": "2025-02-15",
+            "payment_classification": {
+                "type": "Nachzahlung",
+            },
+        }
+        notice_items = [
+            {
+                "severity": "warning",
+                "source_rule": "comparison-important-change",
+            }
+        ]
+        change_comparison_items = [
+            {
+                "importance": "important",
+            }
+        ]
+
+        status_indicator = build_status_indicator(
+            current_bescheid,
+            notice_items,
+            change_comparison_items,
+        )
+
+        self.assertEqual(status_indicator["status"], "warning")
+        self.assertEqual(status_indicator["label"], "Warnung / Auffälligkeit")
+
+    def test_build_status_indicator_marks_deadline_for_back_payment(self):
+        current_bescheid = {
+            "municipality": "Stadt Musterhausen",
+            "tax_period": "2023",
+            "amount_due": "630.00",
+            "due_dates": "Nicht gefunden",
+            "payment_classification": {
+                "type": "Nachzahlung",
+            },
+        }
+
+        status_indicator = build_status_indicator(current_bescheid)
+
+        self.assertEqual(status_indicator["status"], "deadline")
+        self.assertEqual(status_indicator["label"], "Frist beachten")
+
+    def test_build_status_indicator_marks_change_without_warning(self):
+        current_bescheid = {
+            "municipality": "Stadt Musterhausen",
+            "tax_period": "2023",
+            "amount_due": "0.00",
+            "due_dates": "Nicht gefunden",
+            "payment_classification": {
+                "type": "Keine Zahlung",
+            },
+        }
+        change_comparison_items = [
+            {
+                "importance": "notice",
+            }
+        ]
+
+        status_indicator = build_status_indicator(
+            current_bescheid,
+            change_comparison_items=change_comparison_items,
+        )
+
+        self.assertEqual(status_indicator["status"], "change")
+        self.assertEqual(status_indicator["label"], "Änderung beachten")
+
+    def test_build_status_indicator_marks_incomplete_data_neutrally(self):
+        current_bescheid = {
+            "municipality": "Nicht gefunden",
+            "tax_period": "Nicht gefunden",
+            "amount_due": "Nicht gefunden",
+            "due_dates": "Nicht gefunden",
+            "payment_classification": {
+                "type": "Nicht eindeutig bestimmbar",
+            },
+        }
+
+        status_indicator = build_status_indicator(current_bescheid)
+
+        self.assertEqual(status_indicator["status"], "incomplete")
+        self.assertEqual(status_indicator["label"], "Daten unvollständig")
+
+    def test_build_status_indicator_marks_ok_without_findings(self):
+        current_bescheid = {
+            "municipality": "Stadt Musterhausen",
+            "tax_period": "2023",
+            "amount_due": "0.00",
+            "due_dates": "Nicht gefunden",
+            "payment_classification": {
+                "type": "Keine Zahlung",
+            },
+        }
+
+        status_indicator = build_status_indicator(current_bescheid)
+
+        self.assertEqual(status_indicator["status"], "ok")
+        self.assertEqual(status_indicator["label"], "Unauffällig")
+
     def test_build_change_comparison_calculates_differences(self):
         current_bescheid = {
             "amount_due": "630.00",
@@ -406,6 +510,7 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
             "Bitte wählen Sie eine XML-Datei aus.",
         )
         self.assertNotIn("uploaded_file_name", response.context)
+        self.assertNotIn("status_indicator", response.context)
 
     def test_post_rejects_non_xml_filename_before_parsing(self):
         response = self.client.post(
@@ -526,6 +631,10 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
             response,
             "Der Bescheid weist einen positiven Zahlbetrag von 630.00 aus.",
         )
+        self.assertIn("status_indicator", response.context)
+        self.assertEqual(response.context["status_indicator"]["status"], "deadline")
+        self.assertContains(response, "Statusanzeige")
+        self.assertContains(response, "Status: Frist beachten")
 
     def test_post_valid_current_without_previous_hides_change_comparison(self):
         content = VALID_BESCHEID_FIXTURE.read_bytes()
@@ -600,6 +709,9 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
             response,
             "Folgende Werte haben sich gegenüber dem Vorjahresbescheid deutlich verändert",
         )
+        self.assertIn("status_indicator", response.context)
+        self.assertEqual(response.context["status_indicator"]["status"], "warning")
+        self.assertContains(response, "Status: Warnung / Auffälligkeit")
 
     def test_post_valid_current_with_invalid_previous_filename_keeps_current_summary(self):
         current_content = VALID_BESCHEID_FIXTURE.read_bytes()

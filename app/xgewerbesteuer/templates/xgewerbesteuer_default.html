@@ -135,6 +135,24 @@ Gewerbesteuerbescheid-Assistent
             werden hier gemeinsam dargestellt.
         </p>
 
+        {% if status_indicator %}
+            <h2>Statusanzeige</h2>
+
+            <div role="status" class="{{ status_indicator.css_class }}" style="border: 1px solid #cccccc; padding: 12px; margin-bottom: 16px;">
+                <p>
+                    <strong>Status: {{ status_indicator.label }}</strong>
+                </p>
+
+                <p>
+                    {{ status_indicator.message }}
+                </p>
+
+                <p>
+                    Hinweis: Der Status wird automatisch aus den ausgelesenen Daten, Hinweisen und Vergleichsergebnissen abgeleitet. Er ersetzt keine steuerliche Beratung.
+                </p>
+            </div>
+        {% endif %}
+
         <table style="border-collapse: collapse; margin-left: 0; text-align: left;">
             <thead>
                 <tr>
