@@ -160,6 +160,36 @@ Gewerbesteuerbescheid-Assistent
             </tbody>
         </table>
 
+        {% if notice_items %}
+            <h2>Hinweisbereich</h2>
+
+            <p>
+                Die folgenden Hinweise wurden automatisch aus den ausgelesenen Daten abgeleitet.
+                Sie dienen nur der Orientierung und ersetzen keine steuerliche Beratung.
+            </p>
+
+            <ul style="list-style: none; padding-left: 0;">
+                {% for notice in notice_items %}
+                    <li style="border: 1px solid #cccccc; padding: 12px; margin-bottom: 12px;">
+                        <p>
+                            <strong>{{ notice.severity_label }}: {{ notice.title }}</strong>
+                        </p>
+
+                        <p>
+                            {{ notice.message }}
+                        </p>
+
+                        {% if notice.recommendation %}
+                            <p>
+                                <strong>Empfehlung:</strong>
+                                {{ notice.recommendation }}
+                            </p>
+                        {% endif %}
+                    </li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+
         {% if previous_bescheid %}
             <h2>Vergleich mit Vorjahresbescheid</h2>
 
