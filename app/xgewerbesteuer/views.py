@@ -689,6 +689,230 @@ def build_change_comparison(current_bescheid, previous_bescheid):
     return comparison_items
 
 
+NOTICE_SEVERITY_ORDER = {
+    "warning": 1,
+    "info": 2,
+    "neutral": 3,
+}
+
+NOTICE_SEVERITY_LABELS = {
+    "warning": "Auffälligkeit",
+    "info": "Hinweis",
+    "neutral": "Neutral",
+}
+
+
+def build_notice(title, message, severity="info", recommendation=None, source_rule=""):
+    return {
+        "title": title,
+        "message": message,
+        "severity": severity,
+        "severity_label": NOTICE_SEVERITY_LABELS.get(severity, "Hinweis"),
+        "recommendation": recommendation,
+        "source_rule": source_rule,
+    }
+
+
+def is_missing_value(value):
+    return not value or value == "Nicht gefunden"
+
+
+def build_missing_value_notices(current_bescheid):
+    notices = []
+
+    if is_missing_value(current_bescheid.get("amount_due")):
+        notices.append(
+            build_notice(
+                title="Zahlbetrag nicht gefunden",
+                message=(
+                    "Der Zahlbetrag konnte aus dem Bescheid nicht sicher ausgelesen werden."
+                ),
+                severity="warning",
+                recommendation="Bitte prüfen Sie den Bescheid an dieser Stelle manuell.",
+                source_rule="missing-amount-due",
+            )
+        )
+
+    if is_missing_value(current_bescheid.get("tax_period")):
+        notices.append(
+            build_notice(
+                title="Steuerjahr nicht gefunden",
+                message=(
+                    "Das Steuerjahr oder der Erhebungszeitraum konnte nicht sicher erkannt werden."
+                ),
+                severity="warning",
+                recommendation="Bitte prüfen Sie, ob der richtige Bescheid hochgeladen wurde.",
+                source_rule="missing-tax-period",
+            )
+        )
+
+    if is_missing_value(current_bescheid.get("municipality")):
+        notices.append(
+            build_notice(
+                title="Gemeinde nicht gefunden",
+                message=(
+                    "Die Gemeinde oder Kommune konnte aus dem Bescheid nicht sicher ausgelesen werden."
+                ),
+                severity="info",
+                recommendation="Bitte prüfen Sie die Angaben im Bescheid bei Bedarf manuell.",
+                source_rule="missing-municipality",
+            )
+        )
+
+    return notices
+
+
+def build_payment_notices(current_bescheid):
+    payment_classification = current_bescheid.get("payment_classification", {})
+    payment_type = payment_classification.get("type")
+    amount_due = current_bescheid.get("amount_due", "Nicht gefunden")
+
+    if payment_type == "Nachzahlung":
+        return [
+            build_notice(
+                title="Zahlbetrag beachten",
+                message=(
+                    f"Der Bescheid weist einen positiven Zahlbetrag von {amount_due} aus."
+                ),
+                severity="info",
+                recommendation=(
+                    "Bitte beachten Sie mögliche Zahlungsfristen im Bescheid."
+                ),
+                source_rule="payment-type-back-payment",
+            )
+        ]
+
+    if payment_type == "Erstattung":
+        return [
+            build_notice(
+                title="Erstattung oder Verrechnung erkannt",
+                message=(
+                    f"Der Bescheid weist einen negativen Betrag von {amount_due} aus."
+                ),
+                severity="info",
+                recommendation=(
+                    "Bitte prüfen Sie, ob der Betrag erstattet oder verrechnet wird."
+                ),
+                source_rule="payment-type-refund",
+            )
+        ]
+
+    if payment_type == "Vorauszahlung":
+        return [
+            build_notice(
+                title="Vorauszahlungen vorhanden",
+                message=(
+                    "Der Bescheid enthält Vorauszahlungen. Diese werden separat angezeigt."
+                ),
+                severity="info",
+                recommendation=(
+                    "Bitte beachten Sie die im Bescheid genannten Zeiträume und Zahlungstermine."
+                ),
+                source_rule="payment-type-advance-payment",
+            )
+        ]
+
+    if payment_type == "Nicht eindeutig bestimmbar":
+        return [
+            build_notice(
+                title="Zahlungsart nicht eindeutig",
+                message=(
+                    "Die Zahlungsart konnte aus den vorhandenen Daten nicht eindeutig bestimmt werden."
+                ),
+                severity="warning",
+                recommendation="Bitte prüfen Sie den Bescheid manuell.",
+                source_rule="payment-type-unknown",
+            )
+        ]
+
+    return []
+
+
+def build_comparison_notices(change_comparison_items):
+    if not change_comparison_items:
+        return []
+
+    notices = []
+
+    important_labels = [
+        item["label"]
+        for item in change_comparison_items
+        if item.get("importance") == "important"
+    ]
+
+    changed_labels = [
+        item["label"]
+        for item in change_comparison_items
+        if item.get("importance") == "notice"
+    ]
+
+    if important_labels:
+        notices.append(
+            build_notice(
+                title="Wichtige Änderung zum Vorjahr",
+                message=(
+                    "Folgende Werte haben sich gegenüber dem Vorjahresbescheid deutlich verändert: "
+                    + ", ".join(important_labels)
+                    + "."
+                ),
+                severity="warning",
+                recommendation=(
+                    "Bitte prüfen Sie diese Werte besonders aufmerksam."
+                ),
+                source_rule="comparison-important-change",
+            )
+        )
+
+    if changed_labels:
+        notices.append(
+            build_notice(
+                title="Weitere Änderung zum Vorjahr",
+                message=(
+                    "Folgende Werte unterscheiden sich vom Vorjahresbescheid: "
+                    + ", ".join(changed_labels)
+                    + "."
+                ),
+                severity="info",
+                recommendation=(
+                    "Bitte prüfen Sie bei Bedarf, ob die Änderung erwartbar ist."
+                ),
+                source_rule="comparison-notice-change",
+            )
+        )
+
+    return notices
+
+
+def sort_notice_items(notices):
+    return sorted(
+        notices,
+        key=lambda notice: NOTICE_SEVERITY_ORDER.get(notice["severity"], 99),
+    )
+
+
+def build_notice_area(current_bescheid, change_comparison_items=None):
+    notices = []
+
+    notices.extend(build_missing_value_notices(current_bescheid))
+    notices.extend(build_payment_notices(current_bescheid))
+    notices.extend(build_comparison_notices(change_comparison_items or []))
+
+    if not notices:
+        return [
+            build_notice(
+                title="Keine Auffälligkeiten erkannt",
+                message=(
+                    "Aus den automatisch ausgewerteten Daten ergeben sich aktuell keine besonderen Hinweise."
+                ),
+                severity="neutral",
+                recommendation=None,
+                source_rule="no-notice",
+            )
+        ]
+
+    return sort_notice_items(notices)
+
+
 def xgewerbesteuer_default(request):
     context = {}
 
@@ -748,5 +972,10 @@ def xgewerbesteuer_default(request):
                             current_bescheid,
                             previous_bescheid,
                         )
+
+                context["notice_items"] = build_notice_area(
+                    current_bescheid,
+                    context.get("change_comparison_items"),
+                )
 
     return render(request, "xgewerbesteuer_default.html", context)

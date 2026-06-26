@@ -10,6 +10,7 @@ from django.urls import reverse
 from xgewerbesteuer.views import (
     MAX_UPLOAD_SIZE_BYTES,
     build_change_comparison,
+    build_notice_area,
     build_period_comparison_notice,
     clean_text,
     classify_change_importance,
@@ -219,6 +220,50 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
 
         self.assertEqual(unchanged["level"], "neutral")
         self.assertEqual(unchanged["label"], "Keine wichtige Änderung")
+
+    def test_build_notice_area_prioritizes_warning_before_info(self):
+        current_bescheid = {
+            "municipality": "Stadt Musterhausen",
+            "tax_period": "Nicht gefunden",
+            "amount_due": "Nicht gefunden",
+            "payment_classification": {
+                "type": "Nicht eindeutig bestimmbar",
+            },
+        }
+        change_comparison_items = [
+            {
+                "label": "Zahlbetrag",
+                "importance": "important",
+            }
+        ]
+
+        notice_items = build_notice_area(current_bescheid, change_comparison_items)
+
+        self.assertGreaterEqual(len(notice_items), 2)
+        self.assertEqual(notice_items[0]["severity"], "warning")
+        self.assertIn("nicht gefunden", notice_items[0]["title"].lower())
+        self.assertTrue(
+            any(
+                notice["title"] == "Wichtige Änderung zum Vorjahr"
+                for notice in notice_items
+            )
+        )
+
+    def test_build_notice_area_returns_neutral_notice_without_findings(self):
+        current_bescheid = {
+            "municipality": "Stadt Musterhausen",
+            "tax_period": "2023",
+            "amount_due": "0.00",
+            "payment_classification": {
+                "type": "Keine Zahlung",
+            },
+        }
+
+        notice_items = build_notice_area(current_bescheid)
+
+        self.assertEqual(len(notice_items), 1)
+        self.assertEqual(notice_items[0]["severity"], "neutral")
+        self.assertEqual(notice_items[0]["title"], "Keine Auffälligkeiten erkannt")
 
     def test_build_change_comparison_calculates_differences(self):
         current_bescheid = {
@@ -474,6 +519,13 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertContains(response, "Zusammenfassung des Bescheids")
         self.assertContains(response, "Einordnung der Zahlung")
         self.assertContains(response, "Nachzahlung")
+        self.assertIn("notice_items", response.context)
+        self.assertContains(response, "Hinweisbereich")
+        self.assertContains(response, "Zahlbetrag beachten")
+        self.assertContains(
+            response,
+            "Der Bescheid weist einen positiven Zahlbetrag von 630.00 aus.",
+        )
 
     def test_post_valid_current_without_previous_hides_change_comparison(self):
         content = VALID_BESCHEID_FIXTURE.read_bytes()
@@ -543,6 +595,11 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
             "Dieser Wert hat sich gegenüber dem Vorjahr erhöht.",
         )
         self.assertContains(response, "Keine wichtige Änderung")
+        self.assertContains(response, "Wichtige Änderung zum Vorjahr")
+        self.assertContains(
+            response,
+            "Folgende Werte haben sich gegenüber dem Vorjahresbescheid deutlich verändert",
+        )
 
     def test_post_valid_current_with_invalid_previous_filename_keeps_current_summary(self):
         current_content = VALID_BESCHEID_FIXTURE.read_bytes()
