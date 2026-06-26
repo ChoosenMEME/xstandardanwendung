@@ -9,6 +9,7 @@ from django.urls import reverse
 
 from xgewerbesteuer.views import (
     MAX_UPLOAD_SIZE_BYTES,
+    PDF_REPORT_SESSION_KEY,
     build_change_comparison,
     build_notice_area,
     build_period_comparison_notice,
@@ -491,6 +492,8 @@ class XGewerbesteuerXsdValidationTests(SimpleTestCase):
 
 
 class XGewerbesteuerUploadViewTests(SimpleTestCase):
+    databases = {"default"}
+
     def test_start_page_renders_upload_form_and_expected_summary_scope(self):
         response = self.client.get(reverse("xgewerbesteuer_default"))
 
@@ -635,6 +638,9 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertEqual(response.context["status_indicator"]["status"], "deadline")
         self.assertContains(response, "Statusanzeige")
         self.assertContains(response, "Status: Frist beachten")
+        self.assertIn(PDF_REPORT_SESSION_KEY, self.client.session)
+        self.assertContains(response, "PDF-Bericht")
+        self.assertContains(response, "PDF-Bericht herunterladen")
 
     def test_post_valid_current_without_previous_hides_change_comparison(self):
         content = VALID_BESCHEID_FIXTURE.read_bytes()
@@ -733,6 +739,51 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         )
         self.assertContains(response, "Zusammenfassung des Bescheids")
         self.assertContains(response, "Upload des Vorjahresbescheids nicht möglich")
+
+    def test_pdf_report_requires_successful_upload(self):
+        response = self.client.get(reverse("xgewerbesteuer_pdf_report"))
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response["Content-Type"], "text/plain; charset=utf-8")
+        self.assertIn(
+            "Bitte laden Sie zuerst einen gültigen Bescheid hoch.",
+            response.content.decode("utf-8"),
+        )
+
+    def test_pdf_report_download_after_valid_upload(self):
+        content = VALID_BESCHEID_FIXTURE.read_bytes()
+
+        upload_response = self.client.post(
+            reverse("xgewerbesteuer_default"),
+            data={"bescheid": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
+        )
+
+        self.assertEqual(upload_response.status_code, 200)
+        self.assertIn(PDF_REPORT_SESSION_KEY, self.client.session)
+
+        pdf_response = self.client.get(reverse("xgewerbesteuer_pdf_report"))
+
+        self.assertEqual(pdf_response.status_code, 200)
+        self.assertEqual(pdf_response["Content-Type"], "application/pdf")
+        self.assertIn(
+            'attachment; filename="gewerbesteuerbescheid-bericht.pdf"',
+            pdf_response["Content-Disposition"],
+        )
+        self.assertTrue(pdf_response.content.startswith(b"%PDF"))
+        self.assertGreater(len(pdf_response.content), 500)
+
+    def test_invalid_upload_does_not_create_pdf_report(self):
+        response = self.client.post(
+            reverse("xgewerbesteuer_default"),
+            data={"bescheid": uploaded_xml("bescheid.xml", b"<nachricht/>")},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn(PDF_REPORT_SESSION_KEY, self.client.session)
+
+        pdf_response = self.client.get(reverse("xgewerbesteuer_pdf_report"))
+
+        self.assertEqual(pdf_response.status_code, 404)
 
     def test_post_valid_current_with_schema_invalid_previous_keeps_current_summary(self):
         current_content = VALID_BESCHEID_FIXTURE.read_bytes()

@@ -1,11 +1,16 @@
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from io import BytesIO
 from pathlib import Path
 from xml.etree.ElementTree import ParseError
 
 from defusedxml import ElementTree
 from defusedxml.common import DefusedXmlException
+from django.http import HttpResponse
 from django.shortcuts import render
 from lxml import etree
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table
 
 
 SCHEMA_DIR = Path(__file__).resolve().parent / "schemas"
@@ -16,6 +21,7 @@ XSD_SCHEMA_FILES = [
 ]
 
 MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024
+PDF_REPORT_SESSION_KEY = "xgewerbesteuer_pdf_report"
 
 
 def get_local_name(tag):
@@ -1021,6 +1027,179 @@ def build_status_indicator(current_bescheid, notice_items=None, change_compariso
     return status_definition
 
 
+def build_pdf_report_data(context):
+    return {
+        "uploaded_file_name": context.get("uploaded_file_name"),
+        "summary_items": context.get("summary_items", []),
+        "status_indicator": context.get("status_indicator"),
+        "notice_items": context.get("notice_items", []),
+        "payment_classification": context.get("payment_classification"),
+        "calculation_explanation": context.get("calculation_explanation"),
+        "advance_payments": context.get("advance_payments", []),
+        "previous_bescheid": context.get("previous_bescheid"),
+        "period_comparison_notice": context.get("period_comparison_notice"),
+        "change_comparison_items": context.get("change_comparison_items", []),
+    }
+
+
+def add_pdf_heading(elements, styles, text):
+    elements.append(Paragraph(text, styles["Heading2"]))
+    elements.append(Spacer(1, 8))
+
+
+def add_pdf_paragraph(elements, styles, text):
+    if text:
+        elements.append(Paragraph(str(text), styles["BodyText"]))
+        elements.append(Spacer(1, 6))
+
+
+def build_pdf_table(rows):
+    return Table(rows, hAlign="LEFT")
+
+
+def create_pdf_report(report_data):
+    buffer = BytesIO()
+    document = SimpleDocTemplate(buffer, pagesize=A4)
+    styles = getSampleStyleSheet()
+    elements = []
+
+    elements.append(Paragraph("Gewerbesteuerbescheid-Bericht", styles["Title"]))
+    elements.append(Spacer(1, 12))
+
+    add_pdf_paragraph(
+        elements,
+        styles,
+        "Dieser Bericht fasst die automatisch ausgelesenen Bescheiddaten verständlich zusammen.",
+    )
+    add_pdf_paragraph(
+        elements,
+        styles,
+        "Hinweis: Der Bericht ersetzt keine steuerliche Beratung.",
+    )
+
+    if report_data.get("uploaded_file_name"):
+        add_pdf_heading(elements, styles, "Datei")
+        add_pdf_paragraph(elements, styles, f"Dateiname: {report_data['uploaded_file_name']}")
+
+    if report_data.get("status_indicator"):
+        status_indicator = report_data["status_indicator"]
+        add_pdf_heading(elements, styles, "Statusanzeige")
+        add_pdf_paragraph(elements, styles, f"Status: {status_indicator['label']}")
+        add_pdf_paragraph(elements, styles, status_indicator["message"])
+
+    if report_data.get("summary_items"):
+        add_pdf_heading(elements, styles, "Zusammenfassung des Bescheids")
+        table_rows = [["Information", "Wert"]]
+        for item in report_data["summary_items"]:
+            table_rows.append([item["label"], item["value"]])
+        elements.append(build_pdf_table(table_rows))
+        elements.append(Spacer(1, 12))
+
+    if report_data.get("notice_items"):
+        add_pdf_heading(elements, styles, "Hinweise")
+        for notice in report_data["notice_items"]:
+            add_pdf_paragraph(
+                elements,
+                styles,
+                f"{notice['severity_label']}: {notice['title']}",
+            )
+            add_pdf_paragraph(elements, styles, notice["message"])
+            if notice.get("recommendation"):
+                add_pdf_paragraph(
+                    elements,
+                    styles,
+                    f"Empfehlung: {notice['recommendation']}",
+                )
+
+    if report_data.get("payment_classification"):
+        payment_classification = report_data["payment_classification"]
+        add_pdf_heading(elements, styles, "Einordnung der Zahlung")
+        add_pdf_paragraph(elements, styles, f"Zahlungsart: {payment_classification['type']}")
+        add_pdf_paragraph(elements, styles, payment_classification["message"])
+
+    if report_data.get("calculation_explanation"):
+        calculation_explanation = report_data["calculation_explanation"]
+        add_pdf_heading(elements, styles, "Erklärung der Berechnungslogik")
+        if calculation_explanation.get("can_calculate"):
+            add_pdf_paragraph(elements, styles, calculation_explanation.get("formula"))
+            add_pdf_paragraph(elements, styles, calculation_explanation.get("example"))
+        add_pdf_paragraph(elements, styles, calculation_explanation.get("message"))
+
+    if report_data.get("advance_payments"):
+        add_pdf_heading(elements, styles, "Vorauszahlungen")
+        table_rows = [["Betrag", "Fälligkeit / Zahlungstermin", "Zeitraum / Bezugsjahr", "Art"]]
+        for payment in report_data["advance_payments"]:
+            table_rows.append(
+                [
+                    payment["amount"],
+                    payment["due_date"],
+                    payment["period"],
+                    payment["type"],
+                ]
+            )
+        elements.append(build_pdf_table(table_rows))
+        elements.append(Spacer(1, 12))
+
+    if report_data.get("previous_bescheid"):
+        previous_bescheid = report_data["previous_bescheid"]
+        add_pdf_heading(elements, styles, "Vergleich mit Vorjahresbescheid")
+        add_pdf_paragraph(
+            elements,
+            styles,
+            f"Vorjahreszeitraum: {previous_bescheid['tax_period']}",
+        )
+        add_pdf_paragraph(elements, styles, report_data.get("period_comparison_notice"))
+
+    if report_data.get("change_comparison_items"):
+        add_pdf_heading(elements, styles, "Änderungsvergleich zum Vorjahr")
+        table_rows = [["Wert", "Aktuell", "Vorjahr", "Differenz", "Änderung", "Einordnung"]]
+        for item in report_data["change_comparison_items"]:
+            table_rows.append(
+                [
+                    item["label"],
+                    item["current_value"],
+                    item["previous_value"],
+                    item["difference"],
+                    item["percentage"],
+                    item["change_type"],
+                ]
+            )
+        elements.append(build_pdf_table(table_rows))
+        elements.append(Spacer(1, 12))
+
+    add_pdf_heading(elements, styles, "Abschließender Hinweis")
+    add_pdf_paragraph(
+        elements,
+        styles,
+        "Dieser PDF-Bericht dient nur der verständlichen Darstellung der ausgelesenen Daten und ersetzt keine steuerliche Beratung.",
+    )
+
+    document.build(elements)
+
+    pdf_content = buffer.getvalue()
+    buffer.close()
+
+    return pdf_content
+
+
+def xgewerbesteuer_pdf_report(request):
+    report_data = request.session.get(PDF_REPORT_SESSION_KEY)
+
+    if not report_data:
+        return HttpResponse(
+            "Es liegen keine Daten für einen PDF-Bericht vor. Bitte laden Sie zuerst einen gültigen Bescheid hoch.",
+            status=404,
+            content_type="text/plain; charset=utf-8",
+        )
+
+    pdf_content = create_pdf_report(report_data)
+
+    response = HttpResponse(pdf_content, content_type="application/pdf")
+    response["Content-Disposition"] = 'attachment; filename="gewerbesteuerbescheid-bericht.pdf"'
+
+    return response
+
+
 def xgewerbesteuer_default(request):
     context = {}
 
@@ -1090,5 +1269,6 @@ def xgewerbesteuer_default(request):
                     context.get("notice_items"),
                     context.get("change_comparison_items"),
                 )
+                request.session[PDF_REPORT_SESSION_KEY] = build_pdf_report_data(context)
 
     return render(request, "xgewerbesteuer_default.html", context)
