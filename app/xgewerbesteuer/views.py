@@ -601,6 +601,35 @@ def compare_text_values(current_value, previous_value):
     }
 
 
+def classify_change_importance(change_type):
+    if change_type == "Erhöhung":
+        return {
+            "level": "important",
+            "label": "Wichtige Änderung",
+            "message": "Dieser Wert hat sich gegenüber dem Vorjahr erhöht.",
+        }
+
+    if change_type == "Senkung":
+        return {
+            "level": "notice",
+            "label": "Änderung",
+            "message": "Dieser Wert hat sich gegenüber dem Vorjahr verringert.",
+        }
+
+    if change_type == "Geändert":
+        return {
+            "level": "notice",
+            "label": "Änderung",
+            "message": "Dieser Wert hat sich gegenüber dem Vorjahr geändert.",
+        }
+
+    return {
+        "level": "neutral",
+        "label": "Keine wichtige Änderung",
+        "message": "Für diesen Wert liegt keine hervorzuhebende Änderung vor.",
+    }
+
+
 def build_change_comparison(current_bescheid, previous_bescheid):
     comparison_fields = [
         {
@@ -641,6 +670,8 @@ def build_change_comparison(current_bescheid, previous_bescheid):
         else:
             comparison_result = compare_text_values(current_value, previous_value)
 
+        importance = classify_change_importance(comparison_result["change_type"])
+
         comparison_items.append(
             {
                 "label": field["label"],
@@ -649,6 +680,9 @@ def build_change_comparison(current_bescheid, previous_bescheid):
                 "difference": comparison_result["difference"],
                 "percentage": comparison_result["percentage"],
                 "change_type": comparison_result["change_type"],
+                "importance": importance["level"],
+                "importance_label": importance["label"],
+                "importance_message": importance["message"],
             }
         )
 

@@ -12,6 +12,7 @@ from xgewerbesteuer.views import (
     build_change_comparison,
     build_period_comparison_notice,
     clean_text,
+    classify_change_importance,
     classify_payment_type,
     extract_amount_due,
     extract_assessment_rate,
@@ -197,6 +198,28 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
             build_period_comparison_notice("Nicht gefunden", "2022"),
         )
 
+    def test_classify_change_importance_marks_relevant_changes(self):
+        increase = classify_change_importance("Erhöhung")
+        decrease = classify_change_importance("Senkung")
+        changed = classify_change_importance("Geändert")
+        unchanged = classify_change_importance("Unverändert")
+
+        self.assertEqual(increase["level"], "important")
+        self.assertEqual(increase["label"], "Wichtige Änderung")
+        self.assertEqual(
+            increase["message"],
+            "Dieser Wert hat sich gegenüber dem Vorjahr erhöht.",
+        )
+
+        self.assertEqual(decrease["level"], "notice")
+        self.assertEqual(decrease["label"], "Änderung")
+
+        self.assertEqual(changed["level"], "notice")
+        self.assertEqual(changed["label"], "Änderung")
+
+        self.assertEqual(unchanged["level"], "neutral")
+        self.assertEqual(unchanged["label"], "Keine wichtige Änderung")
+
     def test_build_change_comparison_calculates_differences(self):
         current_bescheid = {
             "amount_due": "630.00",
@@ -219,6 +242,15 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
         self.assertEqual(comparison_by_label["Zahlbetrag"]["difference"], "+117.50")
         self.assertEqual(comparison_by_label["Zahlbetrag"]["percentage"], "+22.93 %")
         self.assertEqual(comparison_by_label["Zahlbetrag"]["change_type"], "Erhöhung")
+        self.assertEqual(comparison_by_label["Zahlbetrag"]["importance"], "important")
+        self.assertEqual(
+            comparison_by_label["Zahlbetrag"]["importance_label"],
+            "Wichtige Änderung",
+        )
+        self.assertEqual(
+            comparison_by_label["Zahlbetrag"]["importance_message"],
+            "Dieser Wert hat sich gegenüber dem Vorjahr erhöht.",
+        )
 
         self.assertEqual(
             comparison_by_label["Gewerbesteuermessbetrag"]["difference"],
@@ -236,14 +268,20 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
         self.assertEqual(comparison_by_label["Hebesatz"]["difference"], "0.00")
         self.assertEqual(comparison_by_label["Hebesatz"]["percentage"], "0.00 %")
         self.assertEqual(comparison_by_label["Hebesatz"]["change_type"], "Unverändert")
+        self.assertEqual(comparison_by_label["Hebesatz"]["importance"], "neutral")
 
         self.assertEqual(
             comparison_by_label["Fälligkeiten"]["change_type"],
             "Nicht vergleichbar",
         )
+        self.assertEqual(comparison_by_label["Fälligkeiten"]["importance"], "neutral")
         self.assertEqual(
             comparison_by_label["Steuerjahr / Erhebungszeitraum"]["change_type"],
             "Geändert",
+        )
+        self.assertEqual(
+            comparison_by_label["Steuerjahr / Erhebungszeitraum"]["importance"],
+            "notice",
         )
 
     def test_build_change_comparison_does_not_divide_by_zero(self):
@@ -498,6 +536,13 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertContains(response, "+117.50")
         self.assertContains(response, "+22.93 %")
         self.assertContains(response, "Erhöhung")
+        self.assertContains(response, "Hervorhebung")
+        self.assertContains(response, "Wichtige Änderung")
+        self.assertContains(
+            response,
+            "Dieser Wert hat sich gegenüber dem Vorjahr erhöht.",
+        )
+        self.assertContains(response, "Keine wichtige Änderung")
 
     def test_post_valid_current_with_invalid_previous_filename_keeps_current_summary(self):
         current_content = VALID_BESCHEID_FIXTURE.read_bytes()
