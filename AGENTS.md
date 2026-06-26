@@ -51,6 +51,10 @@ Aktuelle Struktur:
 ├── CONTRIBUTING.md
 ├── AGENTS.md
 ├── docs/
+│   ├── design.md
+│   ├── design-thinking.md
+│   ├── datenstandard.md
+│   └── testdaten.md
 ├── data/
 └── app/
     ├── manage.py
@@ -130,6 +134,7 @@ Diese Befehle koennen Datenbankdaten, Uploads, Volumes oder lokale Arbeit loesch
 * Business-Logik soll nicht unnoetig in Templates liegen.
 * Komplexere Fachlogik sollte in Services, Utilities oder Modellmethoden ausgelagert werden.
 * Namen von Models, Views und Templates sollen fachlich lesbar sein und zur bestehenden App-Struktur passen.
+* Fuer UI-Aenderungen gelten die Regeln aus `docs/design.md` (KERN-UX, Template-Partials, Barrierearmut, Fehlerzustaende).
 
 Nach Model-Aenderungen ausfuehren:
 
@@ -317,7 +322,7 @@ Tests liegen in `app/xgewerbesteuer/tests/` als Testpaket:
 app/xgewerbesteuer/tests/
 ├── __init__.py
 ├── test_views.py
-├── test_imports.py
+├── test_fixtures.py
 ├── test_xml_uploads.py
 └── fixtures/
 ```
@@ -329,13 +334,13 @@ Bei Bedarf koennen weitere Module wie `test_models.py` oder `test_services.py` e
 `app/xgewerbesteuer/tests/fixtures/` enthaelt anonymisierte XGewerbesteuer-1.4-Beispieldateien
 (Berechnungen `berechnung.gewerbesteuer.0021` und Bescheide `bescheide.gewerbesteuer.generisch.0010`)
 mit fiktiven Daten. Mehrere Dateien bilden denselben Steuerfall ueber verschiedene Jahre ab
-(mit und ohne Insolvenzverfahren) und werden in `test_imports.py` fuer Struktur- und
+(mit und ohne Insolvenzverfahren) und werden in `test_fixtures.py` fuer Struktur- und
 Smoke-Tests verwendet.
 
 * Dateinamen folgen dem Muster `GEWST-<ART>-<Gemeindeschluessel>-<SteuernummerBund>-<Datum>_<nachrichtenID>.xml`.
 * Neue Fixtures sollen ebenfalls rein fiktive Daten (`Muster...`, Steuernummern wie `1234567890000`) verwenden.
 * Fuer neue Fixtures eine bisher unbenutzte `nachrichtenID` (z. B. `00000000-0000-0000-0000-0000000000XX`) waehlen.
-* Vorhandene Fixtures nicht ohne Grund veraendern, da sich Tests in `test_imports.py` auf konkrete Werte beziehen.
+* Vorhandene Fixtures nicht ohne Grund veraendern, da sich Tests in `test_fixtures.py` auf konkrete Werte beziehen.
 
 Vor Abschluss einer Aenderung moeglichst ausfuehren:
 
