@@ -50,6 +50,12 @@ ADVANCE_PAYMENT_FIXTURE = (
     / "GEWST-0003-12345678-1234567890000-2023-01-15_"
     "00000000-0000-0000-0000-000000000033.xml"
 )
+RESPONSIVE_CSS_FILE = (
+    Path(__file__).resolve().parents[1]
+    / "static"
+    / "xgewerbesteuer"
+    / "responsive.css"
+)
 
 
 def uploaded_xml(name, content):
@@ -59,6 +65,14 @@ def uploaded_xml(name, content):
 class XGewerbesteuerExtractionTests(SimpleTestCase):
     def parse(self, xml_text):
         return ElementTree.fromstring(xml_text.encode("utf-8"))
+
+    def test_responsive_css_file_contains_mobile_rules(self):
+        css_content = RESPONSIVE_CSS_FILE.read_text(encoding="utf-8")
+
+        self.assertIn("@media (max-width: 640px)", css_content)
+        self.assertIn(".responsive-table-wrapper", css_content)
+        self.assertIn(".download-actions", css_content)
+        self.assertIn(".app-shell", css_content)
 
     def test_clean_text_normalizes_whitespace_and_empty_values(self):
         self.assertEqual(clean_text("  Stadt   Musterhausen\nNord  "), "Stadt Musterhausen Nord")
@@ -607,6 +621,11 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertContains(response, 'name="vorjahresbescheid"')
         self.assertContains(response, 'accept=".xml"')
         self.assertContains(response, "Anzeige des fälligen Zahlbetrags")
+        self.assertContains(response, 'name="viewport"')
+        self.assertContains(response, "responsive.css")
+        self.assertContains(response, 'class="app-shell"')
+        self.assertContains(response, 'class="xgewerbesteuer-page"')
+        self.assertContains(response, 'class="upload-form"')
 
     def test_post_without_file_shows_missing_file_error(self):
         response = self.client.post(reverse("xgewerbesteuer_default"), data={})
@@ -748,6 +767,20 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertIn(CSV_EXPORT_SESSION_KEY, self.client.session)
         self.assertContains(response, "CSV-Export")
         self.assertContains(response, "CSV-Export herunterladen")
+
+    def test_valid_upload_uses_responsive_result_layout(self):
+        content = VALID_BESCHEID_FIXTURE.read_bytes()
+
+        response = self.client.post(
+            reverse("xgewerbesteuer_default"),
+            data={"bescheid": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "responsive-table-wrapper")
+        self.assertContains(response, "responsive-table")
+        self.assertContains(response, "download-actions")
+        self.assertContains(response, "status-card")
 
     def test_post_valid_current_without_previous_hides_change_comparison(self):
         content = VALID_BESCHEID_FIXTURE.read_bytes()
