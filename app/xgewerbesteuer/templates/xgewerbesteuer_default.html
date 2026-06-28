@@ -214,6 +214,78 @@ Gewerbesteuerbescheid-Assistent
             </div>
         </section>
 
+        {% if due_date_calendar %}
+            <section class="result-section due-date-calendar-section" aria-labelledby="due-date-calendar-heading">
+                <h2 id="due-date-calendar-heading">Kalenderansicht der Fälligkeiten</h2>
+
+                <p>
+                    Diese Kalenderansicht nutzt die aus dem Bescheid ausgelesenen Fälligkeiten.
+                    Sie dient der zeitlichen Orientierung und ersetzt keine steuerliche Beratung.
+                </p>
+
+                <p class="help-text">
+                    Es werden keine externen Kalenderdienste genutzt und keine Bescheiddaten an Dritte übertragen.
+                </p>
+
+                {% if due_date_calendar.has_entries %}
+                    <div class="due-date-calendar">
+                        {% for month in due_date_calendar.months %}
+                            <section class="due-date-calendar-month" aria-label="{{ month.label }}">
+                                <h3>{{ month.label }}</h3>
+
+                                <ul class="due-date-calendar-list">
+                                    {% for entry in month.entries %}
+                                        <li class="due-date-calendar-entry">
+                                            <p class="due-date-calendar-date">
+                                                {{ entry.display_date }}
+                                            </p>
+                                            <p>
+                                                {{ entry.label }}
+                                            </p>
+                                            <p class="due-date-calendar-meta">
+                                                Betrag: {{ entry.amount }}<br>
+                                                Zahlungsart: {{ entry.payment_type }}
+                                            </p>
+                                            {% if entry.notes %}
+                                                <ul>
+                                                    {% for note in entry.notes %}
+                                                        <li>{{ note }}</li>
+                                                    {% endfor %}
+                                                </ul>
+                                            {% endif %}
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            </section>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="due-date-calendar-empty">
+                        {{ due_date_calendar.empty_message }}
+                    </p>
+                {% endif %}
+
+                {% if due_date_calendar.undated_items %}
+                    <h3>Hinweise ohne verwertbares Datum</h3>
+
+                    <ul class="due-date-calendar-list">
+                        {% for item in due_date_calendar.undated_items %}
+                            <li class="due-date-calendar-entry">
+                                {{ item.payment_type }}: {{ item.amount }}
+                                {% if item.notes %}
+                                    <ul>
+                                        {% for note in item.notes %}
+                                            <li>{{ note }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% endif %}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+            </section>
+        {% endif %}
+
         {% if notice_items %}
             <section class="result-section" aria-labelledby="notice-heading">
                 <h2 id="notice-heading">Hinweisbereich</h2>
