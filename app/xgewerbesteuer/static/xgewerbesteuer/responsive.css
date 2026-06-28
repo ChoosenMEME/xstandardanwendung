@@ -1,0 +1,102 @@
+.app-shell {
+    width: min(100%, 72rem);
+    margin: 0 auto;
+    padding: clamp(1rem, 4vw, 2rem);
+}
+
+.xgewerbesteuer-page {
+    max-width: 100%;
+}
+
+.xgewerbesteuer-page * {
+    box-sizing: border-box;
+}
+
+.upload-form {
+    max-width: 42rem;
+}
+
+.upload-form input[type="file"] {
+    max-width: 100%;
+}
+
+.download-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: stretch;
+    margin: 0 0 1.5rem 0;
+}
+
+.download-actions a {
+    display: inline-block;
+    max-width: 100%;
+}
+
+.message-card,
+.status-card,
+.notice-card {
+    max-width: 100%;
+}
+
+.responsive-table-wrapper {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    margin: 0 0 1.5rem 0;
+}
+
+.responsive-table {
+    width: max-content;
+    min-width: 100%;
+}
+
+.responsive-table th,
+.responsive-table td {
+    vertical-align: top;
+}
+
+@media (max-width: 640px) {
+    .app-shell {
+        padding: 0.75rem;
+    }
+
+    .xgewerbesteuer-page h1 {
+        font-size: clamp(1.75rem, 8vw, 2.5rem);
+        line-height: 1.15;
+    }
+
+    .xgewerbesteuer-page h2 {
+        font-size: clamp(1.25rem, 6vw, 1.75rem);
+        line-height: 1.2;
+    }
+
+    .upload-form button,
+    .upload-form input[type="file"] {
+        width: 100%;
+    }
+
+    .download-actions {
+        flex-direction: column;
+    }
+
+    .download-actions a {
+        width: 100%;
+    }
+
+    .message-card,
+    .status-card,
+    .notice-card {
+        padding: 0.75rem !important;
+    }
+
+    .responsive-table {
+        font-size: 0.95rem;
+    }
+
+    .responsive-table th,
+    .responsive-table td {
+        min-width: 10rem;
+        padding: 0.5rem 0.75rem !important;
+    }
+}

@@ -5,7 +5,7 @@ Gewerbesteuerbescheid-Assistent
 {% endblock %}
 
 {% block content %}
-<section>
+<section class="xgewerbesteuer-page">
     <h1>Gewerbesteuerbescheid-Assistent</h1>
 
     <p>
@@ -51,7 +51,7 @@ Gewerbesteuerbescheid-Assistent
         hochgeladen und verarbeitet werden.
     </p>
 
-    <form method="post" enctype="multipart/form-data">
+    <form method="post" enctype="multipart/form-data" class="upload-form">
         {% csrf_token %}
 
         <p>
@@ -92,7 +92,7 @@ Gewerbesteuerbescheid-Assistent
     {% endif %}
 
     {% if validation_error %}
-        <div role="alert" style="border: 1px solid #b00020; padding: 12px; margin-top: 16px;">
+        <div role="alert" class="message-card error-card" style="border: 1px solid #b00020; padding: 12px; margin-top: 16px;">
             <h2>Validierungsfehler</h2>
             <p>
                 <strong>{{ validation_error }}</strong>
@@ -104,7 +104,7 @@ Gewerbesteuerbescheid-Assistent
     {% endif %}
 
     {% if previous_upload_error %}
-        <div role="alert" style="border: 1px solid #b00020; padding: 12px; margin-top: 16px;">
+        <div role="alert" class="message-card error-card" style="border: 1px solid #b00020; padding: 12px; margin-top: 16px;">
             <h2>Upload des Vorjahresbescheids nicht möglich</h2>
             <p>
                 <strong>{{ previous_upload_error }}</strong>
@@ -116,7 +116,7 @@ Gewerbesteuerbescheid-Assistent
     {% endif %}
 
     {% if previous_validation_error %}
-        <div role="alert" style="border: 1px solid #b00020; padding: 12px; margin-top: 16px;">
+        <div role="alert" class="message-card error-card" style="border: 1px solid #b00020; padding: 12px; margin-top: 16px;">
             <h2>Validierungsfehler beim Vorjahresbescheid</h2>
             <p>
                 <strong>{{ previous_validation_error }}</strong>
@@ -138,7 +138,7 @@ Gewerbesteuerbescheid-Assistent
         {% if status_indicator %}
             <h2>Statusanzeige</h2>
 
-            <div role="status" class="{{ status_indicator.css_class }}" style="border: 1px solid #cccccc; padding: 12px; margin-bottom: 16px;">
+            <div role="status" class="{{ status_indicator.css_class }} status-card" style="border: 1px solid #cccccc; padding: 12px; margin-bottom: 16px;">
                 <p>
                     <strong>Status: {{ status_indicator.label }}</strong>
                 </p>
@@ -160,12 +160,6 @@ Gewerbesteuerbescheid-Assistent
             Der Bericht enthält die verständliche Zusammenfassung, Hinweise, Status und verfügbare Vergleichswerte.
         </p>
 
-        <p>
-            <a href="{% url 'xgewerbesteuer_pdf_report' %}">
-                PDF-Bericht herunterladen
-            </a>
-        </p>
-
         <h2>CSV-Export</h2>
 
         <p>
@@ -173,36 +167,42 @@ Gewerbesteuerbescheid-Assistent
             Die Datei enthält strukturierte Auswertungsdaten für Tabellenprogramme.
         </p>
 
-        <p>
+        <div class="download-actions" aria-label="Downloadmöglichkeiten">
+            <a href="{% url 'xgewerbesteuer_pdf_report' %}">
+                PDF-Bericht herunterladen
+            </a>
+
             <a href="{% url 'xgewerbesteuer_csv_export' %}">
                 CSV-Export herunterladen
             </a>
-        </p>
+        </div>
 
-        <table style="border-collapse: collapse; margin-left: 0; text-align: left;">
-            <thead>
-                <tr>
-                    <th scope="col" style="text-align: left; padding: 4px 24px 4px 0;">
-                        Information
-                    </th>
-                    <th scope="col" style="text-align: left; padding: 4px 0;">
-                        Wert
-                    </th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in summary_items %}
+        <div class="responsive-table-wrapper">
+            <table class="responsive-table" style="border-collapse: collapse; margin-left: 0; text-align: left;">
+                <thead>
                     <tr>
-                        <th scope="row" style="text-align: left; padding: 4px 24px 4px 0;">
-                            {{ item.label }}
+                        <th scope="col" style="text-align: left; padding: 4px 24px 4px 0;">
+                            Information
                         </th>
-                        <td style="text-align: left; padding: 4px 0;">
-                            <strong>{{ item.value }}</strong>
-                        </td>
+                        <th scope="col" style="text-align: left; padding: 4px 0;">
+                            Wert
+                        </th>
                     </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    {% for item in summary_items %}
+                        <tr>
+                            <th scope="row" style="text-align: left; padding: 4px 24px 4px 0;">
+                                {{ item.label }}
+                            </th>
+                            <td style="text-align: left; padding: 4px 0;">
+                                <strong>{{ item.value }}</strong>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
 
         {% if notice_items %}
             <h2>Hinweisbereich</h2>
@@ -214,7 +214,7 @@ Gewerbesteuerbescheid-Assistent
 
             <ul style="list-style: none; padding-left: 0;">
                 {% for notice in notice_items %}
-                    <li style="border: 1px solid #cccccc; padding: 12px; margin-bottom: 12px;">
+                    <li class="notice-card" style="border: 1px solid #cccccc; padding: 12px; margin-bottom: 12px;">
                         <p>
                             <strong>{{ notice.severity_label }}: {{ notice.title }}</strong>
                         </p>
@@ -242,7 +242,8 @@ Gewerbesteuerbescheid-Assistent
                 Die Steuerjahre bzw. Erhebungszeiträume werden hier getrennt angezeigt.
             </p>
 
-            <table style="border-collapse: collapse; margin-left: 0; text-align: left;">
+            <div class="responsive-table-wrapper">
+                <table class="responsive-table" style="border-collapse: collapse; margin-left: 0; text-align: left;">
                 <thead>
                     <tr>
                         <th scope="col" style="text-align: left; padding: 4px 24px 4px 0;">
@@ -271,7 +272,8 @@ Gewerbesteuerbescheid-Assistent
                         </td>
                     </tr>
                 </tbody>
-            </table>
+                </table>
+            </div>
 
             {% if period_comparison_notice %}
                 <p>
@@ -288,7 +290,8 @@ Gewerbesteuerbescheid-Assistent
                     Es handelt sich um einen neutralen Datenvergleich und nicht um eine steuerliche Bewertung.
                 </p>
 
-                <table style="border-collapse: collapse; margin-left: 0; text-align: left;">
+                <div class="responsive-table-wrapper">
+                    <table class="responsive-table" style="border-collapse: collapse; margin-left: 0; text-align: left;">
                     <thead>
                         <tr>
                             <th scope="col" style="text-align: left; padding: 4px 24px 4px 0;">
@@ -342,7 +345,8 @@ Gewerbesteuerbescheid-Assistent
                             </tr>
                         {% endfor %}
                     </tbody>
-                </table>
+                    </table>
+                </div>
             {% endif %}
         {% endif %}
 
@@ -407,7 +411,8 @@ Gewerbesteuerbescheid-Assistent
                 Es handelt sich um zukünftige oder gesonderte Zahlungspflichten.
             </p>
 
-            <table style="border-collapse: collapse; margin-left: 0; text-align: left;">
+            <div class="responsive-table-wrapper">
+                <table class="responsive-table" style="border-collapse: collapse; margin-left: 0; text-align: left;">
                 <thead>
                     <tr>
                         <th scope="col" style="text-align: left; padding: 4px 24px 4px 0;">
@@ -442,7 +447,8 @@ Gewerbesteuerbescheid-Assistent
                         </tr>
                     {% endfor %}
                 </tbody>
-            </table>
+                </table>
+            </div>
 
             <p>
                 Hinweis: Vorauszahlungen werden getrennt von endgültigen Festsetzungen,
@@ -457,7 +463,7 @@ Gewerbesteuerbescheid-Assistent
     {% endif %}
 
     {% if upload_error %}
-        <div role="alert" style="border: 1px solid #b00020; padding: 12px; margin-top: 16px;">
+        <div role="alert" class="message-card error-card" style="border: 1px solid #b00020; padding: 12px; margin-top: 16px;">
             <h2>Upload nicht möglich</h2>
             <p>
                 <strong>{{ upload_error }}</strong>
