@@ -1,5 +1,6 @@
+import csv
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
-from io import BytesIO
+from io import BytesIO, StringIO
 from pathlib import Path
 from xml.etree.ElementTree import ParseError
 
@@ -22,6 +23,26 @@ XSD_SCHEMA_FILES = [
 
 MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024
 PDF_REPORT_SESSION_KEY = "xgewerbesteuer_pdf_report"
+CSV_EXPORT_SESSION_KEY = "xgewerbesteuer_csv_export"
+
+CSV_EXPORT_COLUMNS = [
+    "Datensatztyp",
+    "Steuerjahr / Erhebungszeitraum",
+    "Gemeinde / Kommune",
+    "Zahlbetrag",
+    "Gewerbesteuermessbetrag",
+    "Hebesatz",
+    "Fälligkeit",
+    "Zahlungsart",
+    "Hinweis / Status",
+    "Beschreibung",
+    "Betrag",
+    "Zeitraum / Bezugsjahr",
+    "Vergleichswert Vorjahr",
+    "Differenz",
+    "Prozentuale Änderung",
+    "Einordnung",
+]
 
 
 def get_local_name(tag):
@@ -1182,6 +1203,137 @@ def create_pdf_report(report_data):
     return pdf_content
 
 
+def normalize_csv_value(value):
+    if value is None:
+        return ""
+
+    return str(value)
+
+
+def get_summary_value(report_data, label):
+    for item in report_data.get("summary_items", []):
+        if item.get("label") == label:
+            return item.get("value", "")
+
+    return ""
+
+
+def build_base_csv_row(report_data):
+    return {
+        "Steuerjahr / Erhebungszeitraum": get_summary_value(
+            report_data,
+            "Steuerjahr / Erhebungszeitraum",
+        ),
+        "Gemeinde / Kommune": get_summary_value(report_data, "Gemeinde / Kommune"),
+        "Zahlbetrag": get_summary_value(report_data, "Zahlbetrag"),
+        "Gewerbesteuermessbetrag": get_summary_value(
+            report_data,
+            "Gewerbesteuermessbetrag",
+        ),
+        "Hebesatz": get_summary_value(report_data, "Hebesatz"),
+        "Fälligkeit": get_summary_value(report_data, "Fälligkeiten"),
+        "Zahlungsart": get_summary_value(report_data, "Zahlungsart"),
+    }
+
+
+def split_due_dates(due_dates):
+    if not due_dates or due_dates == "Nicht gefunden":
+        return []
+
+    return [
+        due_date.strip()
+        for due_date in str(due_dates).split(",")
+        if due_date.strip()
+    ]
+
+
+def build_csv_export_rows(report_data):
+    rows = []
+    base_row = build_base_csv_row(report_data)
+
+    summary_row = base_row.copy()
+    summary_row["Datensatztyp"] = "Zusammenfassung"
+
+    status_indicator = report_data.get("status_indicator")
+    if status_indicator:
+        summary_row["Hinweis / Status"] = status_indicator.get("label", "")
+        summary_row["Beschreibung"] = status_indicator.get("message", "")
+
+    rows.append(summary_row)
+
+    if status_indicator:
+        status_row = base_row.copy()
+        status_row["Datensatztyp"] = "Status"
+        status_row["Hinweis / Status"] = status_indicator.get("label", "")
+        status_row["Beschreibung"] = status_indicator.get("message", "")
+        rows.append(status_row)
+
+    for due_date in split_due_dates(base_row.get("Fälligkeit")):
+        due_date_row = base_row.copy()
+        due_date_row["Datensatztyp"] = "Fälligkeit"
+        due_date_row["Fälligkeit"] = due_date
+        rows.append(due_date_row)
+
+    for notice in report_data.get("notice_items", []):
+        notice_row = base_row.copy()
+        notice_row["Datensatztyp"] = "Hinweis"
+        notice_row["Hinweis / Status"] = (
+            f"{notice.get('severity_label', '')}: {notice.get('title', '')}"
+        ).strip()
+        description = notice.get("message", "")
+
+        if notice.get("recommendation"):
+            description = f"{description} Empfehlung: {notice['recommendation']}"
+
+        notice_row["Beschreibung"] = description
+        rows.append(notice_row)
+
+    for payment in report_data.get("advance_payments", []):
+        payment_row = base_row.copy()
+        payment_row["Datensatztyp"] = "Vorauszahlung"
+        payment_row["Betrag"] = payment.get("amount", "")
+        payment_row["Fälligkeit"] = payment.get("due_date", "")
+        payment_row["Zeitraum / Bezugsjahr"] = payment.get("period", "")
+        payment_row["Zahlungsart"] = payment.get("type", "")
+        rows.append(payment_row)
+
+    for item in report_data.get("change_comparison_items", []):
+        comparison_row = base_row.copy()
+        comparison_row["Datensatztyp"] = "Vorjahresvergleich"
+        comparison_row["Beschreibung"] = item.get("label", "")
+        comparison_row["Betrag"] = item.get("current_value", "")
+        comparison_row["Vergleichswert Vorjahr"] = item.get("previous_value", "")
+        comparison_row["Differenz"] = item.get("difference", "")
+        comparison_row["Prozentuale Änderung"] = item.get("percentage", "")
+        comparison_row["Einordnung"] = item.get("change_type", "")
+        comparison_row["Hinweis / Status"] = item.get("importance_label", "")
+        rows.append(comparison_row)
+
+    return rows
+
+
+def create_csv_export(report_data):
+    output = StringIO()
+    writer = csv.DictWriter(
+        output,
+        fieldnames=CSV_EXPORT_COLUMNS,
+        delimiter=";",
+        lineterminator="\n",
+    )
+
+    writer.writeheader()
+
+    for row in build_csv_export_rows(report_data):
+        writer.writerow(
+            {
+                column: normalize_csv_value(row.get(column, ""))
+                for column in CSV_EXPORT_COLUMNS
+            }
+        )
+
+    return output.getvalue()
+
+
 def xgewerbesteuer_pdf_report(request):
     report_data = request.session.get(PDF_REPORT_SESSION_KEY)
 
@@ -1200,10 +1352,31 @@ def xgewerbesteuer_pdf_report(request):
     return response
 
 
+def xgewerbesteuer_csv_export(request):
+    export_data = request.session.get(CSV_EXPORT_SESSION_KEY)
+
+    if not export_data:
+        return HttpResponse(
+            "Es liegen keine Daten für einen CSV-Export vor. Bitte laden Sie zuerst einen gültigen Bescheid hoch.",
+            status=404,
+            content_type="text/plain; charset=utf-8",
+        )
+
+    csv_content = create_csv_export(export_data)
+
+    response = HttpResponse(csv_content, content_type="text/csv; charset=utf-8")
+    response["Content-Disposition"] = 'attachment; filename="gewerbesteuerbescheid-export.csv"'
+
+    return response
+
+
 def xgewerbesteuer_default(request):
     context = {}
 
     if request.method == "POST":
+        request.session.pop(PDF_REPORT_SESSION_KEY, None)
+        request.session.pop(CSV_EXPORT_SESSION_KEY, None)
+
         uploaded_file = request.FILES.get("bescheid")
         previous_uploaded_file = request.FILES.get("vorjahresbescheid")
 
@@ -1269,6 +1442,8 @@ def xgewerbesteuer_default(request):
                     context.get("notice_items"),
                     context.get("change_comparison_items"),
                 )
-                request.session[PDF_REPORT_SESSION_KEY] = build_pdf_report_data(context)
+                report_data = build_pdf_report_data(context)
+                request.session[PDF_REPORT_SESSION_KEY] = report_data
+                request.session[CSV_EXPORT_SESSION_KEY] = report_data
 
     return render(request, "xgewerbesteuer_default.html", context)

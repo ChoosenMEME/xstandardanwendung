@@ -1,5 +1,7 @@
 """Regressionstests fuer XML-Upload, Extraktion und Validierung."""
 
+import csv
+from io import StringIO
 from pathlib import Path
 
 from defusedxml import ElementTree
@@ -8,6 +10,8 @@ from django.test import SimpleTestCase
 from django.urls import reverse
 
 from xgewerbesteuer.views import (
+    CSV_EXPORT_COLUMNS,
+    CSV_EXPORT_SESSION_KEY,
     MAX_UPLOAD_SIZE_BYTES,
     PDF_REPORT_SESSION_KEY,
     build_change_comparison,
@@ -17,6 +21,7 @@ from xgewerbesteuer.views import (
     clean_text,
     classify_change_importance,
     classify_payment_type,
+    create_csv_export,
     extract_amount_due,
     extract_assessment_rate,
     extract_advance_payments,
@@ -462,6 +467,105 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
             "Erhöhung",
         )
 
+    def test_create_csv_export_contains_stable_columns_and_summary_values(self):
+        report_data = {
+            "summary_items": [
+                {"label": "Gemeinde / Kommune", "value": "Stadt Musterhausen"},
+                {"label": "Steuerjahr / Erhebungszeitraum", "value": "2023"},
+                {"label": "Zahlbetrag", "value": "630.00"},
+                {"label": "Zahlungsart", "value": "Nachzahlung"},
+                {"label": "Gewerbesteuermessbetrag", "value": "150.00"},
+                {"label": "Hebesatz", "value": "420"},
+                {"label": "Fälligkeiten", "value": "2025-02-15"},
+            ],
+            "status_indicator": {
+                "label": "Frist beachten",
+                "message": "Bitte beachten Sie mögliche Fristen.",
+            },
+            "notice_items": [],
+            "advance_payments": [],
+            "change_comparison_items": [],
+        }
+
+        csv_content = create_csv_export(report_data)
+        reader = csv.DictReader(StringIO(csv_content), delimiter=";")
+        rows = list(reader)
+
+        self.assertEqual(reader.fieldnames, CSV_EXPORT_COLUMNS)
+        self.assertEqual(rows[0]["Datensatztyp"], "Zusammenfassung")
+        self.assertEqual(rows[0]["Gemeinde / Kommune"], "Stadt Musterhausen")
+        self.assertEqual(rows[0]["Steuerjahr / Erhebungszeitraum"], "2023")
+        self.assertEqual(rows[0]["Zahlbetrag"], "630.00")
+        self.assertEqual(rows[0]["Hinweis / Status"], "Frist beachten")
+        self.assertNotIn("None", csv_content)
+
+    def test_create_csv_export_writes_multiple_due_dates_and_advance_payments_as_rows(self):
+        report_data = {
+            "summary_items": [
+                {"label": "Gemeinde / Kommune", "value": "Stadt Musterhausen"},
+                {"label": "Steuerjahr / Erhebungszeitraum", "value": "2023"},
+                {"label": "Zahlbetrag", "value": "630.00"},
+                {"label": "Zahlungsart", "value": "Vorauszahlung"},
+                {"label": "Gewerbesteuermessbetrag", "value": "150.00"},
+                {"label": "Hebesatz", "value": "420"},
+                {"label": "Fälligkeiten", "value": "2025-02-15, 2025-03-15"},
+            ],
+            "status_indicator": None,
+            "notice_items": [],
+            "advance_payments": [
+                {
+                    "amount": "147.00",
+                    "due_date": "2025-04-15",
+                    "period": "2023",
+                    "type": "Vorauszahlung",
+                },
+                {
+                    "amount": "148.00",
+                    "due_date": "2025-05-15",
+                    "period": "2023",
+                    "type": "Vorauszahlung",
+                },
+            ],
+            "change_comparison_items": [],
+        }
+
+        csv_content = create_csv_export(report_data)
+        reader = csv.DictReader(StringIO(csv_content), delimiter=";")
+        rows = list(reader)
+
+        record_types = [row["Datensatztyp"] for row in rows]
+
+        self.assertEqual(record_types.count("Fälligkeit"), 2)
+        self.assertEqual(record_types.count("Vorauszahlung"), 2)
+        self.assertTrue(any(row["Fälligkeit"] == "2025-02-15" for row in rows))
+        self.assertTrue(any(row["Betrag"] == "147.00" for row in rows))
+
+    def test_create_csv_export_keeps_utf8_special_characters(self):
+        report_data = {
+            "summary_items": [
+                {"label": "Gemeinde / Kommune", "value": "Stadt München"},
+                {"label": "Steuerjahr / Erhebungszeitraum", "value": "2023"},
+                {"label": "Zahlbetrag", "value": "100.00"},
+                {"label": "Zahlungsart", "value": "Nachzahlung"},
+                {"label": "Gewerbesteuermessbetrag", "value": "25.00"},
+                {"label": "Hebesatz", "value": "490"},
+                {"label": "Fälligkeiten", "value": "2025-02-15"},
+            ],
+            "status_indicator": {
+                "label": "Warnung / Auffälligkeit",
+                "message": "Der Bescheid enthält Auffälligkeiten.",
+            },
+            "notice_items": [],
+            "advance_payments": [],
+            "change_comparison_items": [],
+        }
+
+        csv_content = create_csv_export(report_data)
+
+        self.assertIn("Stadt München", csv_content)
+        self.assertIn("Fälligkeit", csv_content)
+        self.assertIn("Warnung / Auffälligkeit", csv_content)
+
 
 class XGewerbesteuerXsdValidationTests(SimpleTestCase):
     def test_valid_fixture_matches_an_xgewerbesteuer_schema(self):
@@ -641,6 +745,9 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertIn(PDF_REPORT_SESSION_KEY, self.client.session)
         self.assertContains(response, "PDF-Bericht")
         self.assertContains(response, "PDF-Bericht herunterladen")
+        self.assertIn(CSV_EXPORT_SESSION_KEY, self.client.session)
+        self.assertContains(response, "CSV-Export")
+        self.assertContains(response, "CSV-Export herunterladen")
 
     def test_post_valid_current_without_previous_hides_change_comparison(self):
         content = VALID_BESCHEID_FIXTURE.read_bytes()
@@ -784,6 +891,75 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         pdf_response = self.client.get(reverse("xgewerbesteuer_pdf_report"))
 
         self.assertEqual(pdf_response.status_code, 404)
+
+    def test_csv_export_requires_successful_upload(self):
+        response = self.client.get(reverse("xgewerbesteuer_csv_export"))
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response["Content-Type"], "text/plain; charset=utf-8")
+        self.assertIn(
+            "Bitte laden Sie zuerst einen gültigen Bescheid hoch.",
+            response.content.decode("utf-8"),
+        )
+
+    def test_csv_export_download_after_valid_upload(self):
+        content = VALID_BESCHEID_FIXTURE.read_bytes()
+
+        upload_response = self.client.post(
+            reverse("xgewerbesteuer_default"),
+            data={"bescheid": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
+        )
+
+        self.assertEqual(upload_response.status_code, 200)
+        self.assertIn(CSV_EXPORT_SESSION_KEY, self.client.session)
+
+        csv_response = self.client.get(reverse("xgewerbesteuer_csv_export"))
+
+        self.assertEqual(csv_response.status_code, 200)
+        self.assertEqual(csv_response["Content-Type"], "text/csv; charset=utf-8")
+        self.assertIn(
+            'attachment; filename="gewerbesteuerbescheid-export.csv"',
+            csv_response["Content-Disposition"],
+        )
+
+        csv_content = csv_response.content.decode("utf-8")
+
+        self.assertIn("Datensatztyp", csv_content)
+        self.assertIn("Stadt Musterhausen", csv_content)
+        self.assertIn("Nachzahlung", csv_content)
+        self.assertNotIn("<nachricht", csv_content)
+        self.assertNotIn("Traceback", csv_content)
+        self.assertNotIn("DEBUG", csv_content)
+
+    def test_invalid_upload_does_not_create_csv_export(self):
+        response = self.client.post(
+            reverse("xgewerbesteuer_default"),
+            data={"bescheid": uploaded_xml("bescheid.xml", b"<nachricht/>")},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn(CSV_EXPORT_SESSION_KEY, self.client.session)
+
+        csv_response = self.client.get(reverse("xgewerbesteuer_csv_export"))
+
+        self.assertEqual(csv_response.status_code, 404)
+
+    def test_csv_export_after_advance_payment_upload_contains_advance_payment_row(self):
+        content = ADVANCE_PAYMENT_FIXTURE.read_bytes()
+
+        upload_response = self.client.post(
+            reverse("xgewerbesteuer_default"),
+            data={"bescheid": uploaded_xml(ADVANCE_PAYMENT_FIXTURE.name, content)},
+        )
+
+        self.assertEqual(upload_response.status_code, 200)
+
+        csv_response = self.client.get(reverse("xgewerbesteuer_csv_export"))
+        csv_content = csv_response.content.decode("utf-8")
+
+        self.assertEqual(csv_response.status_code, 200)
+        self.assertIn("Vorauszahlung", csv_content)
+        self.assertIn("147.00", csv_content)
 
     def test_post_valid_current_with_schema_invalid_previous_keeps_current_summary(self):
         current_content = VALID_BESCHEID_FIXTURE.read_bytes()
