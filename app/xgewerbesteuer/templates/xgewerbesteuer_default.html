@@ -6,93 +6,107 @@ Gewerbesteuerbescheid-Assistent
 
 {% block content %}
 <section class="xgewerbesteuer-page">
-    <h1>Gewerbesteuerbescheid-Assistent</h1>
+    <header class="page-header">
+        <h1>Gewerbesteuerbescheid-Assistent</h1>
 
-    <p>
-        Diese Anwendung unterstützt kleine Unternehmen dabei, digitale
-        Gewerbesteuerbescheide im XGewerbesteuer-Format verständlich auszuwerten.
-    </p>
+        <div class="page-intro">
+            <p>
+                Diese Anwendung unterstützt kleine Unternehmen dabei, digitale
+                Gewerbesteuerbescheide im XGewerbesteuer-Format verständlich auszuwerten.
+            </p>
 
-    <p>
-        Laden Sie einen Gewerbesteuerbescheid als XML-Datei hoch. Die Anwendung
-        liest zentrale Informationen aus dem Bescheid aus und stellt diese
-        übersichtlich und verständlich dar.
-    </p>
+            <p>
+                Laden Sie einen Gewerbesteuerbescheid als XML-Datei hoch. Die Anwendung
+                liest zentrale Informationen aus dem Bescheid aus und stellt diese
+                übersichtlich und verständlich dar.
+            </p>
+        </div>
+    </header>
 
-    <h2>Was kann die Anwendung?</h2>
+    <section class="content-section" aria-labelledby="funktionen-heading">
+        <h2 id="funktionen-heading">Was kann die Anwendung?</h2>
 
-    <ul>
-        <li>Anzeige des fälligen Zahlbetrags</li>
-        <li>Anzeige der Gemeinde oder Kommune</li>
-        <li>Anzeige des Steuerjahres oder Erhebungszeitraums</li>
-        <li>Anzeige des Gewerbesteuermessbetrags</li>
-        <li>Anzeige des Hebesatzes</li>
-        <li>Übersicht über wichtige Fälligkeiten</li>
-    </ul>
+        <ul>
+            <li>Anzeige des fälligen Zahlbetrags</li>
+            <li>Anzeige der Gemeinde oder Kommune</li>
+            <li>Anzeige des Steuerjahres oder Erhebungszeitraums</li>
+            <li>Anzeige des Gewerbesteuermessbetrags</li>
+            <li>Anzeige des Hebesatzes</li>
+            <li>Übersicht über wichtige Fälligkeiten</li>
+        </ul>
+    </section>
 
-    <h2>Warum ist das hilfreich?</h2>
-
-    <p>
-        Gewerbesteuerbescheide enthalten viele fachliche Informationen, die für
-        Unternehmen nicht immer sofort verständlich sind. Der Assistent soll dabei
-        helfen, wichtige Beträge, Fristen und Berechnungsgrundlagen schneller zu
-        erkennen.
-    </p>
-
-    <p>
-        Ziel ist es, aus einem technischen XML-Bescheid eine verständliche
-        Zusammenfassung für den Nutzer zu erzeugen.
-    </p>
-
-    <h2>Nächster Schritt</h2>
-
-    <p>
-        Im nächsten Schritt kann ein XGewerbesteuer-Bescheid als XML-Datei
-        hochgeladen und verarbeitet werden.
-    </p>
-
-    <form method="post" enctype="multipart/form-data" class="upload-form">
-        {% csrf_token %}
+    <section class="content-section" aria-labelledby="nutzen-heading">
+        <h2 id="nutzen-heading">Warum ist das hilfreich?</h2>
 
         <p>
-            <label for="bescheid">Aktuellen XGewerbesteuer-Bescheid auswählen (Pflicht):</label><br>
-            <input type="file" id="bescheid" name="bescheid" accept=".xml">
+            Gewerbesteuerbescheide enthalten viele fachliche Informationen, die für
+            Unternehmen nicht immer sofort verständlich sind. Der Assistent soll dabei
+            helfen, wichtige Beträge, Fristen und Berechnungsgrundlagen schneller zu
+            erkennen.
         </p>
 
         <p>
-            <label for="vorjahresbescheid">Vorjahresbescheid optional auswählen:</label><br>
-            <input type="file" id="vorjahresbescheid" name="vorjahresbescheid" accept=".xml">
+            Ziel ist es, aus einem technischen XML-Bescheid eine verständliche
+            Zusammenfassung für den Nutzer zu erzeugen.
+        </p>
+    </section>
+
+    <section class="form-card" aria-labelledby="upload-heading">
+        <h2 id="upload-heading">Bescheid hochladen</h2>
+
+        <p class="form-hint">
+            Im nächsten Schritt kann ein XGewerbesteuer-Bescheid als XML-Datei
+            hochgeladen und verarbeitet werden.
         </p>
 
-        <p>
-            Beide Dateien werden nur für diese Anfrage verarbeitet und nicht dauerhaft gespeichert.
-        </p>
+        <form method="post" enctype="multipart/form-data" class="upload-form">
+            {% csrf_token %}
 
-        <p>
-            <button type="submit">
-                Bescheide hochladen
-            </button>
-        </p>
-    </form>
+            <p class="form-field">
+                <label for="bescheid">Aktuellen XGewerbesteuer-Bescheid auswählen (Pflicht):</label><br>
+                <input type="file" id="bescheid" name="bescheid" accept=".xml">
+            </p>
 
-    {% if uploaded_file_name %}
-        <h2>Upload erfolgreich</h2>
-        <p>
-            Die Datei <strong>{{ uploaded_file_name }}</strong> wurde erfolgreich hochgeladen.
-        </p>
-        <p>
-            Dateigröße: {{ uploaded_file_size }} Byte
-        </p>
-    {% endif %}
+            <p class="form-field">
+                <label for="vorjahresbescheid">Vorjahresbescheid optional auswählen:</label><br>
+                <input type="file" id="vorjahresbescheid" name="vorjahresbescheid" accept=".xml">
+            </p>
 
-    {% if validation_success %}
-        <p>
-            <strong>{{ validation_success }}</strong>
-        </p>
+            <p class="help-text">
+                Beide Dateien werden nur für diese Anfrage verarbeitet und nicht dauerhaft gespeichert.
+            </p>
+
+            <p>
+                <button type="submit" class="primary-action">
+                    Bescheide hochladen
+                </button>
+            </p>
+        </form>
+    </section>
+
+    {% if uploaded_file_name or validation_success %}
+        <div class="message-card message-card--success" role="status">
+            {% if uploaded_file_name %}
+                <h2>Upload erfolgreich</h2>
+                <p>
+                    Die Datei <strong>{{ uploaded_file_name }}</strong> wurde erfolgreich hochgeladen.
+                </p>
+                <p>
+                    Dateigröße: {{ uploaded_file_size }} Byte
+                </p>
+            {% endif %}
+
+            {% if validation_success %}
+                <p>
+                    <strong>{{ validation_success }}</strong>
+                </p>
+            {% endif %}
+        </div>
     {% endif %}
 
     {% if validation_error %}
-        <div role="alert" class="message-card error-card" style="border: 1px solid #b00020; padding: 12px; margin-top: 16px;">
+        <div role="alert" class="message-card message-card--error">
             <h2>Validierungsfehler</h2>
             <p>
                 <strong>{{ validation_error }}</strong>
@@ -104,7 +118,7 @@ Gewerbesteuerbescheid-Assistent
     {% endif %}
 
     {% if previous_upload_error %}
-        <div role="alert" class="message-card error-card" style="border: 1px solid #b00020; padding: 12px; margin-top: 16px;">
+        <div role="alert" class="message-card message-card--error">
             <h2>Upload des Vorjahresbescheids nicht möglich</h2>
             <p>
                 <strong>{{ previous_upload_error }}</strong>
@@ -116,7 +130,7 @@ Gewerbesteuerbescheid-Assistent
     {% endif %}
 
     {% if previous_validation_error %}
-        <div role="alert" class="message-card error-card" style="border: 1px solid #b00020; padding: 12px; margin-top: 16px;">
+        <div role="alert" class="message-card message-card--error">
             <h2>Validierungsfehler beim Vorjahresbescheid</h2>
             <p>
                 <strong>{{ previous_validation_error }}</strong>
@@ -128,342 +142,294 @@ Gewerbesteuerbescheid-Assistent
     {% endif %}
 
     {% if summary_items %}
-        <h2>Zusammenfassung des Bescheids</h2>
-
-        <p>
-            Die wichtigsten Informationen aus dem hochgeladenen Gewerbesteuerbescheid
-            werden hier gemeinsam dargestellt.
-        </p>
-
-        {% if status_indicator %}
-            <h2>Statusanzeige</h2>
-
-            <div role="status" class="{{ status_indicator.css_class }} status-card" style="border: 1px solid #cccccc; padding: 12px; margin-bottom: 16px;">
-                <p>
-                    <strong>Status: {{ status_indicator.label }}</strong>
-                </p>
-
-                <p>
-                    {{ status_indicator.message }}
-                </p>
-
-                <p>
-                    Hinweis: Der Status wird automatisch aus den ausgelesenen Daten, Hinweisen und Vergleichsergebnissen abgeleitet. Er ersetzt keine steuerliche Beratung.
-                </p>
-            </div>
-        {% endif %}
-
-        <h2>PDF-Bericht</h2>
-
-        <p>
-            Die Auswertung kann als PDF-Bericht heruntergeladen werden.
-            Der Bericht enthält die verständliche Zusammenfassung, Hinweise, Status und verfügbare Vergleichswerte.
-        </p>
-
-        <h2>CSV-Export</h2>
-
-        <p>
-            Die ausgelesenen Bescheiddaten können als CSV-Datei heruntergeladen werden.
-            Die Datei enthält strukturierte Auswertungsdaten für Tabellenprogramme.
-        </p>
-
-        <div class="download-actions" aria-label="Downloadmöglichkeiten">
-            <a href="{% url 'xgewerbesteuer_pdf_report' %}">
-                PDF-Bericht herunterladen
-            </a>
-
-            <a href="{% url 'xgewerbesteuer_csv_export' %}">
-                CSV-Export herunterladen
-            </a>
-        </div>
-
-        <div class="responsive-table-wrapper">
-            <table class="responsive-table" style="border-collapse: collapse; margin-left: 0; text-align: left;">
-                <thead>
-                    <tr>
-                        <th scope="col" style="text-align: left; padding: 4px 24px 4px 0;">
-                            Information
-                        </th>
-                        <th scope="col" style="text-align: left; padding: 4px 0;">
-                            Wert
-                        </th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in summary_items %}
-                        <tr>
-                            <th scope="row" style="text-align: left; padding: 4px 24px 4px 0;">
-                                {{ item.label }}
-                            </th>
-                            <td style="text-align: left; padding: 4px 0;">
-                                <strong>{{ item.value }}</strong>
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-
-        {% if notice_items %}
-            <h2>Hinweisbereich</h2>
+        <section class="result-section" aria-labelledby="summary-heading">
+            <h2 id="summary-heading">Zusammenfassung des Bescheids</h2>
 
             <p>
-                Die folgenden Hinweise wurden automatisch aus den ausgelesenen Daten abgeleitet.
-                Sie dienen nur der Orientierung und ersetzen keine steuerliche Beratung.
+                Die wichtigsten Informationen aus dem hochgeladenen Gewerbesteuerbescheid
+                werden hier gemeinsam dargestellt.
             </p>
 
-            <ul style="list-style: none; padding-left: 0;">
-                {% for notice in notice_items %}
-                    <li class="notice-card" style="border: 1px solid #cccccc; padding: 12px; margin-bottom: 12px;">
-                        <p>
-                            <strong>{{ notice.severity_label }}: {{ notice.title }}</strong>
-                        </p>
+            {% if status_indicator %}
+                <h2 class="section-heading">Statusanzeige</h2>
 
-                        <p>
-                            {{ notice.message }}
-                        </p>
+                <div role="status" class="{{ status_indicator.css_class }} status-card status-card--{{ status_indicator.status }}">
+                    <p>
+                        <strong>Status: {{ status_indicator.label }}</strong>
+                    </p>
 
-                        {% if notice.recommendation %}
-                            <p>
-                                <strong>Empfehlung:</strong>
-                                {{ notice.recommendation }}
-                            </p>
-                        {% endif %}
-                    </li>
-                {% endfor %}
-            </ul>
-        {% endif %}
+                    <p>
+                        {{ status_indicator.message }}
+                    </p>
 
-        {% if previous_bescheid %}
-            <h2>Vergleich mit Vorjahresbescheid</h2>
-
-            <p>
-                Der Vorjahresbescheid wurde zusätzlich hochgeladen und erfolgreich geprüft.
-                Die Steuerjahre bzw. Erhebungszeiträume werden hier getrennt angezeigt.
-            </p>
-
-            <div class="responsive-table-wrapper">
-                <table class="responsive-table" style="border-collapse: collapse; margin-left: 0; text-align: left;">
-                <thead>
-                    <tr>
-                        <th scope="col" style="text-align: left; padding: 4px 24px 4px 0;">
-                            Bescheid
-                        </th>
-                        <th scope="col" style="text-align: left; padding: 4px 0;">
-                            Steuerjahr / Erhebungszeitraum
-                        </th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <th scope="row" style="text-align: left; padding: 4px 24px 4px 0;">
-                            Aktueller Bescheid
-                        </th>
-                        <td style="text-align: left; padding: 4px 0;">
-                            <strong>{{ current_bescheid.tax_period }}</strong>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row" style="text-align: left; padding: 4px 24px 4px 0;">
-                            Vorjahresbescheid
-                        </th>
-                        <td style="text-align: left; padding: 4px 0;">
-                            <strong>{{ previous_bescheid.tax_period }}</strong>
-                        </td>
-                    </tr>
-                </tbody>
-                </table>
-            </div>
-
-            {% if period_comparison_notice %}
-                <p>
-                    {{ period_comparison_notice }}
-                </p>
+                    <p class="help-text">
+                        Hinweis: Der Status wird automatisch aus den ausgelesenen Daten, Hinweisen und Vergleichsergebnissen abgeleitet. Er ersetzt keine steuerliche Beratung.
+                    </p>
+                </div>
             {% endif %}
 
-            {% if change_comparison_items %}
-                <h2>Änderungsvergleich zum Vorjahr</h2>
+            <div class="download-panel">
+                <h2>PDF-Bericht</h2>
 
                 <p>
-                    Die folgenden Werte werden mit dem Vorjahresbescheid verglichen.
-                    Wichtige Änderungen werden zusätzlich hervorgehoben.
-                    Es handelt sich um einen neutralen Datenvergleich und nicht um eine steuerliche Bewertung.
+                    Die Auswertung kann als PDF-Bericht heruntergeladen werden.
+                    Der Bericht enthält die verständliche Zusammenfassung, Hinweise, Status und verfügbare Vergleichswerte.
                 </p>
 
-                <div class="responsive-table-wrapper">
-                    <table class="responsive-table" style="border-collapse: collapse; margin-left: 0; text-align: left;">
+                <h2>CSV-Export</h2>
+
+                <p>
+                    Die ausgelesenen Bescheiddaten können als CSV-Datei heruntergeladen werden.
+                    Die Datei enthält strukturierte Auswertungsdaten für Tabellenprogramme.
+                </p>
+
+                <div class="download-actions" aria-label="Downloadmöglichkeiten">
+                    <a class="download-action" href="{% url 'xgewerbesteuer_pdf_report' %}">
+                        PDF-Bericht herunterladen
+                    </a>
+
+                    <a class="download-action" href="{% url 'xgewerbesteuer_csv_export' %}">
+                        CSV-Export herunterladen
+                    </a>
+                </div>
+            </div>
+
+            <div class="responsive-table-wrapper">
+                <table class="responsive-table">
                     <thead>
                         <tr>
-                            <th scope="col" style="text-align: left; padding: 4px 24px 4px 0;">
-                                Wert
-                            </th>
-                            <th scope="col" style="text-align: left; padding: 4px 24px 4px 0;">
-                                Aktueller Bescheid
-                            </th>
-                            <th scope="col" style="text-align: left; padding: 4px 24px 4px 0;">
-                                Vorjahresbescheid
-                            </th>
-                            <th scope="col" style="text-align: left; padding: 4px 24px 4px 0;">
-                                Differenz
-                            </th>
-                            <th scope="col" style="text-align: left; padding: 4px 24px 4px 0;">
-                                Prozentuale Änderung
-                            </th>
-                            <th scope="col" style="text-align: left; padding: 4px 24px 4px 0;">
-                                Einordnung
-                            </th>
-                            <th scope="col" style="text-align: left; padding: 4px 0;">
-                                Hervorhebung
-                            </th>
+                            <th scope="col">Information</th>
+                            <th scope="col">Wert</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for item in change_comparison_items %}
-                            <tr {% if item.importance == "important" %}style="background-color: #fff3cd;"{% elif item.importance == "notice" %}style="background-color: #f5f5f5;"{% endif %}>
-                                <th scope="row" style="text-align: left; padding: 4px 24px 4px 0;">
-                                    {{ item.label }}
-                                </th>
-                                <td style="text-align: left; padding: 4px 24px 4px 0;">
-                                    <strong>{{ item.current_value }}</strong>
-                                </td>
-                                <td style="text-align: left; padding: 4px 24px 4px 0;">
-                                    {{ item.previous_value }}
-                                </td>
-                                <td style="text-align: left; padding: 4px 24px 4px 0;">
-                                    {{ item.difference }}
-                                </td>
-                                <td style="text-align: left; padding: 4px 24px 4px 0;">
-                                    {{ item.percentage }}
-                                </td>
-                                <td style="text-align: left; padding: 4px 24px 4px 0;">
-                                    {{ item.change_type }}
-                                </td>
-                                <td style="text-align: left; padding: 4px 0;">
-                                    <strong>{{ item.importance_label }}</strong><br>
-                                    {{ item.importance_message }}
-                                </td>
+                        {% for item in summary_items %}
+                            <tr>
+                                <th scope="row">{{ item.label }}</th>
+                                <td><strong>{{ item.value }}</strong></td>
                             </tr>
                         {% endfor %}
                     </tbody>
+                </table>
+            </div>
+        </section>
+
+        {% if notice_items %}
+            <section class="result-section" aria-labelledby="notice-heading">
+                <h2 id="notice-heading">Hinweisbereich</h2>
+
+                <p>
+                    Die folgenden Hinweise wurden automatisch aus den ausgelesenen Daten abgeleitet.
+                    Sie dienen nur der Orientierung und ersetzen keine steuerliche Beratung.
+                </p>
+
+                <ul class="notice-list">
+                    {% for notice in notice_items %}
+                        <li class="notice-card">
+                            <p>
+                                <strong>{{ notice.severity_label }}: {{ notice.title }}</strong>
+                            </p>
+
+                            <p>
+                                {{ notice.message }}
+                            </p>
+
+                            {% if notice.recommendation %}
+                                <p>
+                                    <strong>Empfehlung:</strong>
+                                    {{ notice.recommendation }}
+                                </p>
+                            {% endif %}
+                        </li>
+                    {% endfor %}
+                </ul>
+            </section>
+        {% endif %}
+
+        {% if previous_bescheid %}
+            <section class="result-section" aria-labelledby="previous-heading">
+                <h2 id="previous-heading">Vergleich mit Vorjahresbescheid</h2>
+
+                <p>
+                    Der Vorjahresbescheid wurde zusätzlich hochgeladen und erfolgreich geprüft.
+                    Die Steuerjahre bzw. Erhebungszeiträume werden hier getrennt angezeigt.
+                </p>
+
+                <div class="responsive-table-wrapper">
+                    <table class="responsive-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Bescheid</th>
+                                <th scope="col">Steuerjahr / Erhebungszeitraum</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <th scope="row">Aktueller Bescheid</th>
+                                <td><strong>{{ current_bescheid.tax_period }}</strong></td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Vorjahresbescheid</th>
+                                <td><strong>{{ previous_bescheid.tax_period }}</strong></td>
+                            </tr>
+                        </tbody>
                     </table>
                 </div>
-            {% endif %}
+
+                {% if period_comparison_notice %}
+                    <p>
+                        {{ period_comparison_notice }}
+                    </p>
+                {% endif %}
+
+                {% if change_comparison_items %}
+                    <h2 class="section-heading">Änderungsvergleich zum Vorjahr</h2>
+
+                    <p>
+                        Die folgenden Werte werden mit dem Vorjahresbescheid verglichen.
+                        Wichtige Änderungen werden zusätzlich hervorgehoben.
+                        Es handelt sich um einen neutralen Datenvergleich und nicht um eine steuerliche Bewertung.
+                    </p>
+
+                    <div class="responsive-table-wrapper">
+                        <table class="responsive-table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Wert</th>
+                                    <th scope="col">Aktueller Bescheid</th>
+                                    <th scope="col">Vorjahresbescheid</th>
+                                    <th scope="col">Differenz</th>
+                                    <th scope="col">Prozentuale Änderung</th>
+                                    <th scope="col">Einordnung</th>
+                                    <th scope="col">Hervorhebung</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in change_comparison_items %}
+                                    <tr class="{% if item.importance == 'important' %}comparison-row--important{% elif item.importance == 'notice' %}comparison-row--notice{% endif %}">
+                                        <th scope="row">{{ item.label }}</th>
+                                        <td><strong>{{ item.current_value }}</strong></td>
+                                        <td>{{ item.previous_value }}</td>
+                                        <td>{{ item.difference }}</td>
+                                        <td>{{ item.percentage }}</td>
+                                        <td>{{ item.change_type }}</td>
+                                        <td>
+                                            <strong>{{ item.importance_label }}</strong><br>
+                                            {{ item.importance_message }}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% endif %}
+            </section>
         {% endif %}
 
         {% if payment_classification %}
-            <h2>Einordnung der Zahlung</h2>
+            <section class="result-section" aria-labelledby="payment-heading">
+                <h2 id="payment-heading">Einordnung der Zahlung</h2>
 
-            <p>
-                Zahlungsart:
-                <strong>{{ payment_classification.type }}</strong>
-            </p>
+                <p>
+                    Zahlungsart:
+                    <strong>{{ payment_classification.type }}</strong>
+                </p>
 
-            <p>
-                {{ payment_classification.message }}
-            </p>
+                <p>
+                    {{ payment_classification.message }}
+                </p>
 
-            <p>
-                Hinweis: Diese Einordnung ist eine verständliche Orientierung anhand der
-                ausgelesenen Daten und ersetzt keine steuerliche Beratung.
-            </p>
+                <p class="help-text">
+                    Hinweis: Diese Einordnung ist eine verständliche Orientierung anhand der
+                    ausgelesenen Daten und ersetzt keine steuerliche Beratung.
+                </p>
+            </section>
         {% endif %}
 
         {% if calculation_explanation %}
-            <h2>Erklärung der Berechnungslogik</h2>
+            <section class="result-section" aria-labelledby="calculation-heading">
+                <h2 id="calculation-heading">Erklärung der Berechnungslogik</h2>
 
-            {% if calculation_explanation.can_calculate %}
-                <p>
-                    Die Gewerbesteuer wird vereinfacht mit folgender Formel berechnet:
-                </p>
+                {% if calculation_explanation.can_calculate %}
+                    <p>
+                        Die Gewerbesteuer wird vereinfacht mit folgender Formel berechnet:
+                    </p>
 
-                <p>
-                    <strong>{{ calculation_explanation.formula }}</strong>
-                </p>
+                    <p>
+                        <strong>{{ calculation_explanation.formula }}</strong>
+                    </p>
 
-                <p>
-                    Mit den ausgelesenen Werten aus dem Bescheid ergibt sich:
-                </p>
+                    <p>
+                        Mit den ausgelesenen Werten aus dem Bescheid ergibt sich:
+                    </p>
 
-                <p>
-                    <strong>{{ calculation_explanation.example }}</strong>
-                </p>
+                    <p>
+                        <strong>{{ calculation_explanation.example }}</strong>
+                    </p>
 
-                <p>
-                    {{ calculation_explanation.message }}
-                </p>
-            {% else %}
-                <p>
-                    {{ calculation_explanation.message }}
-                </p>
-            {% endif %}
+                    <p>
+                        {{ calculation_explanation.message }}
+                    </p>
+                {% else %}
+                    <p>
+                        {{ calculation_explanation.message }}
+                    </p>
+                {% endif %}
 
-            <p>
-                Hinweis: Die Berechnung ist eine einfache Erklärung der angezeigten Werte.
-                Rundungen oder Abweichungen im echten Bescheid können vorkommen.
-            </p>
+                <p class="help-text">
+                    Hinweis: Die Berechnung ist eine einfache Erklärung der angezeigten Werte.
+                    Rundungen oder Abweichungen im echten Bescheid können vorkommen.
+                </p>
+            </section>
         {% endif %}
 
         {% if advance_payments %}
-            <h2>Vorauszahlungen</h2>
+            <section class="result-section" aria-labelledby="advance-payment-heading">
+                <h2 id="advance-payment-heading">Vorauszahlungen</h2>
 
-            <p>
-                Die folgenden Vorauszahlungen wurden separat aus dem Bescheid ausgelesen.
-                Es handelt sich um zukünftige oder gesonderte Zahlungspflichten.
-            </p>
+                <p>
+                    Die folgenden Vorauszahlungen wurden separat aus dem Bescheid ausgelesen.
+                    Es handelt sich um zukünftige oder gesonderte Zahlungspflichten.
+                </p>
 
-            <div class="responsive-table-wrapper">
-                <table class="responsive-table" style="border-collapse: collapse; margin-left: 0; text-align: left;">
-                <thead>
-                    <tr>
-                        <th scope="col" style="text-align: left; padding: 4px 24px 4px 0;">
-                            Betrag
-                        </th>
-                        <th scope="col" style="text-align: left; padding: 4px 24px 4px 0;">
-                            Fälligkeit / Zahlungstermin
-                        </th>
-                        <th scope="col" style="text-align: left; padding: 4px 24px 4px 0;">
-                            Zeitraum / Bezugsjahr
-                        </th>
-                        <th scope="col" style="text-align: left; padding: 4px 0;">
-                            Art
-                        </th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for payment in advance_payments %}
-                        <tr>
-                            <td style="text-align: left; padding: 4px 24px 4px 0;">
-                                <strong>{{ payment.amount }}</strong>
-                            </td>
-                            <td style="text-align: left; padding: 4px 24px 4px 0;">
-                                {{ payment.due_date }}
-                            </td>
-                            <td style="text-align: left; padding: 4px 24px 4px 0;">
-                                {{ payment.period }}
-                            </td>
-                            <td style="text-align: left; padding: 4px 0;">
-                                {{ payment.type }}
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-                </table>
-            </div>
+                <div class="responsive-table-wrapper">
+                    <table class="responsive-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Betrag</th>
+                                <th scope="col">Fälligkeit / Zahlungstermin</th>
+                                <th scope="col">Zeitraum / Bezugsjahr</th>
+                                <th scope="col">Art</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for payment in advance_payments %}
+                                <tr>
+                                    <td><strong>{{ payment.amount }}</strong></td>
+                                    <td>{{ payment.due_date }}</td>
+                                    <td>{{ payment.period }}</td>
+                                    <td>{{ payment.type }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
 
-            <p>
-                Hinweis: Vorauszahlungen werden getrennt von endgültigen Festsetzungen,
-                Nachzahlungen und Erstattungen angezeigt.
-            </p>
+                <p class="help-text">
+                    Hinweis: Vorauszahlungen werden getrennt von endgültigen Festsetzungen,
+                    Nachzahlungen und Erstattungen angezeigt.
+                </p>
+            </section>
         {% endif %}
 
-        <p>
+        <p class="help-text">
             Hinweis: Diese Zusammenfassung dient nur der verständlichen Darstellung
             der ausgelesenen Daten und ersetzt keine steuerliche Beratung.
         </p>
     {% endif %}
 
     {% if upload_error %}
-        <div role="alert" class="message-card error-card" style="border: 1px solid #b00020; padding: 12px; margin-top: 16px;">
+        <div role="alert" class="message-card message-card--error">
             <h2>Upload nicht möglich</h2>
             <p>
                 <strong>{{ upload_error }}</strong>

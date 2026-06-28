@@ -74,6 +74,17 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
         self.assertIn(".download-actions", css_content)
         self.assertIn(".app-shell", css_content)
 
+    def test_responsive_css_contains_kern_layout_rules(self):
+        css_content = RESPONSIVE_CSS_FILE.read_text(encoding="utf-8")
+
+        self.assertIn(".content-section", css_content)
+        self.assertIn(".result-section", css_content)
+        self.assertIn(".message-card--error", css_content)
+        self.assertIn(".message-card--success", css_content)
+        self.assertIn(".status-card--deadline", css_content)
+        self.assertIn(".download-panel", css_content)
+        self.assertIn(".comparison-row--important", css_content)
+
     def test_clean_text_normalizes_whitespace_and_empty_values(self):
         self.assertEqual(clean_text("  Stadt   Musterhausen\nNord  "), "Stadt Musterhausen Nord")
         self.assertIsNone(clean_text("   \n  "))
@@ -626,6 +637,13 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertContains(response, 'class="app-shell"')
         self.assertContains(response, 'class="xgewerbesteuer-page"')
         self.assertContains(response, 'class="upload-form"')
+        self.assertContains(response, "@kern-ux/native")
+        self.assertContains(response, 'data-kern-theme="light"')
+        self.assertContains(response, "page-header")
+        self.assertContains(response, "content-section")
+        self.assertContains(response, "form-card")
+        self.assertContains(response, "form-field")
+        self.assertContains(response, "primary-action")
 
     def test_post_without_file_shows_missing_file_error(self):
         response = self.client.post(reverse("xgewerbesteuer_default"), data={})
@@ -781,6 +799,29 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertContains(response, "responsive-table")
         self.assertContains(response, "download-actions")
         self.assertContains(response, "status-card")
+
+    def test_valid_upload_uses_kern_result_components(self):
+        content = VALID_BESCHEID_FIXTURE.read_bytes()
+
+        response = self.client.post(
+            reverse("xgewerbesteuer_default"),
+            data={"bescheid": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "message-card--success")
+        self.assertContains(response, "result-section")
+        self.assertContains(response, "download-panel")
+        self.assertContains(response, "download-action")
+        self.assertContains(response, "status-card--deadline")
+
+    def test_invalid_upload_uses_kern_error_component(self):
+        response = self.client.post(reverse("xgewerbesteuer_default"), data={})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'role="alert"')
+        self.assertContains(response, "message-card")
+        self.assertContains(response, "message-card--error")
 
     def test_post_valid_current_without_previous_hides_change_comparison(self):
         content = VALID_BESCHEID_FIXTURE.read_bytes()
