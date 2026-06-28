@@ -1,4 +1,5 @@
 import csv
+from datetime import date, datetime
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from io import BytesIO, StringIO
 from pathlib import Path
@@ -218,6 +219,189 @@ def parse_decimal_value(value):
 def format_decimal_value(value):
     rounded_value = value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     return f"{rounded_value:.2f}"
+
+
+def parse_date_value(value):
+    if isinstance(value, date):
+        return value
+
+    if not value or value == "Nicht gefunden":
+        return None
+
+    cleaned_value = str(value).strip()
+
+    for date_format in ["%Y-%m-%d", "%d.%m.%Y"]:
+        try:
+            return datetime.strptime(cleaned_value, date_format).date()
+        except ValueError:
+            continue
+
+    return None
+
+
+def format_german_date(value):
+    parsed_date = parse_date_value(value)
+
+    if parsed_date is None:
+        return "Nicht gefunden"
+
+    return parsed_date.strftime("%d.%m.%Y")
+
+
+def format_euro_value(value):
+    parsed_value = value if isinstance(value, Decimal) else parse_decimal_value(str(value))
+
+    if parsed_value is None:
+        return "Betrag nicht gefunden"
+
+    rounded_value = parsed_value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    formatted_value = f"{rounded_value:,.2f}"
+    formatted_value = formatted_value.replace(",", "X").replace(".", ",").replace("X", ".")
+
+    return f"{formatted_value} EUR"
+
+
+def split_due_date_values(due_dates):
+    return split_due_dates(due_dates)
+
+
+def build_calendar_entry(amount, due_date, payment_type):
+    parsed_date = parse_date_value(due_date)
+    notes = []
+
+    if parsed_date is None:
+        notes.append("Fälligkeitstermin nicht verwertbar")
+        return {
+            "date": None,
+            "display_date": "Nicht gefunden",
+            "amount": format_euro_value(amount),
+            "payment_type": payment_type or "Zahlungsart nicht eindeutig bestimmbar",
+            "label": "Fälligkeit ohne verwertbares Datum",
+            "notes": notes,
+        }
+
+    if parse_decimal_value(amount) is None:
+        notes.append("Betrag nicht gefunden")
+
+    if not payment_type:
+        notes.append("Zahlungsart nicht eindeutig bestimmbar")
+
+    display_date = format_german_date(parsed_date)
+    display_payment_type = payment_type or "Zahlungsart nicht eindeutig bestimmbar"
+
+    return {
+        "date": parsed_date.isoformat(),
+        "display_date": display_date,
+        "amount": format_euro_value(amount),
+        "payment_type": display_payment_type,
+        "label": f"{display_payment_type} am {display_date}",
+        "notes": notes,
+    }
+
+
+def build_due_date_calendar_entries(current_bescheid):
+    entries = []
+    due_dates = split_due_date_values(current_bescheid.get("due_dates"))
+    payment_classification = current_bescheid.get("payment_classification", {})
+    payment_type = payment_classification.get("type")
+
+    for due_date in due_dates:
+        entries.append(
+            build_calendar_entry(
+                current_bescheid.get("amount_due"),
+                due_date,
+                payment_type,
+            )
+        )
+
+    for payment in current_bescheid.get("advance_payments", []):
+        entries.append(
+            build_calendar_entry(
+                payment.get("amount"),
+                payment.get("due_date"),
+                payment.get("type"),
+            )
+        )
+
+    return entries
+
+
+def get_calendar_month_label(value):
+    parsed_date = parse_date_value(value)
+
+    if parsed_date is None:
+        return "Ohne Monat"
+
+    month_names = [
+        "Januar",
+        "Februar",
+        "März",
+        "April",
+        "Mai",
+        "Juni",
+        "Juli",
+        "August",
+        "September",
+        "Oktober",
+        "November",
+        "Dezember",
+    ]
+
+    return f"{month_names[parsed_date.month - 1]} {parsed_date.year}"
+
+
+def group_calendar_entries_by_month(calendar_entries):
+    dated_entries = [
+        entry
+        for entry in calendar_entries
+        if entry.get("date")
+    ]
+    sorted_entries = sorted(
+        dated_entries,
+        key=lambda entry: entry["date"],
+    )
+    month_groups = []
+
+    for entry in sorted_entries:
+        month_key = entry["date"][:7]
+
+        if not month_groups or month_groups[-1]["key"] != month_key:
+            month_groups.append(
+                {
+                    "key": month_key,
+                    "label": get_calendar_month_label(entry["date"]),
+                    "entries": [],
+                }
+            )
+
+        month_groups[-1]["entries"].append(entry)
+
+    return month_groups
+
+
+def build_due_date_calendar(current_bescheid):
+    calendar_entries = build_due_date_calendar_entries(current_bescheid)
+    dated_entries = [
+        entry
+        for entry in calendar_entries
+        if entry.get("date")
+    ]
+    undated_items = [
+        entry
+        for entry in calendar_entries
+        if not entry.get("date")
+    ]
+
+    return {
+        "has_entries": bool(dated_entries),
+        "months": group_calendar_entries_by_month(calendar_entries),
+        "undated_items": undated_items,
+        "empty_message": (
+            ""
+            if dated_entries
+            else "Für diesen Bescheid wurden keine verwertbaren Fälligkeitstermine gefunden."
+        ),
+    }
 
 
 def build_calculation_explanation(trade_tax_assessment_amount, assessment_rate):
@@ -1402,6 +1586,7 @@ def xgewerbesteuer_default(request):
                 context["calculation_explanation"] = current_bescheid["calculation_explanation"]
                 context["advance_payments"] = current_bescheid["advance_payments"]
                 context["payment_classification"] = current_bescheid["payment_classification"]
+                context["due_date_calendar"] = build_due_date_calendar(current_bescheid)
                 context["validation_success"] = (
                     "Die Datei wurde erfolgreich geprüft und entspricht dem erwarteten "
                     f"XGewerbesteuer-Schema. Verwendetes Schema: {current_bescheid['schema_name']}"

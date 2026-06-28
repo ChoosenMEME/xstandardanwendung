@@ -129,6 +129,45 @@
     margin-top: 2rem;
 }
 
+.due-date-calendar {
+    display: grid;
+    gap: 1rem;
+}
+
+.due-date-calendar-month {
+    border: 1px solid #d8dde3;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    background: #ffffff;
+}
+
+.due-date-calendar-list {
+    list-style: none;
+    padding-left: 0;
+    margin-bottom: 0;
+}
+
+.due-date-calendar-entry {
+    border-top: 1px solid #d8dde3;
+    padding: 0.75rem 0;
+}
+
+.due-date-calendar-entry:first-child {
+    border-top: 0;
+}
+
+.due-date-calendar-date {
+    font-weight: 600;
+}
+
+.due-date-calendar-meta {
+    color: #4b5563;
+}
+
+.due-date-calendar-empty {
+    color: #4b5563;
+}
+
 .responsive-table-wrapper {
     width: 100%;
     max-width: 100%;

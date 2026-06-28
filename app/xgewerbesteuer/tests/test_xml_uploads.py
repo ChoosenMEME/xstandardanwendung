@@ -6,6 +6,7 @@ from pathlib import Path
 
 from defusedxml import ElementTree
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.template.loader import render_to_string
 from django.test import SimpleTestCase
 from django.urls import reverse
 
@@ -14,7 +15,10 @@ from xgewerbesteuer.views import (
     CSV_EXPORT_SESSION_KEY,
     MAX_UPLOAD_SIZE_BYTES,
     PDF_REPORT_SESSION_KEY,
+    build_due_date_calendar,
+    build_due_date_calendar_entries,
     build_change_comparison,
+    group_calendar_entries_by_month,
     build_notice_area,
     build_period_comparison_notice,
     build_status_indicator,
@@ -29,6 +33,7 @@ from xgewerbesteuer.views import (
     extract_municipality,
     extract_tax_period,
     extract_trade_tax_assessment_amount,
+    split_due_date_values,
     get_local_name,
     validate_xml_against_xsd,
 )
@@ -84,6 +89,9 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
         self.assertIn(".status-card--deadline", css_content)
         self.assertIn(".download-panel", css_content)
         self.assertIn(".comparison-row--important", css_content)
+        self.assertIn(".due-date-calendar", css_content)
+        self.assertIn(".due-date-calendar-month", css_content)
+        self.assertIn(".due-date-calendar-entry", css_content)
 
     def test_clean_text_normalizes_whitespace_and_empty_values(self):
         self.assertEqual(clean_text("  Stadt   Musterhausen\nNord  "), "Stadt Musterhausen Nord")
@@ -492,6 +500,191 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
             "Erhöhung",
         )
 
+    def test_build_due_date_calendar_entries_from_due_dates(self):
+        current_bescheid = {
+            "amount_due": "630.00",
+            "due_dates": "2025-02-15",
+            "payment_classification": {"type": "Nachzahlung"},
+            "advance_payments": [],
+        }
+
+        entries = build_due_date_calendar_entries(current_bescheid)
+
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(entries[0]["date"], "2025-02-15")
+        self.assertEqual(entries[0]["display_date"], "15.02.2025")
+        self.assertEqual(entries[0]["amount"], "630,00 EUR")
+        self.assertEqual(entries[0]["payment_type"], "Nachzahlung")
+        self.assertEqual(entries[0]["label"], "Nachzahlung am 15.02.2025")
+
+    def test_split_due_date_values_removes_empty_parts(self):
+        self.assertEqual(
+            split_due_date_values("2025-02-15, , 2025-03-15"),
+            ["2025-02-15", "2025-03-15"],
+        )
+
+    def test_build_due_date_calendar_uses_advance_payment_due_dates(self):
+        current_bescheid = {
+            "amount_due": "Nicht gefunden",
+            "due_dates": "Nicht gefunden",
+            "payment_classification": {"type": "Vorauszahlung"},
+            "advance_payments": [
+                {
+                    "amount": "147.00",
+                    "due_date": "2025-03-15",
+                    "period": "2025",
+                    "type": "Vorauszahlung",
+                }
+            ],
+        }
+
+        calendar = build_due_date_calendar(current_bescheid)
+
+        self.assertTrue(calendar["has_entries"])
+        self.assertEqual(calendar["months"][0]["label"], "März 2025")
+        self.assertEqual(calendar["months"][0]["entries"][0]["amount"], "147,00 EUR")
+
+    def test_build_due_date_calendar_keeps_unparseable_advance_payment_undated(self):
+        current_bescheid = {
+            "amount_due": "Nicht gefunden",
+            "due_dates": "Nicht gefunden",
+            "payment_classification": {"type": "Vorauszahlung"},
+            "advance_payments": [
+                {
+                    "amount": "147.00",
+                    "due_date": "Nicht gefunden",
+                    "period": "2025",
+                    "type": "Vorauszahlung",
+                }
+            ],
+        }
+
+        calendar = build_due_date_calendar(current_bescheid)
+
+        self.assertFalse(calendar["has_entries"])
+        self.assertEqual(len(calendar["undated_items"]), 1)
+        self.assertEqual(calendar["undated_items"][0]["payment_type"], "Vorauszahlung")
+
+    def test_build_due_date_calendar_sorts_entries_chronologically(self):
+        current_bescheid = {
+            "amount_due": "630.00",
+            "due_dates": "2025-03-15, 2025-02-15",
+            "payment_classification": {"type": "Nachzahlung"},
+            "advance_payments": [],
+        }
+
+        calendar = build_due_date_calendar(current_bescheid)
+        entries = [
+            entry
+            for month in calendar["months"]
+            for entry in month["entries"]
+        ]
+
+        self.assertEqual([entry["date"] for entry in entries], ["2025-02-15", "2025-03-15"])
+
+    def test_group_calendar_entries_by_month_uses_german_month_labels(self):
+        entries = [
+            {
+                "date": "2025-02-15",
+                "display_date": "15.02.2025",
+                "amount": "100,00 EUR",
+                "payment_type": "Nachzahlung",
+                "label": "Nachzahlung am 15.02.2025",
+                "notes": [],
+            },
+            {
+                "date": "2025-03-15",
+                "display_date": "15.03.2025",
+                "amount": "100,00 EUR",
+                "payment_type": "Nachzahlung",
+                "label": "Nachzahlung am 15.03.2025",
+                "notes": [],
+            },
+        ]
+
+        groups = group_calendar_entries_by_month(entries)
+
+        self.assertEqual([group["label"] for group in groups], ["Februar 2025", "März 2025"])
+
+    def test_build_due_date_calendar_keeps_multiple_entries_on_same_day(self):
+        current_bescheid = {
+            "amount_due": "630.00",
+            "due_dates": "2025-02-15",
+            "payment_classification": {"type": "Nachzahlung"},
+            "advance_payments": [
+                {
+                    "amount": "147.00",
+                    "due_date": "2025-02-15",
+                    "period": "2025",
+                    "type": "Vorauszahlung",
+                }
+            ],
+        }
+
+        calendar = build_due_date_calendar(current_bescheid)
+        february_entries = calendar["months"][0]["entries"]
+
+        self.assertEqual(len(february_entries), 2)
+        self.assertEqual([entry["date"] for entry in february_entries], ["2025-02-15", "2025-02-15"])
+
+    def test_build_due_date_calendar_marks_missing_amount_neutrally(self):
+        current_bescheid = {
+            "amount_due": "Nicht gefunden",
+            "due_dates": "2025-02-15",
+            "payment_classification": {"type": "Nachzahlung"},
+            "advance_payments": [],
+        }
+
+        calendar = build_due_date_calendar(current_bescheid)
+        entry = calendar["months"][0]["entries"][0]
+
+        self.assertEqual(entry["amount"], "Betrag nicht gefunden")
+        self.assertIn("Betrag nicht gefunden", entry["notes"])
+
+    def test_build_due_date_calendar_marks_missing_payment_type_neutrally(self):
+        current_bescheid = {
+            "amount_due": "630.00",
+            "due_dates": "2025-02-15",
+            "payment_classification": {},
+            "advance_payments": [],
+        }
+
+        calendar = build_due_date_calendar(current_bescheid)
+        entry = calendar["months"][0]["entries"][0]
+
+        self.assertEqual(entry["payment_type"], "Zahlungsart nicht eindeutig bestimmbar")
+        self.assertIn("Zahlungsart nicht eindeutig bestimmbar", entry["notes"])
+
+    def test_build_due_date_calendar_returns_empty_state_without_due_dates(self):
+        current_bescheid = {
+            "amount_due": "630.00",
+            "due_dates": "Nicht gefunden",
+            "payment_classification": {"type": "Nachzahlung"},
+            "advance_payments": [],
+        }
+
+        calendar = build_due_date_calendar(current_bescheid)
+
+        self.assertFalse(calendar["has_entries"])
+        self.assertEqual(calendar["months"], [])
+        self.assertEqual(calendar["undated_items"], [])
+        self.assertIn("keine verwertbaren Fälligkeitstermine", calendar["empty_message"])
+
+    def test_build_due_date_calendar_keeps_unparseable_dates_out_of_month_entries(self):
+        current_bescheid = {
+            "amount_due": "630.00",
+            "due_dates": "kein-datum",
+            "payment_classification": {"type": "Nachzahlung"},
+            "advance_payments": [],
+        }
+
+        calendar = build_due_date_calendar(current_bescheid)
+
+        self.assertFalse(calendar["has_entries"])
+        self.assertEqual(calendar["months"], [])
+        self.assertEqual(len(calendar["undated_items"]), 1)
+        self.assertIn("Fälligkeitstermin nicht verwertbar", calendar["undated_items"][0]["notes"])
+
     def test_create_csv_export_contains_stable_columns_and_summary_values(self):
         report_data = {
             "summary_items": [
@@ -814,6 +1007,91 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertContains(response, "download-panel")
         self.assertContains(response, "download-action")
         self.assertContains(response, "status-card--deadline")
+
+    def test_valid_upload_displays_due_date_calendar(self):
+        content = VALID_BESCHEID_FIXTURE.read_bytes()
+
+        response = self.client.post(
+            reverse("xgewerbesteuer_default"),
+            data={"bescheid": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("due_date_calendar", response.context)
+        self.assertContains(response, "Kalenderansicht der Fälligkeiten")
+        self.assertContains(response, "due-date-calendar")
+        self.assertContains(response, "due-date-calendar-empty")
+        self.assertContains(
+            response,
+            "Für diesen Bescheid wurden keine verwertbaren Fälligkeitstermine gefunden.",
+        )
+
+    def test_due_date_calendar_keeps_existing_table_view_visible(self):
+        content = VALID_BESCHEID_FIXTURE.read_bytes()
+
+        response = self.client.post(
+            reverse("xgewerbesteuer_default"),
+            data={"bescheid": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "responsive-table-wrapper")
+        self.assertContains(response, "Fälligkeiten")
+        self.assertContains(response, "Kalenderansicht der Fälligkeiten")
+
+    def test_due_date_calendar_mentions_no_external_calendar_services(self):
+        content = VALID_BESCHEID_FIXTURE.read_bytes()
+
+        response = self.client.post(
+            reverse("xgewerbesteuer_default"),
+            data={"bescheid": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "keine externen Kalenderdienste")
+        self.assertContains(response, "keine steuerliche Beratung")
+
+    def test_due_date_calendar_template_renders_visible_entries(self):
+        due_date_calendar = build_due_date_calendar(
+            {
+                "amount_due": "630.00",
+                "due_dates": "2025-02-15",
+                "payment_classification": {"type": "Nachzahlung"},
+                "advance_payments": [],
+            }
+        )
+
+        rendered = render_to_string(
+            "xgewerbesteuer_default.html",
+            {
+                "summary_items": [
+                    {"label": "Fälligkeiten", "value": "2025-02-15"},
+                ],
+                "due_date_calendar": due_date_calendar,
+            },
+        )
+
+        self.assertIn("Februar 2025", rendered)
+        self.assertIn("15.02.2025", rendered)
+        self.assertIn("630,00 EUR", rendered)
+        self.assertIn("Nachzahlung am 15.02.2025", rendered)
+        self.assertIn("due-date-calendar-entry", rendered)
+
+    def test_advance_payment_upload_displays_due_date_calendar_empty_state(self):
+        content = ADVANCE_PAYMENT_FIXTURE.read_bytes()
+
+        response = self.client.post(
+            reverse("xgewerbesteuer_default"),
+            data={"bescheid": uploaded_xml(ADVANCE_PAYMENT_FIXTURE.name, content)},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("due_date_calendar", response.context)
+        self.assertContains(response, "Kalenderansicht der Fälligkeiten")
+        self.assertContains(
+            response,
+            "Für diesen Bescheid wurden keine verwertbaren Fälligkeitstermine gefunden.",
+        )
 
     def test_invalid_upload_uses_kern_error_component(self):
         response = self.client.post(reverse("xgewerbesteuer_default"), data={})
