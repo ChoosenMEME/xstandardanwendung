@@ -1,0 +1,409 @@
+.app-shell {
+    width: min(100%, 72rem);
+    margin: 0 auto;
+    padding: clamp(1rem, 4vw, 2rem);
+}
+
+.xgewerbesteuer-page {
+    max-width: 100%;
+}
+
+.xgewerbesteuer-page * {
+    box-sizing: border-box;
+}
+
+.page-header {
+    margin-bottom: 2rem;
+}
+
+.page-intro {
+    max-width: 56rem;
+}
+
+.content-section,
+.result-section,
+.form-card,
+.message-card,
+.status-card,
+.notice-card,
+.download-panel {
+    border: 1px solid #d8dde3;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin: 1rem 0 1.5rem 0;
+    background: #ffffff;
+}
+
+.form-card {
+    max-width: 44rem;
+}
+
+.upload-form {
+    max-width: 42rem;
+}
+
+.form-field {
+    margin-bottom: 1rem;
+}
+
+.form-hint,
+.help-text {
+    color: #4b5563;
+}
+
+.upload-form input[type="file"] {
+    max-width: 100%;
+}
+
+.primary-action,
+.download-action {
+    display: inline-block;
+    min-height: 2.75rem;
+}
+
+.message-card--success {
+    border-color: #2e7d32;
+}
+
+.message-card--error {
+    border-color: #b00020;
+}
+
+.message-card--info {
+    border-color: #1d4ed8;
+}
+
+.status-card--warning {
+    border-color: #b00020;
+}
+
+.status-card--deadline {
+    border-color: #b45309;
+}
+
+.status-card--change {
+    border-color: #1d4ed8;
+}
+
+.status-card--incomplete {
+    border-color: #6b7280;
+}
+
+.status-card--ok {
+    border-color: #2e7d32;
+}
+
+.download-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: stretch;
+    margin: 0 0 1.5rem 0;
+}
+
+.download-actions a {
+    display: inline-block;
+    max-width: 100%;
+}
+
+.notice-list {
+    list-style: none;
+    padding-left: 0;
+}
+
+.message-card,
+.status-card,
+.notice-card {
+    max-width: 100%;
+}
+
+.comparison-row--important {
+    background-color: #fff3cd;
+}
+
+.comparison-row--notice {
+    background-color: #f5f5f5;
+}
+
+.multi-comparison-summary {
+    margin-bottom: 1rem;
+}
+
+.multi-comparison-notice {
+    color: #4b5563;
+}
+
+.multi-comparison-warning {
+    border-color: #b45309;
+}
+
+.multi-comparison-duplicate {
+    background-color: #fff3cd;
+}
+
+.historical-development-summary {
+    margin-bottom: 1rem;
+}
+
+.historical-development-notice {
+    color: #4b5563;
+}
+
+.historical-chart {
+    display: grid;
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+
+.historical-chart-row {
+    display: grid;
+    gap: 0.25rem;
+}
+
+.historical-chart-label {
+    font-weight: 600;
+}
+
+.historical-chart-bar {
+    display: block;
+    min-height: 1.5rem;
+    border: 1px solid #d8dde3;
+    border-radius: 0.5rem;
+    padding: 0.25rem 0.5rem;
+    background: #f5f5f5;
+}
+
+.plausibility-summary {
+    margin-bottom: 1rem;
+}
+
+.plausibility-status {
+    border: 1px solid #d8dde3;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.plausibility-status--plausible {
+    border-color: #2e7d32;
+}
+
+.plausibility-status--warning {
+    border-color: #b45309;
+}
+
+.plausibility-status--not-checkable {
+    border-color: #6b7280;
+}
+
+.plausibility-detail-list {
+    margin-bottom: 0;
+}
+
+.saved-upload-summary {
+    margin-bottom: 1rem;
+}
+
+.saved-upload-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.saved-upload-action {
+    min-height: 2.5rem;
+}
+
+.saved-upload-notice {
+    color: #4b5563;
+}
+
+.section-heading {
+    margin-top: 2rem;
+}
+
+.due-date-calendar {
+    display: grid;
+    gap: 1rem;
+}
+
+.due-date-calendar-month {
+    border: 1px solid #d8dde3;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    background: #ffffff;
+}
+
+.due-date-calendar-list {
+    list-style: none;
+    padding-left: 0;
+    margin-bottom: 0;
+}
+
+.due-date-calendar-entry {
+    border-top: 1px solid #d8dde3;
+    padding: 0.75rem 0;
+}
+
+.due-date-calendar-entry:first-child {
+    border-top: 0;
+}
+
+.due-date-calendar-date {
+    font-weight: 600;
+}
+
+.due-date-calendar-meta {
+    color: #4b5563;
+}
+
+.due-date-calendar-empty {
+    color: #4b5563;
+}
+
+.responsive-table-wrapper {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    margin: 0 0 1.5rem 0;
+}
+
+.responsive-table {
+    width: max-content;
+    min-width: 100%;
+    border-collapse: collapse;
+    margin-left: 0;
+    text-align: left;
+}
+
+.responsive-table th,
+.responsive-table td {
+    vertical-align: top;
+    text-align: left;
+    padding: 0.25rem 1.5rem 0.25rem 0;
+}
+
+@media (max-width: 640px) {
+    .app-shell {
+        padding: 0.75rem;
+    }
+
+    .xgewerbesteuer-page h1 {
+        font-size: clamp(1.75rem, 8vw, 2.5rem);
+        line-height: 1.15;
+    }
+
+    .xgewerbesteuer-page h2 {
+        font-size: clamp(1.25rem, 6vw, 1.75rem);
+        line-height: 1.2;
+    }
+
+    .upload-form button,
+    .upload-form input[type="file"] {
+        width: 100%;
+    }
+
+    .download-actions {
+        flex-direction: column;
+    }
+
+    .download-actions a {
+        width: 100%;
+    }
+
+    .message-card,
+    .status-card,
+    .notice-card {
+        padding: 0.75rem;
+    }
+
+    .responsive-table {
+        font-size: 0.95rem;
+    }
+
+    .responsive-table th,
+    .responsive-table td {
+        min-width: 10rem;
+        padding: 0.5rem 0.75rem;
+    }
+}
+
+@media print {
+    @page {
+        margin: 1.5cm;
+    }
+
+    body {
+        background: #ffffff;
+        color: #000000;
+        font-size: 11pt;
+        line-height: 1.35;
+    }
+
+    .app-shell {
+        width: 100%;
+        padding: 0;
+        margin: 0;
+    }
+
+    .no-print,
+    .form-card,
+    .download-panel,
+    .download-actions,
+    .primary-action,
+    .download-action,
+    input,
+    button {
+        display: none !important;
+    }
+
+    .content-section,
+    .result-section,
+    .message-card,
+    .status-card,
+    .notice-card,
+    .plausibility-status,
+    .due-date-calendar-month {
+        border: 1px solid #999999;
+        box-shadow: none;
+        break-inside: avoid;
+        page-break-inside: avoid;
+        background: #ffffff;
+    }
+
+    .print-section {
+        break-inside: auto;
+        page-break-inside: auto;
+    }
+
+    .responsive-table-wrapper {
+        overflow: visible;
+        max-width: 100%;
+    }
+
+    .responsive-table {
+        width: 100%;
+        min-width: 0;
+        table-layout: auto;
+        border-collapse: collapse;
+    }
+
+    .responsive-table th,
+    .responsive-table td {
+        white-space: normal;
+        overflow-wrap: anywhere;
+        word-break: normal;
+        border-bottom: 1px solid #cccccc;
+        padding: 0.2cm 0.25cm 0.2cm 0;
+    }
+
+    a {
+        color: #000000;
+        text-decoration: none;
+    }
+
+    .historical-chart-bar {
+        border: 1px solid #999999;
+        background: #ffffff;
+    }
+}
