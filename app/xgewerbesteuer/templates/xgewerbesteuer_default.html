@@ -52,55 +52,7 @@ Gewerbesteuerbescheid-Assistent
         </p>
     </section>
 
-    <section class="form-card no-print" aria-labelledby="upload-heading">
-        <h2 id="upload-heading">Bescheid hochladen</h2>
-
-        <p class="form-hint">
-            Im nächsten Schritt kann ein XGewerbesteuer-Bescheid als XML-Datei
-            hochgeladen und verarbeitet werden.
-        </p>
-
-        <form method="post" enctype="multipart/form-data" class="upload-form">
-            {% csrf_token %}
-
-            <p class="form-field">
-                <label for="bescheid">Aktuellen XGewerbesteuer-Bescheid auswählen (Pflicht):</label><br>
-                <input type="file" id="bescheid" name="bescheid" accept=".xml">
-            </p>
-
-            <p class="form-field">
-                <label for="vorjahresbescheid">Vorjahresbescheid optional auswählen:</label><br>
-                <input type="file" id="vorjahresbescheid" name="vorjahresbescheid" accept=".xml">
-            </p>
-
-            <p class="form-field">
-                <label for="vergleichsbescheide">Mehrere Bescheide für den Vergleich optional auswählen:</label><br>
-                <input type="file" id="vergleichsbescheide" name="vergleichsbescheide" accept=".xml" multiple>
-            </p>
-
-            <p class="help-text">
-                Die Dateien werden nur für diese Anfrage verarbeitet und nicht dauerhaft gespeichert.
-            </p>
-
-            <p class="form-field">
-                <label>
-                    <input type="checkbox" id="save_upload" name="save_upload">
-                    Auswertung dieses Uploads speichern
-                </label>
-            </p>
-
-            <p class="help-text">
-                Es werden nur strukturierte Auswertungsdaten gespeichert, nicht die Original-XML-Datei.
-                Gespeicherte Auswertungen sind nur in dieser Browser-Session sichtbar.
-            </p>
-
-            <p>
-                <button type="submit" class="primary-action">
-                    Bescheide hochladen
-                </button>
-            </p>
-        </form>
-    </section>
+    {% include "partials/upload_form.html" %}
 
     <section class="content-section saved-upload-section" aria-labelledby="saved-upload-heading">
         <h2 id="saved-upload-heading">Gespeicherte Auswertungen</h2>
@@ -169,19 +121,11 @@ Gewerbesteuerbescheid-Assistent
     </section>
 
     {% if saved_upload_success %}
-        <div class="message-card message-card--success" role="status">
-            <p>
-                <strong>{{ saved_upload_success }}</strong>
-            </p>
-        </div>
+        {% include "partials/messages.html" with message_type="success" message_text=saved_upload_success %}
     {% endif %}
 
     {% if saved_upload_error %}
-        <div role="alert" class="message-card message-card--error">
-            <p>
-                <strong>{{ saved_upload_error }}</strong>
-            </p>
-        </div>
+        {% include "partials/messages.html" with message_type="error" message_text=saved_upload_error %}
     {% endif %}
 
     {% if uploaded_file_name or validation_success %}
@@ -205,39 +149,15 @@ Gewerbesteuerbescheid-Assistent
     {% endif %}
 
     {% if validation_error %}
-        <div role="alert" class="message-card message-card--error">
-            <h2>Validierungsfehler</h2>
-            <p>
-                <strong>{{ validation_error }}</strong>
-            </p>
-            <p>
-                Bitte wählen Sie eine gültige XML-Datei im XGewerbesteuer-Format aus.
-            </p>
-        </div>
+        {% include "partials/messages.html" with message_type="error" message_heading="Validierungsfehler" message_text=validation_error message_detail="Bitte wählen Sie eine gültige XML-Datei im XGewerbesteuer-Format aus." %}
     {% endif %}
 
     {% if previous_upload_error %}
-        <div role="alert" class="message-card message-card--error">
-            <h2>Upload des Vorjahresbescheids nicht möglich</h2>
-            <p>
-                <strong>{{ previous_upload_error }}</strong>
-            </p>
-            <p>
-                Der aktuelle Bescheid wurde trotzdem verarbeitet, sofern er gültig ist.
-            </p>
-        </div>
+        {% include "partials/messages.html" with message_type="error" message_heading="Upload des Vorjahresbescheids nicht möglich" message_text=previous_upload_error message_detail="Der aktuelle Bescheid wurde trotzdem verarbeitet, sofern er gültig ist." %}
     {% endif %}
 
     {% if previous_validation_error %}
-        <div role="alert" class="message-card message-card--error">
-            <h2>Validierungsfehler beim Vorjahresbescheid</h2>
-            <p>
-                <strong>{{ previous_validation_error }}</strong>
-            </p>
-            <p>
-                Der aktuelle Bescheid wurde trotzdem verarbeitet, sofern er gültig ist.
-            </p>
-        </div>
+        {% include "partials/messages.html" with message_type="error" message_heading="Validierungsfehler beim Vorjahresbescheid" message_text=previous_validation_error message_detail="Der aktuelle Bescheid wurde trotzdem verarbeitet, sofern er gültig ist." %}
     {% endif %}
 
     {% if summary_items %}
@@ -308,24 +228,7 @@ Gewerbesteuerbescheid-Assistent
                 </div>
             </div>
 
-            <div class="responsive-table-wrapper">
-                <table class="responsive-table">
-                    <thead>
-                        <tr>
-                            <th scope="col">Information</th>
-                            <th scope="col">Wert</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for item in summary_items %}
-                            <tr>
-                                <th scope="row">{{ item.label }}</th>
-                                <td><strong>{{ item.value }}</strong></td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+            {% include "partials/table_summary.html" with summary_items=summary_items %}
         </section>
 
         {% if plausibility_check %}
@@ -627,21 +530,8 @@ Gewerbesteuerbescheid-Assistent
 
                 <ul class="notice-list">
                     {% for notice in notice_items %}
-                        <li class="notice-card">
-                            <p>
-                                <strong>{{ notice.severity_label }}: {{ notice.title }}</strong>
-                            </p>
-
-                            <p>
-                                {{ notice.message }}
-                            </p>
-
-                            {% if notice.recommendation %}
-                                <p>
-                                    <strong>Empfehlung:</strong>
-                                    {{ notice.recommendation }}
-                                </p>
-                            {% endif %}
+                        <li>
+                            {% include "partials/alert.html" with alert_severity_label=notice.severity_label alert_title=notice.title alert_message=notice.message alert_recommendation=notice.recommendation %}
                         </li>
                     {% endfor %}
                 </ul>
@@ -831,15 +721,7 @@ Gewerbesteuerbescheid-Assistent
     {% endif %}
 
     {% if upload_error %}
-        <div role="alert" class="message-card message-card--error">
-            <h2>Upload nicht möglich</h2>
-            <p>
-                <strong>{{ upload_error }}</strong>
-            </p>
-            <p>
-                Bitte prüfen Sie die Datei und versuchen Sie es erneut.
-            </p>
-        </div>
+        {% include "partials/messages.html" with message_type="error" message_heading="Upload nicht möglich" message_text=upload_error message_detail="Bitte prüfen Sie die Datei und versuchen Sie es erneut." %}
     {% endif %}
 </section>
 {% endblock %}
