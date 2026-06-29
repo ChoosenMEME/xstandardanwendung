@@ -234,6 +234,64 @@ Gewerbesteuerbescheid-Assistent
             </div>
         </section>
 
+        {% if plausibility_check %}
+            <section class="result-section plausibility-section" aria-labelledby="plausibility-heading">
+                <h2 id="plausibility-heading">Plausibilitätsprüfung</h2>
+
+                <p>
+                    Diese Prüfung vergleicht ausgelesene Werte rechnerisch anhand der Grundformel.
+                    Sie dient der Orientierung und ersetzt keine steuerliche Beratung.
+                </p>
+
+                <div class="plausibility-status {{ plausibility_check.css_class }}" role="status">
+                    <p class="plausibility-summary">
+                        <strong>Status: {{ plausibility_check.label }}</strong>
+                    </p>
+
+                    <p>
+                        {{ plausibility_check.message }}
+                    </p>
+                </div>
+
+                <div class="responsive-table-wrapper">
+                    <table class="responsive-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Prüfpunkt</th>
+                                <th scope="col">Wert</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <th scope="row">Ausgelesener Zahlbetrag</th>
+                                <td>{{ plausibility_check.actual_amount }}</td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Rechnerisch erwarteter Betrag</th>
+                                <td>{{ plausibility_check.expected_amount }}</td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Differenz</th>
+                                <td>{{ plausibility_check.difference }}</td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Verwendete Formel</th>
+                                <td>{{ plausibility_check.formula }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                {% if plausibility_check.items %}
+                    <ul class="plausibility-detail-list">
+                        {% for item in plausibility_check.items %}
+                            <li>{{ item.label }}: {{ item.value }}</li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+            </section>
+        {% endif %}
+
         {% if multi_bescheid_comparison %}
             <section class="result-section" aria-labelledby="multi-comparison-heading">
                 <h2 id="multi-comparison-heading">Mehrjahresvergleich</h2>
