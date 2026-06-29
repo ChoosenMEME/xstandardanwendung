@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Bescheid hochladen" %} - {% trans "Gewerbesteuer-Assistent" %}{% endblock %}
+
+{% block container_class %}container--narrow{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-header__title">{% trans "Bescheide hochladen" %}</h1>
+    <p class="page-header__description">
+        {% trans "Laden Sie einen oder mehrere XGewerbesteuer-Bescheide als XML-Dateien hoch. Bei mehreren Bescheiden werden diese automatisch chronologisch sortiert und verglichen." %}
+    </p>
+</div>
+
+{% if upload_errors %}
+    {% for error in upload_errors %}
+        <div class="alert alert--error" role="alert">
+            <span class="alert__icon">!</span>
+            <div class="alert__content">
+                <p class="alert__title">{{ error.file_name }}</p>
+                <p class="alert__text">{{ error.message }}</p>
+            </div>
+        </div>
+    {% endfor %}
+{% endif %}
+
+{% if upload_error %}
+    <div class="alert alert--error" role="alert">
+        <span class="alert__icon">!</span>
+        <div class="alert__content">
+            <p class="alert__title">{% trans "Upload nicht möglich" %}</p>
+            <p class="alert__text">{{ upload_error }}</p>
+            <p class="alert__detail">{% trans "Bitte prüfen Sie die Dateien und versuchen Sie es erneut." %}</p>
+        </div>
+    </div>
+{% endif %}
+
+<div class="card">
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <div class="form-group">
+            <label class="form-label" for="bescheide">
+                {% trans "Gewerbesteuerbescheide auswählen" %}
+            </label>
+            <input type="file" class="form-input" id="bescheide" name="bescheide" accept=".xml" multiple required>
+            <span class="form-hint">{% trans "Eine oder mehrere XML-Dateien im XGewerbesteuer-Format" %}</span>
+        </div>
+
+        <p class="form-section-hint">
+            {% trans "Bei mehreren Bescheiden erkennt die Anwendung automatisch die Reihenfolge anhand des Steuerjahres. Der aktuellste Bescheid wird als Hauptauswertung verwendet, ältere Bescheide fließen in den Vergleich ein." %}
+        </p>
+
+        <hr class="section-divider">
+
+        <div class="form-group">
+            <div class="form-checkbox-group">
+                <input type="checkbox" id="save_upload" name="save_upload">
+                <label class="form-checkbox-label" for="save_upload">
+                    {% trans "Auswertung für diese Browser-Session speichern" %}
+                </label>
+            </div>
+        </div>
+
+        <p class="form-section-hint">
+            {% trans "Die Dateien werden nur für diese Anfrage verarbeitet. Es werden keine Original-XML-Dateien gespeichert, sondern nur die strukturierten Auswertungsdaten." %}
+        </p>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn--primary btn--lg">
+                {% trans "Bescheide auswerten" %}
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

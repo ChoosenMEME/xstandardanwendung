@@ -399,6 +399,28 @@ def build_historical_development_row(record, previous_record=None):
     }
 
 
+def _compute_bar_widths(rows, key):
+    parsed = []
+
+    for row in rows:
+        value = parse_decimal_value(row.get(key))
+        parsed.append((row, abs(value) if value is not None else None))
+
+    max_value = max(
+        (v for _, v in parsed if v is not None),
+        default=Decimal("0"),
+    )
+
+    if max_value == Decimal("0"):
+        max_value = Decimal("1")
+
+    return [
+        max(int((v / max_value * Decimal("100")).to_integral_value()), 1)
+        if v is not None else 0
+        for _, v in parsed
+    ]
+
+
 def build_historical_chart_data(rows):
     numeric_rows = []
 
@@ -431,6 +453,32 @@ def build_historical_chart_data(rows):
     return chart_data
 
 
+def build_multi_metric_chart_data(rows):
+    if len(rows) < 2:
+        return None
+
+    amount_widths = _compute_bar_widths(rows, "amount_due")
+    messbetrag_widths = _compute_bar_widths(rows, "trade_tax_assessment_amount")
+    rate_widths = _compute_bar_widths(rows, "assessment_rate")
+
+    chart_rows = []
+
+    for index, row in enumerate(rows):
+        chart_rows.append({
+            "tax_period": row.get("tax_period", ""),
+            "amount_due": row.get("amount_due", "Nicht gefunden"),
+            "amount_due_width": amount_widths[index],
+            "trade_tax_assessment_amount": row.get(
+                "trade_tax_assessment_amount", "Nicht gefunden",
+            ),
+            "messbetrag_width": messbetrag_widths[index],
+            "assessment_rate": row.get("assessment_rate", "Nicht gefunden"),
+            "rate_width": rate_widths[index],
+        })
+
+    return chart_rows
+
+
 def build_historical_development(records):
     sorted_records = sort_bescheid_records_chronologically(records)
 
@@ -448,6 +496,7 @@ def build_historical_development(records):
         "year_count": len(rows),
         "rows": rows,
         "chart_data": build_historical_chart_data(rows),
+        "multi_metric_chart": build_multi_metric_chart_data(rows),
         "notice": (
             "Diese Übersicht zeigt die Entwicklung der ausgelesenen Werte über "
             "mehrere Jahre. Sie dient der Orientierung und ersetzt keine steuerliche "

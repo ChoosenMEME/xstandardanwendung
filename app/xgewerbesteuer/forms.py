@@ -6,25 +6,17 @@ from .validators import MAX_UPLOAD_SIZE_BYTES
 
 
 class BescheidUploadForm(forms.Form):
-    bescheid = forms.FileField(
-        label="Aktuellen XGewerbesteuer-Bescheid auswählen (Pflicht)",
+    bescheide = forms.FileField(
+        label="Gewerbesteuerbescheide auswählen",
         required=True,
-    )
-    vorjahresbescheid = forms.FileField(
-        label="Vorjahresbescheid optional auswählen",
-        required=False,
-    )
-    vergleichsbescheide = forms.FileField(
-        label="Mehrere Bescheide für den Vergleich optional auswählen",
-        required=False,
     )
     save_upload = forms.BooleanField(
         label="Auswertung dieses Uploads speichern",
         required=False,
     )
 
-    def clean_bescheid(self):
-        uploaded_file = self.cleaned_data.get("bescheid")
+    def clean_bescheide(self):
+        uploaded_file = self.cleaned_data.get("bescheide")
 
         if not uploaded_file:
             return uploaded_file

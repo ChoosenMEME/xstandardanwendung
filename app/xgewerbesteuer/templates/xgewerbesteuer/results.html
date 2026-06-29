@@ -1,0 +1,672 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Auswertung" %} - {% trans "Gewerbesteuer-Assistent" %}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <a href="{% url 'xgewerbesteuer_upload' %}" class="back-link">
+        &larr; {% trans "Neuen Bescheid hochladen" %}
+    </a>
+    <h1 class="page-header__title">{% trans "Auswertung" %}{% if all_bescheide_count > 1 %} ({{ all_bescheide_count }} {% trans "Bescheide" %}){% endif %}</h1>
+    <p class="page-header__description">
+        {% if all_bescheide_count > 1 and previous_bescheid %}
+            {% trans "Aktuellster Bescheid" %}: {{ uploaded_file_name }}
+            &middot; {% trans "Zeitraum" %}: {{ previous_bescheid.tax_period }} &ndash; {{ current_bescheid.tax_period }}
+        {% else %}
+            {{ uploaded_file_name }} ({{ uploaded_file_size }} Byte)
+        {% endif %}
+    </p>
+</div>
+
+{% if saved_upload_success %}
+    <div class="alert alert--success" role="status">
+        <span class="alert__icon">&#10003;</span>
+        <div class="alert__content">
+            <p class="alert__text">{{ saved_upload_success }}</p>
+        </div>
+    </div>
+{% endif %}
+
+{% if saved_upload_error %}
+    <div class="alert alert--error" role="alert">
+        <span class="alert__icon">!</span>
+        <div class="alert__content">
+            <p class="alert__text">{{ saved_upload_error }}</p>
+        </div>
+    </div>
+{% endif %}
+
+{% if multi_bescheid_upload_errors %}
+    <div class="alert alert--warning" role="alert">
+        <span class="alert__icon">!</span>
+        <div class="alert__content">
+            <p class="alert__title">{% trans "Nicht verarbeitete Dateien" %}</p>
+            <ul class="mb-0">
+                {% for error in multi_bescheid_upload_errors %}
+                    <li>{{ error.file_name }}: {{ error.message }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+{% endif %}
+
+{# === STATUS BANNER === #}
+{% if status_indicator %}
+    <div class="status-banner status-banner--{{ status_indicator.status }}" role="status">
+        <div class="status-banner__icon">
+            {% if status_indicator.status == "ok" %}&#10003;{% elif status_indicator.status == "warning" %}!{% elif status_indicator.status == "deadline" %}&#9200;{% elif status_indicator.status == "change" %}&#8596;{% else %}?{% endif %}
+        </div>
+        <div class="status-banner__content">
+            <p class="status-banner__title">{{ status_indicator.label }}</p>
+            <p class="status-banner__message">{{ status_indicator.message }}</p>
+        </div>
+    </div>
+{% endif %}
+
+{# === DELTA CARDS (visual comparison, only with 2+ bescheide) === #}
+{% if change_comparison_items %}
+    <div class="delta-grid">
+        {% for item in change_comparison_items %}
+            {% if item.label != "Steuerjahr / Erhebungszeitraum" and item.label != "Fälligkeiten" %}
+                <div class="delta-card {% if item.change_type == 'Erhöhung' %}delta-card--up{% elif item.change_type == 'Senkung' %}delta-card--down{% elif item.change_type == 'Unverändert' %}delta-card--neutral{% else %}delta-card--incomparable{% endif %}">
+                    <div class="delta-card__icon">
+                        {% if item.change_type == "Erhöhung" %}&#9650;{% elif item.change_type == "Senkung" %}&#9660;{% elif item.change_type == "Unverändert" %}&ndash;{% else %}?{% endif %}
+                    </div>
+                    <div class="delta-card__content">
+                        <p class="delta-card__label">{{ item.label }}</p>
+                        <p class="delta-card__values">
+                            {{ item.previous_value }} <span>&rarr;</span> {{ item.current_value }}
+                        </p>
+                        <p class="delta-card__change">
+                            {% if item.change_type == "Erhöhung" or item.change_type == "Senkung" %}
+                                {{ item.difference }} ({{ item.percentage }})
+                            {% else %}
+                                {{ item.change_type }}
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+            {% endif %}
+        {% endfor %}
+    </div>
+{% endif %}
+
+{# === KEY METRICS === #}
+{% if summary_items %}
+    <div class="metric-grid">
+        {% for item in summary_items %}
+            {% if item.label == "Zahlbetrag" or item.label == "Gemeinde / Kommune" or item.label == "Steuerjahr / Erhebungszeitraum" or item.label == "Gewerbesteuermessbetrag" %}
+                <div class="metric-card">
+                    <p class="metric-card__label">{{ item.label }}</p>
+                    <p class="metric-card__value">{{ item.value }}</p>
+                </div>
+            {% endif %}
+        {% endfor %}
+    </div>
+{% endif %}
+
+{# === DOWNLOADS === #}
+<div class="download-bar no-print">
+    <span class="download-bar__label">{% trans "Exportieren:" %}</span>
+    <a class="btn btn--secondary btn--sm" href="{% url 'xgewerbesteuer_pdf_report' %}">
+        {% trans "PDF-Bericht" %}
+    </a>
+    <a class="btn btn--secondary btn--sm" href="{% url 'xgewerbesteuer_csv_export' %}">
+        {% trans "CSV-Export" %}
+    </a>
+    {% if has_ics_export or due_date_calendar.has_entries %}
+        <a class="btn btn--secondary btn--sm" href="{% url 'xgewerbesteuer_ics_export' %}">
+            {% trans "Fristdatei (.ics)" %}
+        </a>
+    {% endif %}
+</div>
+
+{# === SUMMARY TABLE === #}
+{% if summary_items %}
+    <section class="card" aria-labelledby="summary-heading">
+        <h2 class="card__title" id="summary-heading">{% trans "Zusammenfassung" %}</h2>
+        <p class="card__subtitle">
+            {% trans "Die wichtigsten Informationen aus dem aktuellsten Bescheid." %}
+        </p>
+
+        <div class="table-wrapper mt-2">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th scope="col">{% trans "Information" %}</th>
+                        <th scope="col">{% trans "Wert" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in summary_items %}
+                        <tr>
+                            <th scope="row">{{ item.label }}</th>
+                            <td><strong>{{ item.value }}</strong></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if validation_success %}
+            <p class="help-text mt-1">{{ validation_success }}</p>
+        {% endif %}
+    </section>
+{% endif %}
+
+{# === NOTICES === #}
+{% if notice_items %}
+    <section class="card" aria-labelledby="notice-heading">
+        <h2 class="card__title" id="notice-heading">{% trans "Hinweise" %}</h2>
+        <p class="card__subtitle">
+            {% trans "Automatisch aus den ausgelesenen Daten abgeleitete Hinweise." %}
+        </p>
+
+        <ul class="notice-list mt-2">
+            {% for notice in notice_items %}
+                <li class="notice-card notice-card--{{ notice.severity }}">
+                    <p class="notice-card__title">{{ notice.severity_label }}: {{ notice.title }}</p>
+                    <p class="notice-card__message">{{ notice.message }}</p>
+                    {% if notice.recommendation %}
+                        <p class="notice-card__recommendation">{{ notice.recommendation }}</p>
+                    {% endif %}
+                </li>
+            {% endfor %}
+        </ul>
+    </section>
+{% endif %}
+
+{# === PLAUSIBILITY CHECK === #}
+{% if plausibility_check %}
+    <section class="card" aria-labelledby="plausibility-heading">
+        <h2 class="card__title" id="plausibility-heading">{% trans "Plausibilitätsprüfung" %}</h2>
+        <p class="card__subtitle">
+            {% trans "Rechnerischer Vergleich der ausgelesenen Werte anhand der Grundformel." %}
+        </p>
+
+        <div class="plausibility-status {{ plausibility_check.css_class }} mt-2" role="status">
+            <div>
+                <p class="mb-0"><strong>{% trans "Status" %}: {{ plausibility_check.label }}</strong></p>
+                <p class="mb-0 text-sm">{{ plausibility_check.message }}</p>
+            </div>
+        </div>
+
+        <div class="table-wrapper">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th scope="col">{% trans "Prüfpunkt" %}</th>
+                        <th scope="col">{% trans "Wert" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <th scope="row">{% trans "Ausgelesener Zahlbetrag" %}</th>
+                        <td>{{ plausibility_check.actual_amount }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">{% trans "Rechnerisch erwarteter Betrag" %}</th>
+                        <td>{{ plausibility_check.expected_amount }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">{% trans "Differenz" %}</th>
+                        <td>{{ plausibility_check.difference }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">{% trans "Verwendete Formel" %}</th>
+                        <td>{{ plausibility_check.formula }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        {% if plausibility_check.items %}
+            <ul class="text-sm text-secondary mt-1">
+                {% for item in plausibility_check.items %}
+                    <li>{{ item.label }}: {{ item.value }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    </section>
+{% endif %}
+
+{# === PAYMENT CLASSIFICATION === #}
+{% if payment_classification %}
+    <section class="card" aria-labelledby="payment-heading">
+        <h2 class="card__title" id="payment-heading">{% trans "Einordnung der Zahlung" %}</h2>
+
+        <p class="mt-1">
+            {% trans "Zahlungsart" %}:
+            <strong>{{ payment_classification.type }}</strong>
+        </p>
+        <p class="text-secondary">{{ payment_classification.message }}</p>
+
+        <p class="disclaimer">
+            {% trans "Diese Einordnung ist eine verständliche Orientierung anhand der ausgelesenen Daten und ersetzt keine steuerliche Beratung." %}
+        </p>
+    </section>
+{% endif %}
+
+{# === CALCULATION EXPLANATION === #}
+{% if calculation_explanation %}
+    <section class="card" aria-labelledby="calculation-heading">
+        <h2 class="card__title" id="calculation-heading">{% trans "Berechnungslogik" %}</h2>
+
+        {% if calculation_explanation.can_calculate %}
+            <p class="text-secondary mt-1">
+                {% trans "Die Gewerbesteuer wird vereinfacht mit folgender Formel berechnet:" %}
+            </p>
+            <p><strong>{{ calculation_explanation.formula }}</strong></p>
+            <p class="text-secondary">{% trans "Mit den ausgelesenen Werten:" %}</p>
+            <p><strong>{{ calculation_explanation.example }}</strong></p>
+            <p class="text-secondary">{{ calculation_explanation.message }}</p>
+        {% else %}
+            <p class="text-secondary mt-1">{{ calculation_explanation.message }}</p>
+        {% endif %}
+
+        <p class="disclaimer">
+            {% trans "Die Berechnung ist eine einfache Erklärung der angezeigten Werte. Rundungen oder Abweichungen im echten Bescheid können vorkommen." %}
+        </p>
+    </section>
+{% endif %}
+
+{# === DUE DATE CALENDAR === #}
+{% if due_date_calendar %}
+    <section class="card" aria-labelledby="calendar-heading">
+        <h2 class="card__title" id="calendar-heading">{% trans "Fälligkeiten" %}</h2>
+        <p class="card__subtitle">
+            {% trans "Aus dem Bescheid ausgelesene Fälligkeitstermine." %}
+        </p>
+
+        {% if due_date_calendar.has_entries %}
+            <div class="calendar-grid mt-2">
+                {% for month in due_date_calendar.months %}
+                    <div class="calendar-month" aria-label="{{ month.label }}">
+                        <h3 class="calendar-month__title">{{ month.label }}</h3>
+                        <ul class="calendar-entry-list">
+                            {% for entry in month.entries %}
+                                <li class="calendar-entry">
+                                    <p class="calendar-entry__date">{{ entry.display_date }}</p>
+                                    <p class="calendar-entry__label">{{ entry.label }}</p>
+                                    <p class="calendar-entry__meta">
+                                        {% trans "Betrag" %}: {{ entry.amount }} &middot;
+                                        {% trans "Zahlungsart" %}: {{ entry.payment_type }}
+                                    </p>
+                                    {% if entry.notes %}
+                                        <ul class="text-xs text-muted mt-1">
+                                            {% for note in entry.notes %}
+                                                <li>{{ note }}</li>
+                                            {% endfor %}
+                                        </ul>
+                                    {% endif %}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="text-muted mt-2">{{ due_date_calendar.empty_message }}</p>
+        {% endif %}
+
+        {% if due_date_calendar.undated_items %}
+            <h3 class="mt-3 text-sm">{% trans "Ohne verwertbares Datum" %}</h3>
+            <ul class="text-sm text-secondary">
+                {% for item in due_date_calendar.undated_items %}
+                    <li>
+                        {{ item.payment_type }}: {{ item.amount }}
+                        {% if item.notes %}
+                            <ul class="text-xs text-muted">
+                                {% for note in item.notes %}
+                                    <li>{{ note }}</li>
+                                {% endfor %}
+                            </ul>
+                        {% endif %}
+                    </li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    </section>
+{% endif %}
+
+{# === LIQUIDITY IMPACT === #}
+{% if liquidity_impact %}
+    <section class="card" aria-labelledby="liquidity-heading">
+        <h2 class="card__title" id="liquidity-heading">{% trans "Liquiditätsauswirkung" %}</h2>
+        <p class="card__subtitle">
+            {% trans "Zeitliche Einordnung der Zahlungen nach Fälligkeit." %}
+            {% trans "Bezugsdatum" %}: <strong>{{ liquidity_impact.reference_date }}</strong>
+        </p>
+
+        {% if liquidity_impact.has_liquidity_relevant_payments %}
+            <p class="text-secondary mt-1">{{ liquidity_impact.summary }}</p>
+
+            <div class="mt-2">
+                {% for group in liquidity_impact.groups %}
+                    <div class="liquidity-group">
+                        <div class="liquidity-group__header">
+                            <p class="liquidity-group__label">{{ group.label }}</p>
+                            <p class="liquidity-group__total">{{ group.total_burden }}</p>
+                        </div>
+
+                        {% if group.items %}
+                            <ul class="liquidity-item-list">
+                                {% for item in group.items %}
+                                    <li class="liquidity-item liquidity-item--{{ item.impact }}">
+                                        {{ item.payment_type }}:
+                                        {{ item.amount_display }},
+                                        {% trans "Fälligkeit" %}: {{ item.due_date_display }}
+                                        {% if item.notice %}
+                                            <span class="liquidity-item__notice">{{ item.notice }}</span>
+                                        {% endif %}
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            <p class="text-muted" style="padding: 0.6rem 1.25rem; margin: 0;">
+                                {% trans "Keine Zahlungen in dieser Zeitraumgruppe." %}
+                            </p>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="text-muted mt-2">{% trans "Keine liquiditätsrelevanten Zahlungen erkannt." %}</p>
+        {% endif %}
+
+        <p class="disclaimer">{{ liquidity_impact.notice }}</p>
+    </section>
+{% endif %}
+
+{# === ADVANCE PAYMENTS === #}
+{% if advance_payments %}
+    <section class="card" aria-labelledby="advance-payment-heading">
+        <h2 class="card__title" id="advance-payment-heading">{% trans "Vorauszahlungen" %}</h2>
+        <p class="card__subtitle">
+            {% trans "Separat ausgelesene Vorauszahlungen aus dem Bescheid." %}
+        </p>
+
+        <div class="table-wrapper mt-2">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th scope="col">{% trans "Betrag" %}</th>
+                        <th scope="col">{% trans "Fälligkeit" %}</th>
+                        <th scope="col">{% trans "Zeitraum" %}</th>
+                        <th scope="col">{% trans "Art" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for payment in advance_payments %}
+                        <tr>
+                            <td><strong>{{ payment.amount }}</strong></td>
+                            <td>{{ payment.due_date }}</td>
+                            <td>{{ payment.period }}</td>
+                            <td>{{ payment.type }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <p class="disclaimer">
+            {% trans "Vorauszahlungen werden getrennt von endgültigen Festsetzungen, Nachzahlungen und Erstattungen angezeigt." %}
+        </p>
+    </section>
+{% endif %}
+
+{# === YEAR-OVER-YEAR COMPARISON (auto-detected) === #}
+{% if previous_bescheid %}
+    <section class="card" aria-labelledby="previous-heading">
+        <h2 class="card__title" id="previous-heading">{% trans "Vergleich mit Vorbescheid" %}</h2>
+        <p class="card__subtitle">
+            {% trans "Automatisch erkannt anhand des Steuerjahres." %}
+        </p>
+
+        <div class="table-wrapper mt-2">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th scope="col">{% trans "Bescheid" %}</th>
+                        <th scope="col">{% trans "Steuerjahr / Erhebungszeitraum" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <th scope="row">{% trans "Aktueller Bescheid" %}</th>
+                        <td><strong>{{ current_bescheid.tax_period }}</strong></td>
+                    </tr>
+                    <tr>
+                        <th scope="row">{% trans "Vorbescheid" %}</th>
+                        <td><strong>{{ previous_bescheid.tax_period }}</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        {% if period_comparison_notice %}
+            <p class="text-secondary">{{ period_comparison_notice }}</p>
+        {% endif %}
+
+        {% if change_comparison_items %}
+            <h3 class="mt-3">{% trans "Änderungsvergleich" %}</h3>
+            <p class="card__subtitle">
+                {% trans "Vergleich der wichtigsten Werte. Wesentliche Änderungen werden hervorgehoben." %}
+            </p>
+
+            <div class="table-wrapper mt-2">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th scope="col">{% trans "Wert" %}</th>
+                            <th scope="col">{% trans "Aktuell" %}</th>
+                            <th scope="col">{% trans "Vorher" %}</th>
+                            <th scope="col">{% trans "Differenz" %}</th>
+                            <th scope="col">{% trans "Bewertung" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in change_comparison_items %}
+                            <tr class="{% if item.importance == 'important' %}row--highlight-warning{% elif item.importance == 'notice' %}row--highlight-notice{% endif %}">
+                                <th scope="row">{{ item.label }}</th>
+                                <td><strong>{{ item.current_value }}</strong></td>
+                                <td>{{ item.previous_value }}</td>
+                                <td>
+                                    <span class="change-badge {% if item.change_type == 'Erhöhung' %}change-badge--up{% elif item.change_type == 'Senkung' %}change-badge--down{% elif item.change_type == 'Unverändert' %}change-badge--neutral{% else %}change-badge--incomparable{% endif %}">
+                                        {% if item.change_type == "Erhöhung" %}&#9650;{% elif item.change_type == "Senkung" %}&#9660;{% elif item.change_type == "Unverändert" %}&ndash;{% endif %}
+                                        {{ item.difference }}
+                                    </span>
+                                    {% if item.percentage != "Nicht vergleichbar" %}
+                                        <span class="text-xs text-muted">{{ item.percentage }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <strong>{{ item.importance_label }}</strong><br>
+                                    <span class="text-sm text-secondary">{{ item.importance_message }}</span>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+    </section>
+{% endif %}
+
+{# === MULTI YEAR COMPARISON === #}
+{% if multi_bescheid_comparison %}
+    <section class="card" aria-labelledby="multi-comparison-heading">
+        <h2 class="card__title" id="multi-comparison-heading">{% trans "Mehrjahresvergleich" %}</h2>
+        <p class="card__subtitle">
+            {% trans "Automatisch sortierter Vergleich aller hochgeladenen Bescheide." %}
+            {% trans "Gültige Bescheide" %}: <strong>{{ multi_bescheid_comparison.valid_count }}</strong>
+        </p>
+
+        {% if multi_bescheid_comparison.notices %}
+            <ul class="text-sm text-secondary mt-1">
+                {% for notice in multi_bescheid_comparison.notices %}
+                    <li>{{ notice }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+
+        <div class="table-wrapper mt-2">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th scope="col">{% trans "Steuerjahr" %}</th>
+                        <th scope="col">{% trans "Datei" %}</th>
+                        <th scope="col">{% trans "Gemeinde" %}</th>
+                        <th scope="col">{% trans "Zahlbetrag" %}</th>
+                        <th scope="col">{% trans "Zahlungsart" %}</th>
+                        <th scope="col">{% trans "Messbetrag" %}</th>
+                        <th scope="col">{% trans "Hebesatz" %}</th>
+                        <th scope="col">{% trans "Fälligkeiten" %}</th>
+                        <th scope="col">{% trans "Vorauszahlungen" %}</th>
+                        <th scope="col">{% trans "Hinweis" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in multi_bescheid_comparison.records %}
+                        <tr class="{{ record.css_class }}">
+                            <th scope="row">{{ record.tax_period }}</th>
+                            <td>{{ record.file_name }}</td>
+                            <td>{{ record.municipality }}</td>
+                            <td>{{ record.amount_due }}</td>
+                            <td>{{ record.payment_type }}</td>
+                            <td>{{ record.trade_tax_assessment_amount }}</td>
+                            <td>{{ record.assessment_rate }}</td>
+                            <td>{{ record.due_dates }}</td>
+                            <td>{{ record.advance_payments }}</td>
+                            <td>
+                                {% if record.notes %}
+                                    <ul class="mb-0">
+                                        {% for note in record.notes %}
+                                            <li>{{ note }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% else %}
+                                    {% trans "Keine Hinweise" %}
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+{% endif %}
+
+{# === HISTORICAL DEVELOPMENT === #}
+{% if historical_development %}
+    <section class="card" aria-labelledby="historical-heading">
+        <h2 class="card__title" id="historical-heading">{% trans "Historische Entwicklung" %}</h2>
+        <p class="card__subtitle">
+            {{ historical_development.notice }}
+            {% trans "Jahre in der Entwicklung" %}: <strong>{{ historical_development.year_count }}</strong>
+        </p>
+
+        {# === MULTI-METRIC CHART === #}
+        {% if historical_development.multi_metric_chart %}
+            <div class="multi-metric-chart mt-2">
+                <div class="multi-metric-chart__legend">
+                    <div class="multi-metric-chart__legend-item">
+                        <span class="multi-metric-chart__legend-swatch multi-metric-chart__legend-swatch--primary"></span>
+                        {% trans "Zahlbetrag" %}
+                    </div>
+                    <div class="multi-metric-chart__legend-item">
+                        <span class="multi-metric-chart__legend-swatch multi-metric-chart__legend-swatch--secondary"></span>
+                        {% trans "Messbetrag" %}
+                    </div>
+                    <div class="multi-metric-chart__legend-item">
+                        <span class="multi-metric-chart__legend-swatch multi-metric-chart__legend-swatch--tertiary"></span>
+                        {% trans "Hebesatz" %}
+                    </div>
+                </div>
+
+                {% for item in historical_development.multi_metric_chart %}
+                    <div class="multi-metric-chart__year">
+                        <div class="multi-metric-chart__year-label">{{ item.tax_period }}</div>
+                        <div class="multi-metric-chart__bars">
+                            {% if item.amount_due_width %}
+                                <div class="multi-metric-chart__bar multi-metric-chart__bar--primary" style="width: {{ item.amount_due_width }}%;">
+                                    {{ item.amount_due }}
+                                </div>
+                            {% endif %}
+                            {% if item.messbetrag_width %}
+                                <div class="multi-metric-chart__bar multi-metric-chart__bar--secondary" style="width: {{ item.messbetrag_width }}%;">
+                                    {{ item.trade_tax_assessment_amount }}
+                                </div>
+                            {% endif %}
+                            {% if item.rate_width %}
+                                <div class="multi-metric-chart__bar multi-metric-chart__bar--tertiary" style="width: {{ item.rate_width }}%;">
+                                    {{ item.assessment_rate }}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% elif historical_development.chart_data %}
+            <div class="historical-chart mt-3" aria-label="{% trans 'Darstellung der Zahlbeträge' %}">
+                {% for item in historical_development.chart_data %}
+                    <div class="historical-chart__row">
+                        <span class="historical-chart__label">{{ item.tax_period }}</span>
+                        <span class="historical-chart__bar" style="width: {{ item.width_percent }}%;">
+                            {{ item.amount_due }}
+                        </span>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <div class="table-wrapper mt-3">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th scope="col">{% trans "Steuerjahr" %}</th>
+                        <th scope="col">{% trans "Zahlbetrag" %}</th>
+                        <th scope="col">{% trans "Änderung" %}</th>
+                        <th scope="col">{% trans "Messbetrag" %}</th>
+                        <th scope="col">{% trans "Änderung" %}</th>
+                        <th scope="col">{% trans "Hebesatz" %}</th>
+                        <th scope="col">{% trans "Änderung" %}</th>
+                        <th scope="col">{% trans "Fälligkeit" %}</th>
+                        <th scope="col">{% trans "Hinweise" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in historical_development.rows %}
+                        <tr>
+                            <th scope="row">{{ row.tax_period }}</th>
+                            <td>{{ row.amount_due }}</td>
+                            <td>{{ row.amount_due_change }}</td>
+                            <td>{{ row.trade_tax_assessment_amount }}</td>
+                            <td>{{ row.trade_tax_assessment_amount_change }}</td>
+                            <td>{{ row.assessment_rate }}</td>
+                            <td>{{ row.assessment_rate_change }}</td>
+                            <td>{{ row.main_due_date }}</td>
+                            <td>
+                                {% if row.notes %}
+                                    <ul class="mb-0">
+                                        {% for note in row.notes %}
+                                            <li>{{ note }}</li>
+                                        {% endfor %}
+                                    </ul>
+                                {% else %}
+                                    {% trans "Keine Hinweise" %}
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+{% endif %}
+
+<p class="disclaimer">
+    {% trans "Diese Zusammenfassung dient nur der verständlichen Darstellung der ausgelesenen Daten und ersetzt keine steuerliche Beratung." %}
+</p>
+{% endblock %}

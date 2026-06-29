@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Hilfe" %} - {% trans "Gewerbesteuer-Assistent" %}{% endblock %}
+
+{% block container_class %}container--narrow{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-header__title">{% trans "Hilfe und Erklärungen" %}</h1>
+    <p class="page-header__description">
+        {% trans "Hier erfahren Sie, wie die Anwendung funktioniert und was die wichtigsten Begriffe bedeuten." %}
+    </p>
+</div>
+
+<section class="card" aria-labelledby="how-it-works-heading">
+    <h2 class="card__title" id="how-it-works-heading">{% trans "So funktioniert die Anwendung" %}</h2>
+
+    <ol class="mt-2" style="padding-left: 1.25rem; line-height: 1.8;">
+        <li>{% trans "Laden Sie einen XGewerbesteuer-Bescheid als XML-Datei auf der Upload-Seite hoch." %}</li>
+        <li>{% trans "Die Anwendung prüft die Datei gegen das offizielle XGewerbesteuer-Schema." %}</li>
+        <li>{% trans "Zentrale Informationen wie Zahlbetrag, Gemeinde, Steuerjahr, Hebesatz und Fälligkeiten werden ausgelesen." %}</li>
+        <li>{% trans "Die Auswertung wird verständlich und übersichtlich dargestellt." %}</li>
+        <li>{% trans "Optional können Sie die Auswertung als PDF, CSV oder Fristdatei exportieren." %}</li>
+    </ol>
+</section>
+
+<section class="card" aria-labelledby="features-heading">
+    <h2 class="card__title" id="features-heading">{% trans "Funktionen im Überblick" %}</h2>
+
+    <div class="mt-2" style="line-height: 1.8;">
+        <h3 class="text-sm" style="font-weight: 600; margin-top: 1rem;">{% trans "Einzelauswertung" %}</h3>
+        <ul style="padding-left: 1.25rem;">
+            <li>{% trans "Zusammenfassung der wichtigsten Bescheiddaten" %}</li>
+            <li>{% trans "Plausibilitätsprüfung anhand der Berechnungsformel" %}</li>
+            <li>{% trans "Kalenderansicht der Fälligkeitstermine" %}</li>
+            <li>{% trans "Liquiditätsauswirkung nach Zeiträumen" %}</li>
+            <li>{% trans "Statusanzeige und automatische Hinweise" %}</li>
+        </ul>
+
+        <h3 class="text-sm" style="font-weight: 600; margin-top: 1rem;">{% trans "Vergleichsfunktionen" %}</h3>
+        <ul style="padding-left: 1.25rem;">
+            <li>{% trans "Vergleich mit einem Vorjahresbescheid" %}</li>
+            <li>{% trans "Mehrjahresvergleich mit mehreren Bescheiden" %}</li>
+            <li>{% trans "Historische Entwicklung der Werte" %}</li>
+        </ul>
+
+        <h3 class="text-sm" style="font-weight: 600; margin-top: 1rem;">{% trans "Export" %}</h3>
+        <ul style="padding-left: 1.25rem;">
+            <li>{% trans "PDF-Bericht mit Zusammenfassung, Hinweisen und Vergleichen" %}</li>
+            <li>{% trans "CSV-Export für Tabellenprogramme" %}</li>
+            <li>{% trans "ICS-Fristdatei für Kalenderprogramme" %}</li>
+        </ul>
+    </div>
+</section>
+
+<section class="card" aria-labelledby="glossary-heading">
+    <h2 class="card__title" id="glossary-heading">{% trans "Begriffe und Erklärungen" %}</h2>
+
+    <div class="table-wrapper mt-2">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th scope="col">{% trans "Begriff" %}</th>
+                    <th scope="col">{% trans "Erklärung" %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <th scope="row">{% trans "Gewerbesteuer" %}</th>
+                    <td>{% trans "Eine kommunale Steuer auf den Gewerbeertrag von Unternehmen. Wird von der Gemeinde erhoben." %}</td>
+                </tr>
+                <tr>
+                    <th scope="row">{% trans "Gewerbesteuermessbetrag" %}</th>
+                    <td>{% trans "Der vom Finanzamt festgesetzte Grundbetrag. Wird mit dem Hebesatz der Gemeinde multipliziert, um die Gewerbesteuer zu berechnen." %}</td>
+                </tr>
+                <tr>
+                    <th scope="row">{% trans "Hebesatz" %}</th>
+                    <td>{% trans "Ein Prozentsatz, den jede Gemeinde selbst festlegt. Wird auf den Messbetrag angewendet." %}</td>
+                </tr>
+                <tr>
+                    <th scope="row">{% trans "Zahlbetrag" %}</th>
+                    <td>{% trans "Der tatsächlich zu zahlende oder zu erstattende Betrag laut Bescheid." %}</td>
+                </tr>
+                <tr>
+                    <th scope="row">{% trans "Erhebungszeitraum" %}</th>
+                    <td>{% trans "Das Steuerjahr oder der Zeitraum, auf den sich der Bescheid bezieht." %}</td>
+                </tr>
+                <tr>
+                    <th scope="row">{% trans "Vorauszahlung" %}</th>
+                    <td>{% trans "Eine vorläufige Zahlung auf die voraussichtliche Gewerbesteuerschuld für den laufenden oder folgenden Zeitraum." %}</td>
+                </tr>
+                <tr>
+                    <th scope="row">{% trans "XGewerbesteuer" %}</th>
+                    <td>{% trans "Ein standardisiertes XML-Format für den digitalen Austausch von Gewerbesteuerbescheiden zwischen Behörden und Unternehmen." %}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="card" aria-labelledby="privacy-heading">
+    <h2 class="card__title" id="privacy-heading">{% trans "Datenschutz und Sicherheit" %}</h2>
+
+    <ul class="mt-2" style="padding-left: 1.25rem; line-height: 1.8;">
+        <li>{% trans "Hochgeladene XML-Dateien werden nur serverseitig verarbeitet und nicht dauerhaft gespeichert." %}</li>
+        <li>{% trans "Gespeicherte Auswertungen sind nur in der aktuellen Browser-Session sichtbar." %}</li>
+        <li>{% trans "Es werden keine externen Dienste zur Verarbeitung genutzt." %}</li>
+        <li>{% trans "Es werden keine Bescheiddaten an Dritte übermittelt." %}</li>
+    </ul>
+</section>
+
+<div class="page-header__actions mt-3">
+    <a href="{% url 'xgewerbesteuer_upload' %}" class="btn btn--primary">
+        {% trans "Bescheid hochladen" %}
+    </a>
+    <a href="{% url 'xgewerbesteuer_dashboard' %}" class="btn btn--secondary">
+        {% trans "Zur Startseite" %}
+    </a>
+</div>
+{% endblock %}
