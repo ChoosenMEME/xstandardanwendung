@@ -1,19 +1,39 @@
-{% load static %}
+{% load static i18n %}
 <!doctype html>
-<html lang="de" data-kern-theme="light">
+<html lang="de">
 <head>
     <meta charset="utf-8"/>
-    <meta content="width=device-width, initial-scale=1" name="viewport"/>
-    <title>{% block title %}Meine Anwendung{% endblock %}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>{% block title %}Gewerbesteuer-Assistent{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/@kern-ux/native@2.6.2/dist/kern.min.css" rel="stylesheet"/>
     <link href="https://cdn.jsdelivr.net/npm/@kern-ux/native@2.6.2/dist/fonts/fira-sans.css" rel="stylesheet"/>
-    <link href="{% static 'xgewerbesteuer/responsive.css' %}" rel="stylesheet"/>
+    <link href="{% static 'xgewerbesteuer/app.css' %}" rel="stylesheet"/>
     {% block extra_head %}{% endblock %}
 </head>
 <body>
-    <main class="app-shell" aria-label="Gewerbesteuerbescheid-Assistent">
-        {% block content %}
-        {% endblock %}
+    {% include "partials/header.html" %}
+
+    <main class="main-content" aria-label="{% trans 'Hauptinhalt' %}">
+        <div class="container {% block container_class %}{% endblock %}">
+            {% block messages %}{% endblock %}
+            {% block content %}{% endblock %}
+        </div>
     </main>
+
+    {% include "partials/footer.html" %}
+
+    <script>
+    (function() {
+        var toggle = document.querySelector('.nav-toggle');
+        var menu = document.querySelector('.nav-menu');
+        if (!toggle || !menu) return;
+        toggle.addEventListener('click', function() {
+            var expanded = toggle.getAttribute('aria-expanded') === 'true';
+            toggle.setAttribute('aria-expanded', String(!expanded));
+            menu.classList.toggle('nav-menu--open');
+        });
+    })();
+    </script>
+    {% block extra_js %}{% endblock %}
 </body>
 </html>

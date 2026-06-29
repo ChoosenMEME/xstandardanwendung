@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Startseite" %} - {% trans "Gewerbesteuer-Assistent" %}{% endblock %}
+
+{% block content %}
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert alert--{{ message.tags }}" role="{% if message.tags == 'error' %}alert{% else %}status{% endif %}">
+            <span class="alert__icon">{% if message.tags == 'success' %}&#10003;{% else %}!{% endif %}</span>
+            <div class="alert__content">
+                <p class="alert__text">{{ message }}</p>
+            </div>
+        </div>
+    {% endfor %}
+{% endif %}
+
+<section class="hero">
+    <h1 class="hero__title">{% trans "Gewerbesteuerbescheide einfach verstehen" %}</h1>
+    <p class="hero__description">
+        {% trans "Laden Sie einen digitalen Gewerbesteuerbescheid im XGewerbesteuer-Format hoch. Die Anwendung liest zentrale Informationen aus und stellt diese verständlich dar." %}
+    </p>
+    <div class="hero__actions">
+        <a href="{% url 'xgewerbesteuer_upload' %}" class="btn btn--primary btn--lg">
+            {% trans "Bescheid hochladen" %}
+        </a>
+        <a href="{% url 'xgewerbesteuer_help' %}" class="btn btn--secondary btn--lg">
+            {% trans "So funktioniert es" %}
+        </a>
+    </div>
+</section>
+
+<div class="feature-grid">
+    <div class="feature-card">
+        <div class="feature-card__icon">1</div>
+        <h2 class="feature-card__title">{% trans "Bescheid hochladen" %}</h2>
+        <p class="feature-card__text">
+            {% trans "Laden Sie einen XGewerbesteuer-Bescheid als XML-Datei hoch. Die Datei wird sicher verarbeitet und nicht dauerhaft gespeichert." %}
+        </p>
+    </div>
+
+    <div class="feature-card">
+        <div class="feature-card__icon">2</div>
+        <h2 class="feature-card__title">{% trans "Auswertung erhalten" %}</h2>
+        <p class="feature-card__text">
+            {% trans "Zahlbetrag, Gemeinde, Steuerjahr, Hebesatz und Fälligkeiten werden übersichtlich zusammengefasst und geprüft." %}
+        </p>
+    </div>
+
+    <div class="feature-card">
+        <div class="feature-card__icon">3</div>
+        <h2 class="feature-card__title">{% trans "Vergleichen und exportieren" %}</h2>
+        <p class="feature-card__text">
+            {% trans "Vergleichen Sie Bescheide mit Vorjahren und exportieren Sie die Auswertung als PDF, CSV oder Fristdatei." %}
+        </p>
+    </div>
+</div>
+
+<section class="card" aria-labelledby="saved-upload-heading">
+    <h2 class="card__title" id="saved-upload-heading">{% trans "Gespeicherte Auswertungen" %}</h2>
+    <p class="card__subtitle">
+        {% trans "Gespeicherte Auswertungen sind nur für diese Browser-Session sichtbar. Es werden keine Original-XML-Dateien gespeichert." %}
+    </p>
+
+    {% if saved_uploads %}
+        <div class="table-wrapper mt-2">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th scope="col">{% trans "Gespeichert am" %}</th>
+                        <th scope="col">{% trans "Dateiname" %}</th>
+                        <th scope="col">{% trans "Steuerjahr" %}</th>
+                        <th scope="col">{% trans "Gemeinde" %}</th>
+                        <th scope="col">{% trans "Zahlbetrag" %}</th>
+                        <th scope="col">{% trans "Aktionen" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for saved_upload in saved_uploads %}
+                        <tr>
+                            <td>{{ saved_upload.uploaded_at|date:"d.m.Y H:i" }}</td>
+                            <td>{{ saved_upload.file_name }}</td>
+                            <td>{{ saved_upload.tax_period }}</td>
+                            <td>{{ saved_upload.municipality }}</td>
+                            <td>{{ saved_upload.amount_due }}</td>
+                            <td>
+                                <div class="saved-upload-actions">
+                                    <form method="post" action="{% url 'xgewerbesteuer_load_saved' %}">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="saved_upload_id" value="{{ saved_upload.id }}">
+                                        <button type="submit" class="btn btn--secondary btn--sm">
+                                            {% trans "Öffnen" %}
+                                        </button>
+                                    </form>
+                                    <form method="post" action="{% url 'xgewerbesteuer_delete_saved' %}">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="saved_upload_id" value="{{ saved_upload.id }}">
+                                        <button type="submit" class="btn btn--danger btn--sm">
+                                            {% trans "Löschen" %}
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="empty-state mt-2">
+            <p class="empty-state__title">{% trans "Keine gespeicherten Auswertungen" %}</p>
+            <p class="empty-state__text">
+                {% trans "Laden Sie einen Bescheid hoch und aktivieren Sie die Speicher-Option, um Auswertungen hier wiederzufinden." %}
+            </p>
+            <a href="{% url 'xgewerbesteuer_upload' %}" class="btn btn--primary">
+                {% trans "Bescheid hochladen" %}
+            </a>
+        </div>
+    {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,49 @@
+{% load i18n %}
+<header class="site-header">
+    <div class="site-header__inner">
+        <a href="{% url 'xgewerbesteuer_dashboard' %}" class="site-logo">
+            {% trans "Gewerbesteuer-Assistent" %}
+        </a>
+
+        <nav class="site-nav" aria-label="{% trans 'Hauptnavigation' %}">
+            <button
+                class="nav-toggle"
+                aria-expanded="false"
+                aria-controls="nav-menu"
+                aria-label="{% trans 'Navigation öffnen' %}"
+            >
+                <span class="nav-toggle__bar"></span>
+                <span class="nav-toggle__bar"></span>
+                <span class="nav-toggle__bar"></span>
+            </button>
+
+            <ul id="nav-menu" class="nav-menu" role="menubar">
+                <li role="none">
+                    <a href="{% url 'xgewerbesteuer_dashboard' %}"
+                       class="nav-link {% if request.resolver_match.url_name == 'xgewerbesteuer_dashboard' %}nav-link--active{% endif %}"
+                       role="menuitem">
+                        {% trans "Startseite" %}
+                    </a>
+                </li>
+                <li role="none">
+                    <a href="{% url 'xgewerbesteuer_upload' %}"
+                       class="nav-link {% if request.resolver_match.url_name == 'xgewerbesteuer_upload' %}nav-link--active{% endif %}"
+                       role="menuitem">
+                        {% trans "Bescheid hochladen" %}
+                    </a>
+                </li>
+                <li role="none">
+                    <a href="{% url 'xgewerbesteuer_help' %}"
+                       class="nav-link {% if request.resolver_match.url_name == 'xgewerbesteuer_help' %}nav-link--active{% endif %}"
+                       role="menuitem">
+                        {% trans "Hilfe" %}
+                    </a>
+                </li>
+                {# Vorbereitung: Account-Navigation (noch nicht implementiert) #}
+                {# <li class="nav-account-placeholder" role="none"> #}
+                {#     <a href="{% url 'account_login' %}" class="nav-link" role="menuitem">Anmelden</a> #}
+                {# </li> #}
+            </ul>
+        </nav>
+    </div>
+</header>

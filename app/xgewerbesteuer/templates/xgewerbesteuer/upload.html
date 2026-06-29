@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Bescheid hochladen" %} - {% trans "Gewerbesteuer-Assistent" %}{% endblock %}
+
+{% block container_class %}container--narrow{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-header__title">{% trans "Bescheid hochladen" %}</h1>
+    <p class="page-header__description">
+        {% trans "Laden Sie einen XGewerbesteuer-Bescheid als XML-Datei hoch. Optional können Sie einen Vorjahresbescheid oder mehrere Vergleichsbescheide hinzufügen." %}
+    </p>
+</div>
+
+{% if upload_error %}
+    <div class="alert alert--error" role="alert">
+        <span class="alert__icon">!</span>
+        <div class="alert__content">
+            <p class="alert__title">{% trans "Upload nicht möglich" %}</p>
+            <p class="alert__text">{{ upload_error }}</p>
+            <p class="alert__detail">{% trans "Bitte prüfen Sie die Datei und versuchen Sie es erneut." %}</p>
+        </div>
+    </div>
+{% endif %}
+
+{% if validation_error %}
+    <div class="alert alert--error" role="alert">
+        <span class="alert__icon">!</span>
+        <div class="alert__content">
+            <p class="alert__title">{% trans "Validierungsfehler" %}</p>
+            <p class="alert__text">{{ validation_error }}</p>
+            <p class="alert__detail">{% trans "Bitte wählen Sie eine gültige XML-Datei im XGewerbesteuer-Format aus." %}</p>
+        </div>
+    </div>
+{% endif %}
+
+<div class="card">
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <div class="form-group">
+            <label class="form-label" for="bescheid">
+                {% trans "Aktueller Gewerbesteuerbescheid" %}
+            </label>
+            <input type="file" class="form-input" id="bescheid" name="bescheid" accept=".xml" required>
+            <span class="form-hint">{% trans "XML-Datei im XGewerbesteuer-Format (Pflichtfeld)" %}</span>
+        </div>
+
+        <hr class="section-divider">
+
+        <div class="form-group">
+            <label class="form-label form-label--optional" for="vorjahresbescheid">
+                {% trans "Vorjahresbescheid" %}
+            </label>
+            <input type="file" class="form-input" id="vorjahresbescheid" name="vorjahresbescheid" accept=".xml">
+            <span class="form-hint">{% trans "Für einen Vergleich mit dem Vorjahr" %}</span>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label form-label--optional" for="vergleichsbescheide">
+                {% trans "Weitere Vergleichsbescheide" %}
+            </label>
+            <input type="file" class="form-input" id="vergleichsbescheide" name="vergleichsbescheide" accept=".xml" multiple>
+            <span class="form-hint">{% trans "Mehrere Bescheide für einen Mehrjahresvergleich" %}</span>
+        </div>
+
+        <hr class="section-divider">
+
+        <div class="form-group">
+            <div class="form-checkbox-group">
+                <input type="checkbox" id="save_upload" name="save_upload">
+                <label class="form-checkbox-label" for="save_upload">
+                    {% trans "Auswertung für diese Browser-Session speichern" %}
+                </label>
+            </div>
+        </div>
+
+        <p class="form-section-hint">
+            {% trans "Die Dateien werden nur für diese Anfrage verarbeitet. Es werden keine Original-XML-Dateien gespeichert, sondern nur die strukturierten Auswertungsdaten." %}
+        </p>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn--primary btn--lg">
+                {% trans "Bescheid auswerten" %}
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
