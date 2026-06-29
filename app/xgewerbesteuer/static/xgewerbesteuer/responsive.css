@@ -141,6 +141,38 @@
     background-color: #fff3cd;
 }
 
+.historical-development-summary {
+    margin-bottom: 1rem;
+}
+
+.historical-development-notice {
+    color: #4b5563;
+}
+
+.historical-chart {
+    display: grid;
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+
+.historical-chart-row {
+    display: grid;
+    gap: 0.25rem;
+}
+
+.historical-chart-label {
+    font-weight: 600;
+}
+
+.historical-chart-bar {
+    display: block;
+    min-height: 1.5rem;
+    border: 1px solid #d8dde3;
+    border-radius: 0.5rem;
+    padding: 0.25rem 0.5rem;
+    background: #f5f5f5;
+}
+
 .section-heading {
     margin-top: 2rem;
 }

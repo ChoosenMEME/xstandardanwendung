@@ -316,6 +316,82 @@ Gewerbesteuerbescheid-Assistent
             </section>
         {% endif %}
 
+        {% if historical_development %}
+            <section class="result-section" aria-labelledby="historical-development-heading">
+                <h2 id="historical-development-heading">Historische Entwicklung</h2>
+
+                <p>
+                    {{ historical_development.notice }}
+                </p>
+
+                <p class="historical-development-summary">
+                    Jahre in der Entwicklung:
+                    <strong>{{ historical_development.year_count }}</strong>
+                </p>
+
+                <p class="historical-development-notice">
+                    Die Darstellung zeigt nur aus den Bescheiden ausgelesene Werte.
+                    Es werden keine Prognosen erstellt.
+                </p>
+
+                <div class="responsive-table-wrapper">
+                    <table class="responsive-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Steuerjahr / Zeitraum</th>
+                                <th scope="col">Zahlbetrag</th>
+                                <th scope="col">Veränderung zum Vorjahr</th>
+                                <th scope="col">Gewerbesteuermessbetrag</th>
+                                <th scope="col">Veränderung zum Vorjahr</th>
+                                <th scope="col">Hebesatz</th>
+                                <th scope="col">Veränderung zum Vorjahr</th>
+                                <th scope="col">Wichtigste Fälligkeit</th>
+                                <th scope="col">Hinweise</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in historical_development.rows %}
+                                <tr>
+                                    <th scope="row">{{ row.tax_period }}</th>
+                                    <td>{{ row.amount_due }}</td>
+                                    <td>{{ row.amount_due_change }}</td>
+                                    <td>{{ row.trade_tax_assessment_amount }}</td>
+                                    <td>{{ row.trade_tax_assessment_amount_change }}</td>
+                                    <td>{{ row.assessment_rate }}</td>
+                                    <td>{{ row.assessment_rate_change }}</td>
+                                    <td>{{ row.main_due_date }}</td>
+                                    <td>
+                                        {% if row.notes %}
+                                            <ul>
+                                                {% for note in row.notes %}
+                                                    <li>{{ note }}</li>
+                                                {% endfor %}
+                                            </ul>
+                                        {% else %}
+                                            Keine Hinweise
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                {% if historical_development.chart_data %}
+                    <div class="historical-chart" aria-label="Einfache Darstellung der Zahlbeträge">
+                        {% for item in historical_development.chart_data %}
+                            <div class="historical-chart-row">
+                                <span class="historical-chart-label">{{ item.tax_period }}</span>
+                                <span class="historical-chart-bar" style="width: {{ item.width_percent }}%;">
+                                    {{ item.amount_due }}
+                                </span>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </section>
+        {% endif %}
+
         {% if due_date_calendar %}
             <section class="result-section due-date-calendar-section" aria-labelledby="due-date-calendar-heading">
                 <h2 id="due-date-calendar-heading">Kalenderansicht der Fälligkeiten</h2>
