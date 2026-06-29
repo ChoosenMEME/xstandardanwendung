@@ -62,23 +62,42 @@ Aktuelle Struktur:
     ├── config/
     │   ├── settings.py
     │   ├── urls.py
+    │   ├── url_paths.py
     │   ├── asgi.py
     │   └── wsgi.py
     ├── static/
     ├── staticfiles/
     ├── templates/
-    │   └── base.html
+    │   ├── base.html
+    │   └── partials/
+    │       ├── messages.html
+    │       ├── card_metric.html
+    │       ├── alert.html
+    │       ├── upload_form.html
+    │       └── table_summary.html
     └── xgewerbesteuer/
         ├── models.py
         ├── views.py
         ├── urls.py
         ├── admin.py
+        ├── forms.py
+        ├── extractors.py
+        ├── validators.py
+        ├── calculations.py
+        ├── comparisons.py
+        ├── services/
+        │   ├── __init__.py
+        │   ├── bescheid.py
+        │   └── export.py
+        ├── templatetags/
+        │   ├── __init__.py
+        │   └── xgewerbesteuer_filters.py
         ├── migrations/
         ├── schemas/
         ├── templates/
         └── tests/
             ├── test_views.py
-            ├── test_imports.py
+            ├── test_fixtures.py
             ├── test_xml_uploads.py
             └── fixtures/
 ```

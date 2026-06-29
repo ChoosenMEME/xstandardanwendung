@@ -1,0 +1,18 @@
+<div class="responsive-table-wrapper">
+  <table class="responsive-table">
+    <thead>
+      <tr>
+        <th scope="col">Information</th>
+        <th scope="col">Wert</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in summary_items %}
+        <tr>
+          <th scope="row">{{ item.label }}</th>
+          <td><strong>{{ item.value }}</strong></td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

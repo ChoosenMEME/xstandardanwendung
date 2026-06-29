@@ -14,15 +14,14 @@ from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
 
 from xgewerbesteuer.models import SavedBescheidUpload
-from xgewerbesteuer.views import (
-    CSV_EXPORT_COLUMNS,
-    CSV_EXPORT_SESSION_KEY,
-    ICS_EXPORT_SESSION_KEY,
-    MAX_UPLOAD_SIZE_BYTES,
-    PDF_REPORT_SESSION_KEY,
-    build_due_date_calendar,
-    build_due_date_calendar_entries,
-    build_ics_event,
+from xgewerbesteuer.calculations import (
+    PLAUSIBILITY_TOLERANCE,
+    build_plausibility_check,
+    calculate_expected_trade_tax,
+    compare_plausibility_amounts,
+    split_due_date_values,
+)
+from xgewerbesteuer.comparisons import (
     build_change_comparison,
     build_historical_chart_data,
     build_historical_development,
@@ -30,23 +29,14 @@ from xgewerbesteuer.views import (
     build_multi_bescheid_comparison,
     build_multi_bescheid_record,
     build_multi_bescheid_upload_errors,
-    build_plausibility_check,
-    calculate_expected_trade_tax,
-    calculate_historical_change,
-    compare_plausibility_amounts,
-    create_ics_export,
-    escape_ics_text,
-    format_ics_date,
-    PLAUSIBILITY_TOLERANCE,
-    group_bescheide_by_tax_period,
-    group_calendar_entries_by_month,
-    build_notice_area,
     build_period_comparison_notice,
-    build_status_indicator,
-    clean_text,
+    calculate_historical_change,
     classify_change_importance,
-    classify_payment_type,
-    create_csv_export,
+    group_bescheide_by_tax_period,
+    sort_bescheid_records_chronologically,
+)
+from xgewerbesteuer.extractors import (
+    clean_text,
     extract_amount_due,
     extract_assessment_rate,
     extract_advance_payments,
@@ -54,9 +44,29 @@ from xgewerbesteuer.views import (
     extract_municipality,
     extract_tax_period,
     extract_trade_tax_assessment_amount,
-    split_due_date_values,
     get_local_name,
-    sort_bescheid_records_chronologically,
+)
+from xgewerbesteuer.services.bescheid import (
+    build_due_date_calendar,
+    build_due_date_calendar_entries,
+    build_notice_area,
+    build_status_indicator,
+    classify_payment_type,
+    group_calendar_entries_by_month,
+)
+from xgewerbesteuer.services.export import (
+    CSV_EXPORT_COLUMNS,
+    CSV_EXPORT_SESSION_KEY,
+    ICS_EXPORT_SESSION_KEY,
+    PDF_REPORT_SESSION_KEY,
+    build_ics_event,
+    create_csv_export,
+    create_ics_export,
+    escape_ics_text,
+    format_ics_date,
+)
+from xgewerbesteuer.validators import (
+    MAX_UPLOAD_SIZE_BYTES,
     validate_xml_against_xsd,
 )
 
@@ -1614,7 +1624,7 @@ class SavedBescheidUploadTests(TestCase):
 
     def test_failed_save_shows_user_safe_error(self):
         with patch(
-            "xgewerbesteuer.views.SavedBescheidUpload.objects.create",
+            "xgewerbesteuer.services.bescheid.SavedBescheidUpload.objects.create",
             side_effect=DatabaseError,
         ):
             response = self.client.post(

@@ -1,0 +1,16 @@
+<div class="notice-card" role="{{ alert_role|default:'status' }}">
+  <p>
+    <strong>{{ alert_severity_label }}: {{ alert_title }}</strong>
+  </p>
+
+  <p>
+    {{ alert_message }}
+  </p>
+
+  {% if alert_recommendation %}
+    <p>
+      <strong>Empfehlung:</strong>
+      {{ alert_recommendation }}
+    </p>
+  {% endif %}
+</div>
