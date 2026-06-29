@@ -1,5 +1,6 @@
 import csv
 import hashlib
+import re
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from io import BytesIO, StringIO
@@ -902,6 +903,176 @@ def build_change_comparison(current_bescheid, previous_bescheid):
     return comparison_items
 
 
+def extract_sort_year(tax_period):
+    if not tax_period or tax_period == "Nicht gefunden":
+        return 9999
+
+    match = re.search(r"\b(19|20)\d{2}\b", str(tax_period))
+
+    if not match:
+        return 9999
+
+    return int(match.group(0))
+
+
+def normalize_comparison_value(value):
+    if is_missing_value(value):
+        return "Nicht gefunden"
+
+    return value
+
+
+def format_advance_payments_for_comparison(advance_payments):
+    if not advance_payments:
+        return "Nicht gefunden"
+
+    formatted_payments = []
+
+    for payment in advance_payments:
+        amount = normalize_comparison_value(payment.get("amount"))
+        due_date = normalize_comparison_value(payment.get("due_date"))
+        period = normalize_comparison_value(payment.get("period"))
+        payment_type = normalize_comparison_value(payment.get("type"))
+        formatted_payments.append(
+            f"{amount} ({payment_type}, Fälligkeit: {due_date}, Zeitraum: {period})"
+        )
+
+    return "; ".join(formatted_payments)
+
+
+def build_multi_bescheid_record(bescheid):
+    """Build one normalized row for the multi-year comparison table."""
+    payment_classification = bescheid.get("payment_classification", {})
+    record = {
+        "file_name": normalize_comparison_value(bescheid.get("file_name")),
+        "tax_period": normalize_comparison_value(bescheid.get("tax_period")),
+        "municipality": normalize_comparison_value(bescheid.get("municipality")),
+        "amount_due": normalize_comparison_value(bescheid.get("amount_due")),
+        "payment_type": normalize_comparison_value(payment_classification.get("type")),
+        "trade_tax_assessment_amount": normalize_comparison_value(
+            bescheid.get("trade_tax_assessment_amount")
+        ),
+        "assessment_rate": normalize_comparison_value(bescheid.get("assessment_rate")),
+        "due_dates": normalize_comparison_value(bescheid.get("due_dates")),
+        "advance_payments": format_advance_payments_for_comparison(
+            bescheid.get("advance_payments", [])
+        ),
+        "notes": [],
+        "duplicate_tax_period": False,
+        "css_class": "",
+    }
+
+    missing_fields = [
+        label
+        for label, value in [
+            ("Steuerjahr / Zeitraum", record["tax_period"]),
+            ("Gemeinde / Kommune", record["municipality"]),
+            ("Zahlbetrag", record["amount_due"]),
+            ("Gewerbesteuermessbetrag", record["trade_tax_assessment_amount"]),
+            ("Hebesatz", record["assessment_rate"]),
+        ]
+        if is_missing_value(value)
+    ]
+
+    if missing_fields:
+        record["notes"].append("Fehlende Werte: " + ", ".join(missing_fields))
+
+    if record["payment_type"] == "Nicht eindeutig bestimmbar":
+        record["notes"].append("Zahlungsart fachlich nicht eindeutig zuordenbar.")
+
+    return record
+
+
+def sort_bescheid_records_chronologically(records):
+    return sorted(
+        records,
+        key=lambda record: (
+            extract_sort_year(record.get("tax_period")),
+            record.get("tax_period", ""),
+            record.get("file_name", ""),
+        ),
+    )
+
+
+def group_bescheide_by_tax_period(records):
+    groups = {}
+
+    for record in records:
+        tax_period = record.get("tax_period") or "Nicht gefunden"
+        groups.setdefault(tax_period, []).append(record)
+
+    return groups
+
+
+def build_multi_bescheid_comparison(bescheide):
+    records = [
+        build_multi_bescheid_record(bescheid)
+        for bescheid in bescheide
+    ]
+    records = sort_bescheid_records_chronologically(records)
+
+    if len(records) < 2:
+        return None
+
+    grouped_records = group_bescheide_by_tax_period(records)
+    duplicate_tax_periods = sorted(
+        tax_period
+        for tax_period, period_records in grouped_records.items()
+        if len(period_records) > 1
+    )
+
+    for record in records:
+        if record["tax_period"] in duplicate_tax_periods:
+            record["duplicate_tax_period"] = True
+            record["css_class"] = "multi-comparison-duplicate"
+            record["notes"].append(
+                "Mehrere Bescheide für denselben Zeitraum hochgeladen."
+            )
+
+    notices = []
+
+    if duplicate_tax_periods:
+        notices.append(
+            "Mehrere Bescheide enthalten denselben Steuerzeitraum: "
+            + ", ".join(duplicate_tax_periods)
+            + "."
+        )
+
+    if any(record["notes"] for record in records):
+        notices.append(
+            "Einige Angaben fehlen oder konnten nicht eindeutig zugeordnet werden."
+        )
+
+    return {
+        "valid_count": len(records),
+        "records": records,
+        "duplicate_tax_periods": duplicate_tax_periods,
+        "notices": notices,
+    }
+
+
+def build_multi_bescheid_upload_errors(results):
+    errors = []
+
+    for item in results:
+        result = item["result"]
+
+        if result.get("is_valid"):
+            continue
+
+        errors.append(
+            {
+                "file_name": item["file_name"],
+                "message": result.get(
+                    "message",
+                    "Die Datei konnte nicht verarbeitet werden.",
+                ),
+            }
+        )
+
+    return errors
+
+
 NOTICE_SEVERITY_ORDER = {
     "warning": 1,
     "info": 2,
@@ -1670,6 +1841,7 @@ def xgewerbesteuer_default(request):
 
         uploaded_file = request.FILES.get("bescheid")
         previous_uploaded_file = request.FILES.get("vorjahresbescheid")
+        comparison_uploaded_files = request.FILES.getlist("vergleichsbescheide")
 
         if not uploaded_file:
             context["upload_error"] = "Bitte wählen Sie eine XML-Datei aus."
@@ -1724,6 +1896,29 @@ def xgewerbesteuer_default(request):
                             current_bescheid,
                             previous_bescheid,
                         )
+
+                if comparison_uploaded_files:
+                    comparison_results = [
+                        {
+                            "file_name": comparison_file.name,
+                            "result": process_uploaded_bescheid(comparison_file),
+                        }
+                        for comparison_file in comparison_uploaded_files
+                    ]
+                    valid_comparison_bescheide = [
+                        item["result"]["bescheid"]
+                        for item in comparison_results
+                        if item["result"].get("is_valid")
+                    ]
+                    multi_bescheid_comparison = build_multi_bescheid_comparison(
+                        valid_comparison_bescheide
+                    )
+                    context["multi_bescheid_upload_errors"] = (
+                        build_multi_bescheid_upload_errors(comparison_results)
+                    )
+
+                    if multi_bescheid_comparison:
+                        context["multi_bescheid_comparison"] = multi_bescheid_comparison
 
                 context["notice_items"] = build_notice_area(
                     current_bescheid,

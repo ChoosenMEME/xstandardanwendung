@@ -73,8 +73,13 @@ Gewerbesteuerbescheid-Assistent
                 <input type="file" id="vorjahresbescheid" name="vorjahresbescheid" accept=".xml">
             </p>
 
+            <p class="form-field">
+                <label for="vergleichsbescheide">Mehrere Bescheide für den Vergleich optional auswählen:</label><br>
+                <input type="file" id="vergleichsbescheide" name="vergleichsbescheide" accept=".xml" multiple>
+            </p>
+
             <p class="help-text">
-                Beide Dateien werden nur für diese Anfrage verarbeitet und nicht dauerhaft gespeichert.
+                Die Dateien werden nur für diese Anfrage verarbeitet und nicht dauerhaft gespeichert.
             </p>
 
             <p>
@@ -228,6 +233,88 @@ Gewerbesteuerbescheid-Assistent
                 </table>
             </div>
         </section>
+
+        {% if multi_bescheid_comparison %}
+            <section class="result-section" aria-labelledby="multi-comparison-heading">
+                <h2 id="multi-comparison-heading">Mehrjahresvergleich</h2>
+
+                <p>
+                    Diese Übersicht vergleicht mehrere hochgeladene Bescheide anhand der ausgelesenen Werte.
+                    Sie dient der Orientierung und ersetzt keine steuerliche Beratung.
+                </p>
+
+                <p class="multi-comparison-summary">
+                    Gültige Bescheide im Vergleich:
+                    <strong>{{ multi_bescheid_comparison.valid_count }}</strong>
+                </p>
+
+                {% if multi_bescheid_upload_errors %}
+                    <div class="message-card message-card--info multi-comparison-warning">
+                        <p>
+                            <strong>Hinweise zu nicht verarbeiteten Dateien</strong>
+                        </p>
+                        <ul>
+                            {% for error in multi_bescheid_upload_errors %}
+                                <li>{{ error.file_name }}: {{ error.message }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
+
+                {% if multi_bescheid_comparison.notices %}
+                    <ul class="multi-comparison-notice">
+                        {% for notice in multi_bescheid_comparison.notices %}
+                            <li>{{ notice }}</li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+
+                <div class="responsive-table-wrapper">
+                    <table class="responsive-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Steuerjahr / Zeitraum</th>
+                                <th scope="col">Datei</th>
+                                <th scope="col">Gemeinde / Kommune</th>
+                                <th scope="col">Zahlbetrag</th>
+                                <th scope="col">Zahlungsart</th>
+                                <th scope="col">Gewerbesteuermessbetrag</th>
+                                <th scope="col">Hebesatz</th>
+                                <th scope="col">Fälligkeiten</th>
+                                <th scope="col">Vorauszahlungen</th>
+                                <th scope="col">Hinweis</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for record in multi_bescheid_comparison.records %}
+                                <tr class="{{ record.css_class }}">
+                                    <th scope="row">{{ record.tax_period }}</th>
+                                    <td>{{ record.file_name }}</td>
+                                    <td>{{ record.municipality }}</td>
+                                    <td>{{ record.amount_due }}</td>
+                                    <td>{{ record.payment_type }}</td>
+                                    <td>{{ record.trade_tax_assessment_amount }}</td>
+                                    <td>{{ record.assessment_rate }}</td>
+                                    <td>{{ record.due_dates }}</td>
+                                    <td>{{ record.advance_payments }}</td>
+                                    <td>
+                                        {% if record.notes %}
+                                            <ul>
+                                                {% for note in record.notes %}
+                                                    <li>{{ note }}</li>
+                                                {% endfor %}
+                                            </ul>
+                                        {% else %}
+                                            Keine Hinweise
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        {% endif %}
 
         {% if due_date_calendar %}
             <section class="result-section due-date-calendar-section" aria-labelledby="due-date-calendar-heading">

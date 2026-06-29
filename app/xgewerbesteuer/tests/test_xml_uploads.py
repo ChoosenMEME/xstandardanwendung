@@ -21,9 +21,13 @@ from xgewerbesteuer.views import (
     build_due_date_calendar_entries,
     build_ics_event,
     build_change_comparison,
+    build_multi_bescheid_comparison,
+    build_multi_bescheid_record,
+    build_multi_bescheid_upload_errors,
     create_ics_export,
     escape_ics_text,
     format_ics_date,
+    group_bescheide_by_tax_period,
     group_calendar_entries_by_month,
     build_notice_area,
     build_period_comparison_notice,
@@ -41,6 +45,7 @@ from xgewerbesteuer.views import (
     extract_trade_tax_assessment_amount,
     split_due_date_values,
     get_local_name,
+    sort_bescheid_records_chronologically,
     validate_xml_against_xsd,
 )
 
@@ -61,6 +66,17 @@ ADVANCE_PAYMENT_FIXTURE = (
     / "GEWST-0003-12345678-1234567890000-2023-01-15_"
     "00000000-0000-0000-0000-000000000033.xml"
 )
+MULTI_YEAR_FIXTURES = [
+    FIXTURES_DIR
+    / "GEWST-0010-12345678-1234567890000-2021-01-15_"
+    "00000000-0000-0000-0000-000000000101.xml",
+    FIXTURES_DIR
+    / "GEWST-0010-12345678-1234567890000-2022-01-15_"
+    "00000000-0000-0000-0000-000000000102.xml",
+    FIXTURES_DIR
+    / "GEWST-0010-12345678-1234567890000-2023-01-15_"
+    "00000000-0000-0000-0000-000000000103.xml",
+]
 RESPONSIVE_CSS_FILE = (
     Path(__file__).resolve().parents[1]
     / "static"
@@ -107,6 +123,26 @@ def processed_bescheid_with_due_date():
                 "message": "Testeinordnung.",
             },
         },
+    }
+
+
+def comparison_bescheid(
+    tax_period,
+    amount_due="100.00",
+    municipality="Stadt Musterhausen",
+    advance_payments=None,
+    file_name=None,
+):
+    return {
+        "file_name": file_name or f"bescheid-{tax_period}.xml",
+        "municipality": municipality,
+        "tax_period": tax_period,
+        "amount_due": amount_due,
+        "trade_tax_assessment_amount": "25.00",
+        "assessment_rate": "420",
+        "due_dates": "2025-02-15",
+        "advance_payments": advance_payments or [],
+        "payment_classification": {"type": "Nachzahlung"},
     }
 
 
@@ -542,6 +578,118 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
             comparison_by_label["Zahlbetrag"]["change_type"],
             "Erhöhung",
         )
+
+    def test_sort_bescheid_records_chronologically_orders_multiple_years(self):
+        records = [
+            build_multi_bescheid_record(comparison_bescheid("2023")),
+            build_multi_bescheid_record(comparison_bescheid("2021")),
+            build_multi_bescheid_record(comparison_bescheid("2022")),
+        ]
+
+        sorted_records = sort_bescheid_records_chronologically(records)
+
+        self.assertEqual(
+            [record["tax_period"] for record in sorted_records],
+            ["2021", "2022", "2023"],
+        )
+
+    def test_build_multi_bescheid_comparison_structures_multiple_years(self):
+        comparison = build_multi_bescheid_comparison(
+            [
+                comparison_bescheid("2022", amount_due="200.00"),
+                comparison_bescheid("2021", amount_due="100.00"),
+            ]
+        )
+
+        self.assertEqual(comparison["valid_count"], 2)
+        self.assertEqual(comparison["records"][0]["tax_period"], "2021")
+        self.assertEqual(comparison["records"][0]["amount_due"], "100.00")
+        self.assertEqual(comparison["records"][1]["amount_due"], "200.00")
+
+    def test_build_multi_bescheid_comparison_keeps_missing_values(self):
+        comparison = build_multi_bescheid_comparison(
+            [
+                comparison_bescheid("Nicht gefunden", amount_due="Nicht gefunden"),
+                comparison_bescheid("2023"),
+            ]
+        )
+
+        missing_record = comparison["records"][1]
+
+        self.assertEqual(missing_record["tax_period"], "Nicht gefunden")
+        self.assertEqual(missing_record["amount_due"], "Nicht gefunden")
+        self.assertTrue(missing_record["notes"])
+
+    def test_group_bescheide_by_tax_period_detects_duplicate_years(self):
+        comparison = build_multi_bescheid_comparison(
+            [
+                comparison_bescheid("2023", file_name="erstbescheid.xml"),
+                comparison_bescheid("2023", file_name="aenderungsbescheid.xml"),
+            ]
+        )
+        grouped_records = group_bescheide_by_tax_period(comparison["records"])
+
+        self.assertEqual(len(grouped_records["2023"]), 2)
+        self.assertEqual(comparison["duplicate_tax_periods"], ["2023"])
+        self.assertTrue(
+            all(record["duplicate_tax_period"] for record in comparison["records"])
+        )
+
+    def test_build_multi_bescheid_record_marks_missing_municipality_neutrally(self):
+        record = build_multi_bescheid_record(
+            comparison_bescheid("2023", municipality="Nicht gefunden")
+        )
+
+        self.assertEqual(record["municipality"], "Nicht gefunden")
+        self.assertIn("Gemeinde / Kommune", record["notes"][0])
+
+    def test_build_multi_bescheid_record_includes_advance_payments(self):
+        record = build_multi_bescheid_record(
+            comparison_bescheid(
+                "2023",
+                advance_payments=[
+                    {
+                        "amount": "147.00",
+                        "due_date": "2025-03-15",
+                        "period": "2025",
+                        "type": "Vorauszahlung",
+                    }
+                ],
+            )
+        )
+
+        self.assertIn("147.00", record["advance_payments"])
+        self.assertIn("Vorauszahlung", record["advance_payments"])
+
+    def test_build_multi_bescheid_upload_errors_keeps_valid_results(self):
+        errors = build_multi_bescheid_upload_errors(
+            [
+                {
+                    "file_name": "gueltig.xml",
+                    "result": {
+                        "is_valid": True,
+                        "bescheid": comparison_bescheid("2023"),
+                    },
+                },
+                {
+                    "file_name": "ungueltig.txt",
+                    "result": {
+                        "is_valid": False,
+                        "error_type": "upload",
+                        "message": "Die hochgeladene Datei muss eine XML-Datei sein.",
+                    },
+                },
+            ]
+        )
+
+        self.assertEqual(len(errors), 1)
+        self.assertEqual(errors[0]["file_name"], "ungueltig.txt")
+        self.assertIn("XML-Datei", errors[0]["message"])
+
+    def test_single_valid_bescheid_does_not_create_multi_comparison(self):
+        comparison = build_multi_bescheid_comparison([comparison_bescheid("2023")])
+
+        self.assertIsNone(comparison)
 
     def test_build_due_date_calendar_entries_from_due_dates(self):
         current_bescheid = {
@@ -992,6 +1140,8 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertContains(response, "Gewerbesteuerbescheid-Assistent")
         self.assertContains(response, 'name="bescheid"')
         self.assertContains(response, 'name="vorjahresbescheid"')
+        self.assertContains(response, 'name="vergleichsbescheide"')
+        self.assertContains(response, 'multiple')
         self.assertContains(response, 'accept=".xml"')
         self.assertContains(response, "Anzeige des fälligen Zahlbetrags")
         self.assertContains(response, 'name="viewport"')
@@ -1481,6 +1631,152 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertEqual(csv_response.status_code, 200)
         self.assertIn("Vorauszahlung", csv_content)
         self.assertIn("147.00", csv_content)
+
+    def test_multi_bescheid_upload_displays_multi_year_comparison(self):
+        response = self.client.post(
+            reverse("xgewerbesteuer_default"),
+            data={
+                "bescheid": uploaded_xml(
+                    VALID_BESCHEID_FIXTURE.name,
+                    VALID_BESCHEID_FIXTURE.read_bytes(),
+                ),
+                "vergleichsbescheide": [
+                    uploaded_xml(fixture.name, fixture.read_bytes())
+                    for fixture in reversed(MULTI_YEAR_FIXTURES)
+                ],
+            },
+        )
+
+        comparison = response.context["multi_bescheid_comparison"]
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(comparison["valid_count"], 3)
+        self.assertEqual(
+            [record["tax_period"] for record in comparison["records"]],
+            ["2021", "2022", "2023"],
+        )
+        self.assertContains(response, "Mehrjahresvergleich")
+        self.assertContains(response, "Gültige Bescheide im Vergleich")
+        self.assertContains(response, "400.00")
+        self.assertContains(response, "512.50")
+        self.assertContains(response, "630.00")
+        self.assertContains(response, "Gewerbesteuermessbetrag")
+        self.assertContains(response, "Hebesatz")
+        self.assertContains(response, "Fälligkeiten")
+        self.assertContains(response, "Vorauszahlungen")
+        self.assertContains(response, "responsive-table-wrapper")
+        self.assertContains(response, "responsive-table")
+
+    def test_multi_bescheid_upload_keeps_valid_files_when_one_file_is_invalid(self):
+        response = self.client.post(
+            reverse("xgewerbesteuer_default"),
+            data={
+                "bescheid": uploaded_xml(
+                    VALID_BESCHEID_FIXTURE.name,
+                    VALID_BESCHEID_FIXTURE.read_bytes(),
+                ),
+                "vergleichsbescheide": [
+                    uploaded_xml(
+                        MULTI_YEAR_FIXTURES[1].name,
+                        MULTI_YEAR_FIXTURES[1].read_bytes(),
+                    ),
+                    uploaded_xml(
+                        MULTI_YEAR_FIXTURES[2].name,
+                        MULTI_YEAR_FIXTURES[2].read_bytes(),
+                    ),
+                    uploaded_xml("ungueltig.txt", b"<nachricht/>"),
+                ],
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.context["multi_bescheid_comparison"]["valid_count"],
+            2,
+        )
+        self.assertEqual(len(response.context["multi_bescheid_upload_errors"]), 1)
+        self.assertContains(response, "ungueltig.txt")
+        self.assertContains(response, "Die hochgeladene Datei muss eine XML-Datei sein.")
+        self.assertContains(response, "Mehrjahresvergleich")
+
+    def test_multi_bescheid_upload_marks_duplicate_tax_periods(self):
+        content = VALID_BESCHEID_FIXTURE.read_bytes()
+
+        response = self.client.post(
+            reverse("xgewerbesteuer_default"),
+            data={
+                "bescheid": uploaded_xml(
+                    VALID_BESCHEID_FIXTURE.name,
+                    VALID_BESCHEID_FIXTURE.read_bytes(),
+                ),
+                "vergleichsbescheide": [
+                    uploaded_xml("erstbescheid-2023.xml", content),
+                    uploaded_xml("aenderungsbescheid-2023.xml", content),
+                ],
+            },
+        )
+
+        comparison = response.context["multi_bescheid_comparison"]
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(comparison["duplicate_tax_periods"], ["2023"])
+        self.assertContains(response, "Mehrere Bescheide enthalten denselben Steuerzeitraum")
+        self.assertContains(response, "multi-comparison-duplicate")
+
+    def test_single_valid_comparison_file_does_not_show_multi_year_comparison(self):
+        response = self.client.post(
+            reverse("xgewerbesteuer_default"),
+            data={
+                "bescheid": uploaded_xml(
+                    VALID_BESCHEID_FIXTURE.name,
+                    VALID_BESCHEID_FIXTURE.read_bytes(),
+                ),
+                "vergleichsbescheide": [
+                    uploaded_xml(
+                        MULTI_YEAR_FIXTURES[2].name,
+                        MULTI_YEAR_FIXTURES[2].read_bytes(),
+                    ),
+                ],
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("multi_bescheid_comparison", response.context)
+        self.assertNotContains(response, "Mehrjahresvergleich")
+
+    def test_downloads_still_work_after_multi_bescheid_upload(self):
+        with patch(
+            "xgewerbesteuer.views.process_uploaded_bescheid",
+            side_effect=[
+                processed_bescheid_with_due_date(),
+                {"is_valid": True, "bescheid": comparison_bescheid("2021")},
+                {"is_valid": True, "bescheid": comparison_bescheid("2022")},
+            ],
+        ):
+            upload_response = self.client.post(
+                reverse("xgewerbesteuer_default"),
+                data={
+                    "bescheid": uploaded_xml("bescheid.xml", b"<nachricht/>"),
+                    "vergleichsbescheide": [
+                        uploaded_xml("vergleich-2021.xml", b"<nachricht/>"),
+                        uploaded_xml("vergleich-2022.xml", b"<nachricht/>"),
+                    ],
+                },
+            )
+
+        self.assertEqual(upload_response.status_code, 200)
+        self.assertIn("multi_bescheid_comparison", upload_response.context)
+
+        pdf_response = self.client.get(reverse("xgewerbesteuer_pdf_report"))
+        csv_response = self.client.get(reverse("xgewerbesteuer_csv_export"))
+        ics_response = self.client.get(reverse("xgewerbesteuer_ics_export"))
+
+        self.assertEqual(pdf_response.status_code, 200)
+        self.assertEqual(csv_response.status_code, 200)
+        self.assertEqual(ics_response.status_code, 200)
+        self.assertTrue(pdf_response.content.startswith(b"%PDF"))
+        self.assertIn("Datensatztyp", csv_response.content.decode("utf-8"))
+        self.assertIn("BEGIN:VCALENDAR", ics_response.content.decode("utf-8"))
 
     def test_valid_upload_with_due_date_displays_ics_download_link(self):
         with patch(
