@@ -21,9 +21,13 @@ from xgewerbesteuer.views import (
     build_due_date_calendar_entries,
     build_ics_event,
     build_change_comparison,
+    build_historical_chart_data,
+    build_historical_development,
+    build_historical_development_row,
     build_multi_bescheid_comparison,
     build_multi_bescheid_record,
     build_multi_bescheid_upload_errors,
+    calculate_historical_change,
     create_ics_export,
     escape_ics_text,
     format_ics_date,
@@ -171,6 +175,12 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
         self.assertIn(".due-date-calendar", css_content)
         self.assertIn(".due-date-calendar-month", css_content)
         self.assertIn(".due-date-calendar-entry", css_content)
+        self.assertIn(".multi-comparison-summary", css_content)
+        self.assertIn(".multi-comparison-duplicate", css_content)
+        self.assertIn(".historical-development-summary", css_content)
+        self.assertIn(".historical-development-notice", css_content)
+        self.assertIn(".historical-chart", css_content)
+        self.assertIn(".historical-chart-bar", css_content)
 
     def test_clean_text_normalizes_whitespace_and_empty_values(self):
         self.assertEqual(clean_text("  Stadt   Musterhausen\nNord  "), "Stadt Musterhausen Nord")
@@ -690,6 +700,123 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
         comparison = build_multi_bescheid_comparison([comparison_bescheid("2023")])
 
         self.assertIsNone(comparison)
+
+    def test_build_historical_development_from_three_years(self):
+        comparison = build_multi_bescheid_comparison(
+            [
+                comparison_bescheid("2021", amount_due="400.00"),
+                comparison_bescheid("2022", amount_due="512.50"),
+                comparison_bescheid("2023", amount_due="630.00"),
+            ]
+        )
+
+        history = build_historical_development(comparison["records"])
+
+        self.assertTrue(history["has_history"])
+        self.assertEqual(history["year_count"], 3)
+        self.assertEqual(len(history["rows"]), 3)
+
+    def test_build_historical_development_sorts_rows_chronologically(self):
+        records = [
+            build_multi_bescheid_record(comparison_bescheid("2023")),
+            build_multi_bescheid_record(comparison_bescheid("2021")),
+            build_multi_bescheid_record(comparison_bescheid("2022")),
+        ]
+
+        history = build_historical_development(records)
+
+        self.assertEqual(
+            [row["tax_period"] for row in history["rows"]],
+            ["2021", "2022", "2023"],
+        )
+
+    def test_calculate_historical_change_for_amount_due(self):
+        self.assertEqual(calculate_historical_change("512.50", "400.00"), "+112.50")
+        self.assertEqual(calculate_historical_change("630.00", "512.50"), "+117.50")
+
+    def test_historical_row_calculates_trade_tax_assessment_change(self):
+        previous_record = build_multi_bescheid_record(
+            comparison_bescheid("2021", amount_due="400.00")
+        )
+        current_record = build_multi_bescheid_record(
+            {
+                **comparison_bescheid("2022", amount_due="512.50"),
+                "trade_tax_assessment_amount": "125.00",
+            }
+        )
+        previous_record["trade_tax_assessment_amount"] = "100.00"
+
+        row = build_historical_development_row(current_record, previous_record)
+
+        self.assertEqual(row["trade_tax_assessment_amount_change"], "+25.00")
+
+    def test_historical_row_calculates_assessment_rate_change(self):
+        previous_record = build_multi_bescheid_record(
+            {**comparison_bescheid("2021"), "assessment_rate": "400"}
+        )
+        current_record = build_multi_bescheid_record(
+            {**comparison_bescheid("2022"), "assessment_rate": "410"}
+        )
+
+        row = build_historical_development_row(current_record, previous_record)
+
+        self.assertEqual(row["assessment_rate_change"], "+10.00")
+
+    def test_historical_development_marks_missing_values_neutrally(self):
+        row = build_historical_development_row(
+            build_multi_bescheid_record(
+                comparison_bescheid("2022", amount_due="Nicht gefunden")
+            ),
+            build_multi_bescheid_record(comparison_bescheid("2021")),
+        )
+
+        self.assertEqual(row["amount_due"], "Nicht gefunden")
+        self.assertEqual(row["amount_due_change"], "Nicht berechenbar")
+
+    def test_missing_historical_value_does_not_affect_other_years(self):
+        history = build_historical_development(
+            [
+                build_multi_bescheid_record(
+                    comparison_bescheid("2021", amount_due="Nicht gefunden")
+                ),
+                build_multi_bescheid_record(comparison_bescheid("2022", "512.50")),
+                build_multi_bescheid_record(comparison_bescheid("2023", "630.00")),
+            ]
+        )
+
+        self.assertEqual(history["rows"][1]["amount_due_change"], "Nicht berechenbar")
+        self.assertEqual(history["rows"][2]["amount_due_change"], "+117.50")
+
+    def test_single_record_does_not_create_historical_development(self):
+        records = [build_multi_bescheid_record(comparison_bescheid("2023"))]
+
+        self.assertIsNone(build_historical_development(records))
+
+    def test_build_historical_chart_data_returns_view_model(self):
+        rows = [
+            build_historical_development_row(
+                build_multi_bescheid_record(comparison_bescheid("2021", "400.00"))
+            ),
+            build_historical_development_row(
+                build_multi_bescheid_record(comparison_bescheid("2022", "800.00"))
+            ),
+        ]
+
+        chart_data = build_historical_chart_data(rows)
+
+        self.assertEqual(chart_data[0]["tax_period"], "2021")
+        self.assertEqual(chart_data[1]["width_percent"], 100)
+
+    def test_historical_development_notice_contains_no_trend_claim(self):
+        history = build_historical_development(
+            [
+                build_multi_bescheid_record(comparison_bescheid("2021")),
+                build_multi_bescheid_record(comparison_bescheid("2022")),
+            ]
+        )
+
+        self.assertNotIn("Trend", history["notice"])
+        self.assertNotIn("Prognose", history["notice"])
 
     def test_build_due_date_calendar_entries_from_due_dates(self):
         current_bescheid = {
@@ -1666,6 +1793,102 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertContains(response, "Vorauszahlungen")
         self.assertContains(response, "responsive-table-wrapper")
         self.assertContains(response, "responsive-table")
+
+    def test_multi_bescheid_upload_displays_historical_development(self):
+        response = self.client.post(
+            reverse("xgewerbesteuer_default"),
+            data={
+                "bescheid": uploaded_xml(
+                    VALID_BESCHEID_FIXTURE.name,
+                    VALID_BESCHEID_FIXTURE.read_bytes(),
+                ),
+                "vergleichsbescheide": [
+                    uploaded_xml(fixture.name, fixture.read_bytes())
+                    for fixture in reversed(MULTI_YEAR_FIXTURES)
+                ],
+            },
+        )
+
+        history = response.context["historical_development"]
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(history["year_count"], 3)
+        self.assertEqual(
+            [row["tax_period"] for row in history["rows"]],
+            ["2021", "2022", "2023"],
+        )
+        self.assertContains(response, "Historische Entwicklung")
+        self.assertContains(response, "Mehrjahresvergleich")
+
+    def test_historical_development_table_contains_values_and_changes(self):
+        response = self.client.post(
+            reverse("xgewerbesteuer_default"),
+            data={
+                "bescheid": uploaded_xml(
+                    VALID_BESCHEID_FIXTURE.name,
+                    VALID_BESCHEID_FIXTURE.read_bytes(),
+                ),
+                "vergleichsbescheide": [
+                    uploaded_xml(fixture.name, fixture.read_bytes())
+                    for fixture in MULTI_YEAR_FIXTURES
+                ],
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Zahlbetrag")
+        self.assertContains(response, "Gewerbesteuermessbetrag")
+        self.assertContains(response, "Hebesatz")
+        self.assertContains(response, "Wichtigste Fälligkeit")
+        self.assertContains(response, "+112.50")
+        self.assertContains(response, "+117.50")
+        self.assertContains(response, "+25.00")
+        self.assertContains(response, "+10.00")
+        self.assertContains(response, "Nicht gefunden")
+
+    def test_historical_development_uses_responsive_table_and_keeps_chart_additional(self):
+        response = self.client.post(
+            reverse("xgewerbesteuer_default"),
+            data={
+                "bescheid": uploaded_xml(
+                    VALID_BESCHEID_FIXTURE.name,
+                    VALID_BESCHEID_FIXTURE.read_bytes(),
+                ),
+                "vergleichsbescheide": [
+                    uploaded_xml(fixture.name, fixture.read_bytes())
+                    for fixture in MULTI_YEAR_FIXTURES
+                ],
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "responsive-table-wrapper")
+        self.assertContains(response, "responsive-table")
+        self.assertContains(response, "historical-chart")
+        self.assertContains(response, "<table", html=False)
+        self.assertContains(response, "Die Darstellung zeigt nur aus den Bescheiden")
+
+    def test_historical_development_template_marks_missing_values_neutrally(self):
+        historical_development = build_historical_development(
+            [
+                build_multi_bescheid_record(
+                    comparison_bescheid("2021", amount_due="Nicht gefunden")
+                ),
+                build_multi_bescheid_record(comparison_bescheid("2022", "512.50")),
+            ]
+        )
+
+        rendered = render_to_string(
+            "xgewerbesteuer_default.html",
+            {
+                "summary_items": [{"label": "Zahlbetrag", "value": "512.50"}],
+                "historical_development": historical_development,
+            },
+        )
+
+        self.assertIn("Historische Entwicklung", rendered)
+        self.assertIn("Nicht gefunden", rendered)
+        self.assertIn("Nicht berechenbar", rendered)
 
     def test_multi_bescheid_upload_keeps_valid_files_when_one_file_is_invalid(self):
         response = self.client.post(

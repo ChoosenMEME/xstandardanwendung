@@ -1073,6 +1073,124 @@ def build_multi_bescheid_upload_errors(results):
     return errors
 
 
+def calculate_historical_change(current_value, previous_value):
+    current_decimal = parse_decimal_value(current_value)
+    previous_decimal = parse_decimal_value(previous_value)
+
+    if current_decimal is None or previous_decimal is None:
+        return "Nicht berechenbar"
+
+    return format_signed_decimal_value(current_decimal - previous_decimal)
+
+
+def get_main_due_date(due_dates):
+    parsed_due_dates = split_due_dates(due_dates)
+
+    if not parsed_due_dates:
+        return "Nicht gefunden"
+
+    return parsed_due_dates[0]
+
+
+def build_historical_development_row(record, previous_record=None):
+    notes = list(record.get("notes", []))
+
+    if previous_record is None:
+        amount_due_change = "Nicht berechenbar"
+        trade_tax_assessment_amount_change = "Nicht berechenbar"
+        assessment_rate_change = "Nicht berechenbar"
+    else:
+        amount_due_change = calculate_historical_change(
+            record.get("amount_due"),
+            previous_record.get("amount_due"),
+        )
+        trade_tax_assessment_amount_change = calculate_historical_change(
+            record.get("trade_tax_assessment_amount"),
+            previous_record.get("trade_tax_assessment_amount"),
+        )
+        assessment_rate_change = calculate_historical_change(
+            record.get("assessment_rate"),
+            previous_record.get("assessment_rate"),
+        )
+
+    main_due_date = get_main_due_date(record.get("due_dates"))
+
+    if main_due_date == "Nicht gefunden":
+        notes.append("Wichtigste Fälligkeit nicht gefunden.")
+
+    return {
+        "tax_period": record.get("tax_period", "Nicht gefunden"),
+        "amount_due": record.get("amount_due", "Nicht gefunden"),
+        "amount_due_change": amount_due_change,
+        "trade_tax_assessment_amount": record.get(
+            "trade_tax_assessment_amount",
+            "Nicht gefunden",
+        ),
+        "trade_tax_assessment_amount_change": trade_tax_assessment_amount_change,
+        "assessment_rate": record.get("assessment_rate", "Nicht gefunden"),
+        "assessment_rate_change": assessment_rate_change,
+        "main_due_date": main_due_date,
+        "notes": notes,
+    }
+
+
+def build_historical_chart_data(rows):
+    numeric_rows = []
+
+    for row in rows:
+        parsed_amount = parse_decimal_value(row.get("amount_due"))
+
+        if parsed_amount is not None:
+            numeric_rows.append((row, abs(parsed_amount)))
+
+    if not numeric_rows:
+        return []
+
+    max_amount = max(amount for row, amount in numeric_rows)
+
+    if max_amount == Decimal("0"):
+        max_amount = Decimal("1")
+
+    chart_data = []
+
+    for row, amount in numeric_rows:
+        width_percent = int((amount / max_amount * Decimal("100")).to_integral_value())
+        chart_data.append(
+            {
+                "tax_period": row["tax_period"],
+                "amount_due": row["amount_due"],
+                "width_percent": max(width_percent, 1),
+            }
+        )
+
+    return chart_data
+
+
+def build_historical_development(records):
+    sorted_records = sort_bescheid_records_chronologically(records)
+
+    if len(sorted_records) < 2:
+        return None
+
+    rows = []
+
+    for index, record in enumerate(sorted_records):
+        previous_record = sorted_records[index - 1] if index > 0 else None
+        rows.append(build_historical_development_row(record, previous_record))
+
+    return {
+        "has_history": True,
+        "year_count": len(rows),
+        "rows": rows,
+        "chart_data": build_historical_chart_data(rows),
+        "notice": (
+            "Diese Übersicht zeigt die Entwicklung der ausgelesenen Werte über "
+            "mehrere Jahre. Sie dient der Orientierung und ersetzt keine steuerliche "
+            "Beratung."
+        ),
+    }
+
+
 NOTICE_SEVERITY_ORDER = {
     "warning": 1,
     "info": 2,
@@ -1919,6 +2037,11 @@ def xgewerbesteuer_default(request):
 
                     if multi_bescheid_comparison:
                         context["multi_bescheid_comparison"] = multi_bescheid_comparison
+                        context["historical_development"] = (
+                            build_historical_development(
+                                multi_bescheid_comparison["records"]
+                            )
+                        )
 
                 context["notice_items"] = build_notice_area(
                     current_bescheid,
