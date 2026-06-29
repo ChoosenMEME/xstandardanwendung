@@ -519,6 +519,64 @@ Gewerbesteuerbescheid-Assistent
             </section>
         {% endif %}
 
+        {% if liquidity_impact %}
+            <section class="result-section" aria-labelledby="liquidity-heading">
+                <h2 id="liquidity-heading">Liquiditätsauswirkung</h2>
+
+                <p>
+                    Diese Übersicht zeigt auf Grundlage der ausgelesenen Bescheiddaten,
+                    welche Zahlungen nach Fälligkeit zeitlich eingeordnet werden können.
+                    Sie dient der Orientierung und ersetzt keine Finanz- oder Steuerberatung.
+                </p>
+
+                <p>
+                    Bezugsdatum: <strong>{{ liquidity_impact.reference_date }}</strong>
+                </p>
+
+                <p>
+                    {{ liquidity_impact.summary }}
+                </p>
+
+                <div class="liquidity-overview">
+                    {% for group in liquidity_impact.groups %}
+                        <section class="liquidity-group" aria-label="{{ group.label }}">
+                            <h3>{{ group.label }}</h3>
+
+                            <p class="liquidity-group__summary">
+                                Summe der möglichen Liquiditätsbelastung:
+                                {{ group.total_burden }}
+                            </p>
+
+                            {% if group.items %}
+                                <ul class="liquidity-item-list">
+                                    {% for item in group.items %}
+                                        <li class="liquidity-impact--{{ item.impact }}">
+                                            {{ item.payment_type }}:
+                                            {{ item.amount_display }},
+                                            Fälligkeit: {{ item.due_date_display }},
+                                            Einordnung: {{ item.period_label }}
+                                            {% if item.notice %}
+                                                <br>
+                                                <span class="help-text">{{ item.notice }}</span>
+                                            {% endif %}
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            {% else %}
+                                <p class="help-text">
+                                    Keine ausgelesenen Zahlungen in dieser Zeitraumgruppe.
+                                </p>
+                            {% endif %}
+                        </section>
+                    {% endfor %}
+                </div>
+
+                <p class="help-text">
+                    {{ liquidity_impact.notice }}
+                </p>
+            </section>
+        {% endif %}
+
         {% if notice_items %}
             <section class="result-section print-section" aria-labelledby="notice-heading">
                 <h2 id="notice-heading">Hinweisbereich</h2>

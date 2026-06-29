@@ -14,6 +14,7 @@ from .comparisons import (
 )
 from .services.bescheid import (
     build_due_date_calendar,
+    build_liquidity_impact,
     build_notice_area,
     build_status_indicator,
     create_saved_upload,
@@ -130,6 +131,7 @@ def xgewerbesteuer_default(request):
                 context["payment_classification"] = current_bescheid["payment_classification"]
                 context["due_date_calendar"] = build_due_date_calendar(current_bescheid)
                 context["plausibility_check"] = build_plausibility_check(current_bescheid)
+                context["liquidity_impact"] = build_liquidity_impact(current_bescheid)
                 context["validation_success"] = (
                     "Die Datei wurde erfolgreich geprüft und entspricht dem erwarteten "
                     f"XGewerbesteuer-Schema. Verwendetes Schema: {current_bescheid['schema_name']}"

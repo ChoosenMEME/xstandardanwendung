@@ -1,6 +1,7 @@
 """Orchestrierung der Bescheidverarbeitung."""
 
 import hashlib
+from datetime import date
 from decimal import Decimal
 from xml.etree.ElementTree import ParseError
 
@@ -174,6 +175,178 @@ def process_uploaded_bescheid(uploaded_file):
                 "Bitte prüfen Sie die Datei und versuchen Sie es erneut."
             ),
         }
+
+
+# --- Liquiditaets-Funktionen ---
+
+
+LIQUIDITY_PERIODS = [
+    {"key": "due_now", "label": "Sofort/fällig"},
+    {"key": "within_30_days", "label": "Innerhalb von 30 Tagen"},
+    {"key": "within_90_days", "label": "Innerhalb von 90 Tagen"},
+    {"key": "later", "label": "Später"},
+    {"key": "without_date", "label": "Ohne Datumsangabe"},
+]
+
+LIQUIDITY_PERIOD_BY_KEY = {period["key"]: period for period in LIQUIDITY_PERIODS}
+
+
+def classify_liquidity_period(due_date, reference_date):
+    parsed_due_date = parse_date_value(due_date)
+
+    if parsed_due_date is None:
+        return LIQUIDITY_PERIOD_BY_KEY["without_date"]
+
+    days_until_due = (parsed_due_date - reference_date).days
+
+    if days_until_due <= 0:
+        return LIQUIDITY_PERIOD_BY_KEY["due_now"]
+
+    if days_until_due <= 30:
+        return LIQUIDITY_PERIOD_BY_KEY["within_30_days"]
+
+    if days_until_due <= 90:
+        return LIQUIDITY_PERIOD_BY_KEY["within_90_days"]
+
+    return LIQUIDITY_PERIOD_BY_KEY["later"]
+
+
+def build_liquidity_payment_item(amount, due_date, payment_type, reference_date):
+    parsed_amount = parse_decimal_value(amount)
+    parsed_due_date = parse_date_value(due_date)
+    period = classify_liquidity_period(parsed_due_date, reference_date)
+    notice = None
+
+    if parsed_amount is None:
+        impact = "neutral"
+        notice = "Der Betrag konnte nicht sicher ausgelesen werden."
+    elif parsed_due_date is None and parsed_amount > Decimal("0"):
+        impact = "neutral"
+        notice = "Es liegt keine verwertbare Fälligkeit vor."
+    elif parsed_amount > Decimal("0"):
+        impact = "burden"
+    elif parsed_amount < Decimal("0"):
+        impact = "relief"
+        notice = "Dieser Betrag wird als Erstattung oder Entlastung eingeordnet."
+    else:
+        impact = "neutral"
+        notice = "Ein Nullbetrag wird nicht als Liquiditätsbelastung gezählt."
+
+    if parsed_due_date is None and "Fälligkeit" not in (notice or ""):
+        date_notice = "Es liegt keine verwertbare Fälligkeit vor."
+        notice = f"{notice} {date_notice}" if notice else date_notice
+
+    return {
+        "amount": parsed_amount,
+        "amount_display": (
+            format_euro_value(parsed_amount)
+            if parsed_amount is not None
+            else "Nicht gefunden"
+        ),
+        "due_date": parsed_due_date,
+        "due_date_display": format_german_date(parsed_due_date),
+        "payment_type": payment_type,
+        "period_key": period["key"],
+        "period_label": period["label"],
+        "impact": impact,
+        "notice": notice,
+    }
+
+
+def build_liquidity_payment_items(current_bescheid, reference_date):
+    items = []
+    amount_due = current_bescheid.get("amount_due")
+    due_dates = split_due_dates(current_bescheid.get("due_dates"))
+    payment_classification = current_bescheid.get("payment_classification", {})
+    payment_type = payment_classification.get("type", "Zahlung")
+
+    if amount_due and amount_due != "Nicht gefunden":
+        if due_dates:
+            for due_date in due_dates:
+                items.append(
+                    build_liquidity_payment_item(
+                        amount_due, due_date, payment_type, reference_date,
+                    )
+                )
+        else:
+            items.append(
+                build_liquidity_payment_item(
+                    amount_due, None, payment_type, reference_date,
+                )
+            )
+    elif due_dates:
+        for due_date in due_dates:
+            items.append(
+                build_liquidity_payment_item(
+                    None, due_date, payment_type, reference_date,
+                )
+            )
+
+    for payment in current_bescheid.get("advance_payments", []):
+        items.append(
+            build_liquidity_payment_item(
+                payment.get("amount"),
+                payment.get("due_date"),
+                payment.get("type", "Vorauszahlung"),
+                reference_date,
+            )
+        )
+
+    return items
+
+
+def build_liquidity_impact(current_bescheid, reference_date=None):
+    if reference_date is None:
+        reference_date = date.today()
+
+    items = build_liquidity_payment_items(current_bescheid, reference_date)
+    grouped_items = {period["key"]: [] for period in LIQUIDITY_PERIODS}
+
+    for item in items:
+        grouped_items[item["period_key"]].append(item)
+
+    groups = []
+
+    for period in LIQUIDITY_PERIODS:
+        period_items = grouped_items[period["key"]]
+        total_burden = sum(
+            (
+                item["amount"]
+                for item in period_items
+                if item["impact"] == "burden" and item["amount"] is not None
+            ),
+            Decimal("0"),
+        )
+
+        groups.append({
+            "key": period["key"],
+            "label": period["label"],
+            "total_burden": format_euro_value(total_burden),
+            "items": period_items,
+        })
+
+    burden_total = sum(
+        (
+            item["amount"]
+            for item in items
+            if item["impact"] == "burden" and item["amount"] is not None
+        ),
+        Decimal("0"),
+    )
+
+    return {
+        "reference_date": format_german_date(reference_date),
+        "groups": groups,
+        "summary": (
+            "Summe der möglichen Liquiditätsbelastung aus ausgelesenen positiven Beträgen: "
+            f"{format_euro_value(burden_total)}."
+        ),
+        "has_liquidity_relevant_payments": bool(items),
+        "notice": (
+            "Diese Übersicht dient der Orientierung und ersetzt "
+            "keine Finanz- oder Steuerberatung."
+        ),
+    }
 
 
 # --- Kalender-Funktionen ---
@@ -749,6 +922,7 @@ def build_context_from_saved_upload(saved_upload):
     context.setdefault("payment_classification", current_bescheid.get("payment_classification"))
     context.setdefault("due_date_calendar", build_due_date_calendar(current_bescheid))
     context.setdefault("plausibility_check", build_plausibility_check(current_bescheid))
+    context.setdefault("liquidity_impact", build_liquidity_impact(current_bescheid))
     context.setdefault("notice_items", build_notice_area(current_bescheid))
     context.setdefault(
         "status_indicator",
