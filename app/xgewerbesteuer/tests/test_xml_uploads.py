@@ -1892,6 +1892,19 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertNotIn("uploaded_file_name", response.context)
         self.assertNotIn("status_indicator", response.context)
 
+    def test_post_without_file_clears_stale_export_sessions(self):
+        session = self.client.session
+        session[PDF_REPORT_SESSION_KEY] = {"stale": True}
+        session[CSV_EXPORT_SESSION_KEY] = {"stale": True}
+        session[ICS_EXPORT_SESSION_KEY] = "stale calendar"
+        session.save()
+
+        self.client.post(reverse("xgewerbesteuer_upload"), data={})
+
+        self.assertNotIn(PDF_REPORT_SESSION_KEY, self.client.session)
+        self.assertNotIn(CSV_EXPORT_SESSION_KEY, self.client.session)
+        self.assertNotIn(ICS_EXPORT_SESSION_KEY, self.client.session)
+
     def test_post_rejects_non_xml_filename_before_parsing(self):
         response = self.client.post(
             reverse("xgewerbesteuer_upload"),
@@ -1944,6 +1957,12 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertNotIn("uploaded_file_name", response.context)
 
     def test_post_schema_invalid_xml_shows_validation_error_not_success(self):
+        session = self.client.session
+        session[PDF_REPORT_SESSION_KEY] = {"stale": True}
+        session[CSV_EXPORT_SESSION_KEY] = {"stale": True}
+        session[ICS_EXPORT_SESSION_KEY] = "stale calendar"
+        session.save()
+
         response = self.client.post(
             reverse("xgewerbesteuer_upload"),
             data={"bescheide": uploaded_xml("bescheid.xml", b"<nachricht/>")},
@@ -1956,6 +1975,9 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertNotIn("validation_success", response.context)
         self.assertIn("upload_error", response.context)
         self.assertIn("upload_errors", response.context)
+        self.assertNotIn(PDF_REPORT_SESSION_KEY, self.client.session)
+        self.assertNotIn(CSV_EXPORT_SESSION_KEY, self.client.session)
+        self.assertNotIn(ICS_EXPORT_SESSION_KEY, self.client.session)
 
     def test_post_rejects_xml_with_unsafe_entity_declaration(self):
         response = self.client.post(
@@ -2278,6 +2300,33 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertIn("status_indicator", response.context)
         self.assertEqual(response.context["status_indicator"]["status"], "warning")
         self.assertContains(response, "Warnung / Auffälligkeit")
+
+    def test_post_does_not_select_missing_tax_period_as_current_bescheid(self):
+        known_period = processed_bescheid_with_due_date()
+        known_period["bescheid"]["tax_period"] = "2023"
+        known_period["bescheid"]["file_name"] = "known.xml"
+        missing_period = processed_bescheid_with_due_date()
+        missing_period["bescheid"]["tax_period"] = "Nicht gefunden"
+        missing_period["bescheid"]["file_name"] = "missing.xml"
+
+        with patch(
+            "xgewerbesteuer.views.process_uploaded_bescheid",
+            side_effect=[known_period, missing_period],
+        ):
+            response = self.client.post(
+                reverse("xgewerbesteuer_upload"),
+                data={
+                    "bescheide": [
+                        uploaded_xml("known.xml", b"<nachricht/>"),
+                        uploaded_xml("missing.xml", b"<nachricht/>"),
+                    ],
+                },
+                follow=True,
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["current_bescheid"]["file_name"], "known.xml")
+        self.assertEqual(response.context["current_bescheid"]["tax_period"], "2023")
 
     def test_post_valid_current_with_invalid_previous_filename_keeps_current_summary(self):
         current_content = VALID_BESCHEID_FIXTURE.read_bytes()

@@ -43,19 +43,35 @@ def xgewerbesteuer_dashboard(request):
 
 
 def _sort_bescheide_chronologically(bescheide):
+    def sort_key(bescheid):
+        tax_period = bescheid.get("tax_period", "")
+        sort_year = extract_sort_year(tax_period)
+
+        # Unknown periods come first so the last entry remains the newest
+        # reliably dated Bescheid selected for summaries and exports.
+        return (
+            sort_year != 9999,
+            sort_year,
+            tax_period,
+            bescheid.get("file_name", ""),
+        )
+
     return sorted(
         bescheide,
-        key=lambda b: (
-            extract_sort_year(b.get("tax_period", "")),
-            b.get("tax_period", ""),
-            b.get("file_name", ""),
-        ),
+        key=sort_key,
     )
 
 
 def xgewerbesteuer_upload(request):
     if request.method != "POST":
         return render(request, "xgewerbesteuer/upload.html")
+
+    for session_key in (
+        PDF_REPORT_SESSION_KEY,
+        CSV_EXPORT_SESSION_KEY,
+        ICS_EXPORT_SESSION_KEY,
+    ):
+        request.session.pop(session_key, None)
 
     uploaded_files = request.FILES.getlist("bescheide")
     should_save_upload = request.POST.get("save_upload") == "on"

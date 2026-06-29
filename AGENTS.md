@@ -107,6 +107,10 @@ Falls sich die Struktur aendert, soll sich der Agent an der tatsaechlich vorhand
 ## Docker Compose
 
 Das Projekt wird primaer ueber Docker Compose gestartet. Die Compose-Datei heisst `compose.yaml`.
+Projektbefehle, Django-Kommandos, Tests und Qualitaetspruefungen sollen grundsaetzlich
+zuerst ueber Docker Compose ausgefuehrt werden. Eine Ausfuehrung direkt auf dem Host
+(Bare Metal) darf erst als Fallback versucht werden, wenn die entsprechende
+Docker-Ausfuehrung fehlgeschlagen ist.
 
 Haeufige Befehle:
 
@@ -369,7 +373,8 @@ docker compose exec web python manage.py check
 docker compose exec web python manage.py test
 ```
 
-Falls der Container nicht laeuft, kann lokal im App-Verzeichnis geprueft werden, sofern Abhaengigkeiten installiert sind:
+Nur wenn die Ausfuehrung ueber Docker Compose fehlgeschlagen ist, kann als Fallback
+lokal im App-Verzeichnis geprueft werden, sofern die Abhaengigkeiten installiert sind:
 
 ```bash
 cd app
