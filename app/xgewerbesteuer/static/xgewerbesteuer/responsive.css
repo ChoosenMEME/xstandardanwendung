@@ -125,6 +125,22 @@
     background-color: #f5f5f5;
 }
 
+.multi-comparison-summary {
+    margin-bottom: 1rem;
+}
+
+.multi-comparison-notice {
+    color: #4b5563;
+}
+
+.multi-comparison-warning {
+    border-color: #b45309;
+}
+
+.multi-comparison-duplicate {
+    background-color: #fff3cd;
+}
+
 .section-heading {
     margin-top: 2rem;
 }
