@@ -10,11 +10,10 @@ from .comparisons import (
     build_change_comparison,
     build_historical_development,
     build_multi_bescheid_comparison,
-    build_multi_bescheid_upload_errors,
     build_period_comparison_notice,
+    extract_sort_year,
 )
 from .services.bescheid import (
-    build_context_from_saved_upload,
     build_due_date_calendar,
     build_liquidity_impact,
     build_notice_area,
@@ -43,85 +42,77 @@ def xgewerbesteuer_dashboard(request):
     })
 
 
+def _sort_bescheide_chronologically(bescheide):
+    return sorted(
+        bescheide,
+        key=lambda b: (
+            extract_sort_year(b.get("tax_period", "")),
+            b.get("tax_period", ""),
+            b.get("file_name", ""),
+        ),
+    )
+
+
 def xgewerbesteuer_upload(request):
     if request.method != "POST":
         return render(request, "xgewerbesteuer/upload.html")
 
-    uploaded_file = request.FILES.get("bescheid")
-    previous_uploaded_file = request.FILES.get("vorjahresbescheid")
-    comparison_uploaded_files = request.FILES.getlist("vergleichsbescheide")
+    uploaded_files = request.FILES.getlist("bescheide")
     should_save_upload = request.POST.get("save_upload") == "on"
 
-    if not uploaded_file:
+    if not uploaded_files:
         return render(request, "xgewerbesteuer/upload.html", {
-            "upload_error": "Bitte wählen Sie eine XML-Datei aus.",
+            "upload_error": "Bitte wählen Sie mindestens eine XML-Datei aus.",
         })
 
-    current_result = process_uploaded_bescheid(uploaded_file)
+    results = []
+    upload_errors = []
 
-    if not current_result["is_valid"]:
-        error_key = (
-            "validation_error"
-            if current_result["error_type"] == "validation"
-            else "upload_error"
-        )
+    for uploaded_file in uploaded_files:
+        result = process_uploaded_bescheid(uploaded_file)
+        if result["is_valid"]:
+            results.append(result["bescheid"])
+        else:
+            upload_errors.append({
+                "file_name": uploaded_file.name,
+                "message": result["message"],
+            })
+
+    if not results:
         return render(request, "xgewerbesteuer/upload.html", {
-            error_key: current_result["message"],
+            "upload_error": "Keine der hochgeladenen Dateien konnte verarbeitet werden.",
+            "upload_errors": upload_errors,
         })
 
-    current_bescheid = current_result["bescheid"]
+    sorted_bescheide = _sort_bescheide_chronologically(results)
+    current_bescheid = sorted_bescheide[-1]
 
     session_data = {
         "current_bescheid": current_bescheid,
+        "all_bescheide_count": len(sorted_bescheide),
         "previous_bescheid": None,
         "period_comparison_notice": None,
         "change_comparison_items": None,
-        "comparison_bescheide": [],
-        "comparison_errors": [],
+        "comparison_errors": upload_errors,
         "multi_bescheid_comparison": None,
         "historical_development": None,
         "saved_upload_success": None,
         "saved_upload_error": None,
     }
 
-    if previous_uploaded_file:
-        previous_result = process_uploaded_bescheid(previous_uploaded_file)
-
-        if previous_result["is_valid"]:
-            previous_bescheid = previous_result["bescheid"]
-            session_data["previous_bescheid"] = previous_bescheid
-            session_data["period_comparison_notice"] = build_period_comparison_notice(
-                current_bescheid["tax_period"],
-                previous_bescheid["tax_period"],
-            )
-            session_data["change_comparison_items"] = build_change_comparison(
-                current_bescheid,
-                previous_bescheid,
-            )
-        else:
-            error_prefix = "Vorjahresbescheid"
-            session_data["previous_error"] = f"{error_prefix}: {previous_result['message']}"
-
-    if comparison_uploaded_files:
-        comparison_results = [
-            {
-                "file_name": comparison_file.name,
-                "result": process_uploaded_bescheid(comparison_file),
-            }
-            for comparison_file in comparison_uploaded_files
-        ]
-        valid_comparison_bescheide = [
-            item["result"]["bescheid"]
-            for item in comparison_results
-            if item["result"].get("is_valid")
-        ]
-        session_data["comparison_errors"] = build_multi_bescheid_upload_errors(
-            comparison_results
+    if len(sorted_bescheide) >= 2:
+        previous_bescheid = sorted_bescheide[-2]
+        session_data["previous_bescheid"] = previous_bescheid
+        session_data["period_comparison_notice"] = build_period_comparison_notice(
+            current_bescheid["tax_period"],
+            previous_bescheid["tax_period"],
+        )
+        session_data["change_comparison_items"] = build_change_comparison(
+            current_bescheid,
+            previous_bescheid,
         )
 
-        multi_bescheid_comparison = build_multi_bescheid_comparison(
-            valid_comparison_bescheide
-        )
+        multi_bescheid_comparison = build_multi_bescheid_comparison(sorted_bescheide)
 
         if multi_bescheid_comparison:
             session_data["multi_bescheid_comparison"] = multi_bescheid_comparison
@@ -167,6 +158,7 @@ def _build_result_context(session_data):
         "current_bescheid": current_bescheid,
         "uploaded_file_name": current_bescheid["file_name"],
         "uploaded_file_size": current_bescheid["file_size"],
+        "all_bescheide_count": session_data.get("all_bescheide_count", 1),
         "summary_items": current_bescheid["summary_items"],
         "calculation_explanation": current_bescheid["calculation_explanation"],
         "advance_payments": current_bescheid["advance_payments"],
@@ -189,14 +181,11 @@ def _build_result_context(session_data):
     if change_comparison_items:
         context["change_comparison_items"] = change_comparison_items
 
-    if session_data.get("previous_error"):
-        context["previous_error"] = session_data["previous_error"]
+    if session_data.get("comparison_errors"):
+        context["multi_bescheid_upload_errors"] = session_data["comparison_errors"]
 
     if session_data.get("multi_bescheid_comparison"):
         context["multi_bescheid_comparison"] = session_data["multi_bescheid_comparison"]
-
-    if session_data.get("comparison_errors"):
-        context["multi_bescheid_upload_errors"] = session_data["comparison_errors"]
 
     if session_data.get("historical_development"):
         context["historical_development"] = session_data["historical_development"]
@@ -271,6 +260,7 @@ def xgewerbesteuer_load_saved(request):
 
     request.session[RESULT_SESSION_KEY] = {
         "current_bescheid": current_bescheid,
+        "all_bescheide_count": 1,
         "previous_bescheid": None,
         "period_comparison_notice": None,
         "change_comparison_items": None,

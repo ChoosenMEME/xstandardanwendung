@@ -1629,7 +1629,7 @@ class SavedBescheidUploadTests(TestCase):
         response = self.client.post(
             reverse("xgewerbesteuer_upload"),
             data={
-                "bescheid": uploaded_xml(
+                "bescheide": uploaded_xml(
                     VALID_BESCHEID_FIXTURE.name,
                     VALID_BESCHEID_FIXTURE.read_bytes(),
                 ),
@@ -1646,7 +1646,7 @@ class SavedBescheidUploadTests(TestCase):
         response = self.client.post(
             reverse("xgewerbesteuer_upload"),
             data={
-                "bescheid": uploaded_xml(
+                "bescheide": uploaded_xml(
                     VALID_BESCHEID_FIXTURE.name,
                     VALID_BESCHEID_FIXTURE.read_bytes(),
                 ),
@@ -1661,7 +1661,7 @@ class SavedBescheidUploadTests(TestCase):
         self.client.post(
             reverse("xgewerbesteuer_upload"),
             data={
-                "bescheid": uploaded_xml(
+                "bescheide": uploaded_xml(
                     VALID_BESCHEID_FIXTURE.name,
                     VALID_BESCHEID_FIXTURE.read_bytes(),
                 ),
@@ -1773,7 +1773,7 @@ class SavedBescheidUploadTests(TestCase):
             response = self.client.post(
                 reverse("xgewerbesteuer_upload"),
                 data={
-                    "bescheid": uploaded_xml(
+                    "bescheide": uploaded_xml(
                         VALID_BESCHEID_FIXTURE.name,
                         VALID_BESCHEID_FIXTURE.read_bytes(),
                     ),
@@ -1820,7 +1820,7 @@ class SavedBescheidUploadTests(TestCase):
         self.client.post(
             reverse("xgewerbesteuer_upload"),
             data={
-                "bescheid": uploaded_xml("bescheid.xml", b"<nachricht/>"),
+                "bescheide": uploaded_xml("bescheid.xml", b"<nachricht/>"),
                 "save_upload": "on",
             },
         )
@@ -1832,7 +1832,7 @@ class SavedBescheidUploadTests(TestCase):
             self.client.post(
                 reverse("xgewerbesteuer_upload"),
                 data={
-                    "bescheid": uploaded_xml("bescheid.xml", b"<nachricht/>"),
+                    "bescheide": uploaded_xml("bescheid.xml", b"<nachricht/>"),
                     "save_upload": "on",
                 },
                 follow=True,
@@ -1860,14 +1860,12 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Gewerbesteuer-Assistent")
-        self.assertContains(response, 'name="bescheid"')
-        self.assertContains(response, 'name="vorjahresbescheid"')
-        self.assertContains(response, 'name="vergleichsbescheide"')
+        self.assertContains(response, 'name="bescheide"')
         self.assertContains(response, 'name="save_upload"')
         self.assertContains(response, 'multiple')
         self.assertContains(response, 'accept=".xml"')
         self.assertContains(response, "Browser-Session speichern")
-        self.assertContains(response, "Original-XML-Datei")
+        self.assertContains(response, "Original-XML-Dateien")
         self.assertContains(response, 'name="viewport"')
         self.assertContains(response, "app.css")
         self.assertContains(response, "@kern-ux/native")
@@ -1889,7 +1887,7 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
             response.context["upload_error"],
-            "Bitte wählen Sie eine XML-Datei aus.",
+            "Bitte wählen Sie mindestens eine XML-Datei aus.",
         )
         self.assertNotIn("uploaded_file_name", response.context)
         self.assertNotIn("status_indicator", response.context)
@@ -1897,12 +1895,14 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
     def test_post_rejects_non_xml_filename_before_parsing(self):
         response = self.client.post(
             reverse("xgewerbesteuer_upload"),
-            data={"bescheid": uploaded_xml("bescheid.txt", b"<nachricht/>")},
+            data={"bescheide": uploaded_xml("bescheid.txt", b"<nachricht/>")},
         )
 
         self.assertEqual(response.status_code, 200)
+        self.assertIn("upload_error", response.context)
+        self.assertEqual(len(response.context["upload_errors"]), 1)
         self.assertEqual(
-            response.context["upload_error"],
+            response.context["upload_errors"][0]["message"],
             "Die hochgeladene Datei muss eine XML-Datei sein.",
         )
         self.assertNotIn("uploaded_file_name", response.context)
@@ -1911,7 +1911,7 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         response = self.client.post(
             reverse("xgewerbesteuer_upload"),
             data={
-                "bescheid": uploaded_xml(
+                "bescheide": uploaded_xml(
                     "bescheid.xml",
                     b"x" * (MAX_UPLOAD_SIZE_BYTES + 1),
                 )
@@ -1919,8 +1919,10 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         )
 
         self.assertEqual(response.status_code, 200)
+        self.assertIn("upload_error", response.context)
+        self.assertEqual(len(response.context["upload_errors"]), 1)
         self.assertEqual(
-            response.context["upload_error"],
+            response.context["upload_errors"][0]["message"],
             "Die hochgeladene Datei ist zu groß.",
         )
         self.assertNotIn("uploaded_file_name", response.context)
@@ -1928,12 +1930,14 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
     def test_post_rejects_malformed_xml_with_user_safe_message(self):
         response = self.client.post(
             reverse("xgewerbesteuer_upload"),
-            data={"bescheid": uploaded_xml("bescheid.xml", b"<nachricht>")},
+            data={"bescheide": uploaded_xml("bescheid.xml", b"<nachricht>")},
         )
 
         self.assertEqual(response.status_code, 200)
+        self.assertIn("upload_error", response.context)
+        self.assertEqual(len(response.context["upload_errors"]), 1)
         self.assertEqual(
-            response.context["upload_error"],
+            response.context["upload_errors"][0]["message"],
             "Die Datei ist nicht XML-konform oder enthält unsichere XML-Inhalte "
             "und konnte nicht verarbeitet werden.",
         )
@@ -1942,7 +1946,7 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
     def test_post_schema_invalid_xml_shows_validation_error_not_success(self):
         response = self.client.post(
             reverse("xgewerbesteuer_upload"),
-            data={"bescheid": uploaded_xml("bescheid.xml", b"<nachricht/>")},
+            data={"bescheide": uploaded_xml("bescheid.xml", b"<nachricht/>")},
         )
 
         self.assertEqual(response.status_code, 200)
@@ -1950,18 +1954,14 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertNotIn("summary_items", response.context)
         self.assertNotIn("calculation_explanation", response.context)
         self.assertNotIn("validation_success", response.context)
-        self.assertIn("validation_error", response.context)
-        self.assertContains(response, "Validierungsfehler")
-        self.assertContains(
-            response,
-            "Bitte wählen Sie eine gültige XML-Datei im XGewerbesteuer-Format aus.",
-        )
+        self.assertIn("upload_error", response.context)
+        self.assertIn("upload_errors", response.context)
 
     def test_post_rejects_xml_with_unsafe_entity_declaration(self):
         response = self.client.post(
             reverse("xgewerbesteuer_upload"),
             data={
-                "bescheid": uploaded_xml(
+                "bescheide": uploaded_xml(
                     "bescheid.xml",
                     b"""<?xml version="1.0"?>
                     <!DOCTYPE nachricht [
@@ -1973,8 +1973,10 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         )
 
         self.assertEqual(response.status_code, 200)
+        self.assertIn("upload_error", response.context)
+        self.assertEqual(len(response.context["upload_errors"]), 1)
         self.assertEqual(
-            response.context["upload_error"],
+            response.context["upload_errors"][0]["message"],
             "Die Datei ist nicht XML-konform oder enthält unsichere XML-Inhalte "
             "und konnte nicht verarbeitet werden.",
         )
@@ -1984,7 +1986,7 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
 
         response = self.client.post(
             reverse("xgewerbesteuer_upload"),
-            data={"bescheid": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
+            data={"bescheide": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
             follow=True,
         )
 
@@ -2027,7 +2029,7 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
 
         response = self.client.post(
             reverse("xgewerbesteuer_upload"),
-            data={"bescheid": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
+            data={"bescheide": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
             follow=True,
         )
 
@@ -2042,7 +2044,7 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
 
         response = self.client.post(
             reverse("xgewerbesteuer_upload"),
-            data={"bescheid": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
+            data={"bescheide": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
             follow=True,
         )
 
@@ -2057,7 +2059,7 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
 
         response = self.client.post(
             reverse("xgewerbesteuer_upload"),
-            data={"bescheid": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
+            data={"bescheide": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
             follow=True,
         )
 
@@ -2070,7 +2072,7 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
 
         response = self.client.post(
             reverse("xgewerbesteuer_upload"),
-            data={"bescheid": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
+            data={"bescheide": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
             follow=True,
         )
 
@@ -2086,7 +2088,7 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
 
         response = self.client.post(
             reverse("xgewerbesteuer_upload"),
-            data={"bescheid": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
+            data={"bescheide": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
             follow=True,
         )
 
@@ -2103,7 +2105,7 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
 
         response = self.client.post(
             reverse("xgewerbesteuer_upload"),
-            data={"bescheid": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
+            data={"bescheide": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
             follow=True,
         )
 
@@ -2116,7 +2118,7 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
 
         response = self.client.post(
             reverse("xgewerbesteuer_upload"),
-            data={"bescheid": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
+            data={"bescheide": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
             follow=True,
         )
 
@@ -2154,7 +2156,7 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
 
         response = self.client.post(
             reverse("xgewerbesteuer_upload"),
-            data={"bescheid": uploaded_xml(ADVANCE_PAYMENT_FIXTURE.name, content)},
+            data={"bescheide": uploaded_xml(ADVANCE_PAYMENT_FIXTURE.name, content)},
             follow=True,
         )
 
@@ -2171,7 +2173,7 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
 
         response = self.client.post(
             reverse("xgewerbesteuer_upload"),
-            data={"bescheid": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
+            data={"bescheide": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
             follow=True,
         )
 
@@ -2186,7 +2188,7 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
 
         response = self.client.post(
             reverse("xgewerbesteuer_upload"),
-            data={"bescheid": uploaded_xml(ADVANCE_PAYMENT_FIXTURE.name, content)},
+            data={"bescheide": uploaded_xml(ADVANCE_PAYMENT_FIXTURE.name, content)},
             follow=True,
         )
 
@@ -2207,20 +2209,20 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
 
         response = self.client.post(
             reverse("xgewerbesteuer_upload"),
-            data={"bescheid": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
+            data={"bescheide": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
             follow=True,
         )
 
         self.assertEqual(response.status_code, 200)
         self.assertNotIn("change_comparison_items", response.context)
-        self.assertNotContains(response, "Änderungsvergleich zum Vorjahr")
+        self.assertNotContains(response, "Änderungsvergleich")
 
     def test_post_advance_payment_fixture_displays_advance_payments_section(self):
         content = ADVANCE_PAYMENT_FIXTURE.read_bytes()
 
         response = self.client.post(
             reverse("xgewerbesteuer_upload"),
-            data={"bescheid": uploaded_xml(ADVANCE_PAYMENT_FIXTURE.name, content)},
+            data={"bescheide": uploaded_xml(ADVANCE_PAYMENT_FIXTURE.name, content)},
             follow=True,
         )
 
@@ -2242,11 +2244,10 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         response = self.client.post(
             reverse("xgewerbesteuer_upload"),
             data={
-                "bescheid": uploaded_xml(VALID_BESCHEID_FIXTURE.name, current_content),
-                "vorjahresbescheid": uploaded_xml(
-                    PREVIOUS_BESCHEID_FIXTURE.name,
-                    previous_content,
-                ),
+                "bescheide": [
+                    uploaded_xml(VALID_BESCHEID_FIXTURE.name, current_content),
+                    uploaded_xml(PREVIOUS_BESCHEID_FIXTURE.name, previous_content),
+                ],
             },
             follow=True,
         )
@@ -2256,16 +2257,16 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertIn("previous_bescheid", response.context)
         self.assertEqual(response.context["current_bescheid"]["tax_period"], "2023")
         self.assertEqual(response.context["previous_bescheid"]["tax_period"], "2022")
-        self.assertContains(response, "Vergleich mit Vorjahresbescheid")
+        self.assertContains(response, "Vergleich mit Vorbescheid")
         self.assertContains(response, "Aktueller Bescheid")
-        self.assertContains(response, "Vorjahresbescheid")
+        self.assertContains(response, "Vorbescheid")
         self.assertContains(response, "2023")
         self.assertContains(response, "2022")
         self.assertIn("change_comparison_items", response.context)
-        self.assertContains(response, "Änderungsvergleich zum Vorjahr")
+        self.assertContains(response, "Änderungsvergleich")
         self.assertContains(response, "+117.50")
         self.assertContains(response, "+22.93 %")
-        self.assertContains(response, "Erhöhung")
+        self.assertContains(response, "change-badge--up")
         self.assertContains(response, "Bewertung")
         self.assertContains(response, "Wichtige Änderung")
         self.assertContains(
@@ -2274,10 +2275,6 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         )
         self.assertContains(response, "Keine wichtige Änderung")
         self.assertContains(response, "Wichtige Änderung zum Vorjahr")
-        self.assertContains(
-            response,
-            "Folgende Werte haben sich gegenüber dem Vorjahresbescheid deutlich verändert",
-        )
         self.assertIn("status_indicator", response.context)
         self.assertEqual(response.context["status_indicator"]["status"], "warning")
         self.assertContains(response, "Warnung / Auffälligkeit")
@@ -2288,8 +2285,10 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         response = self.client.post(
             reverse("xgewerbesteuer_upload"),
             data={
-                "bescheid": uploaded_xml(VALID_BESCHEID_FIXTURE.name, current_content),
-                "vorjahresbescheid": uploaded_xml("vorjahr.txt", b"<nachricht/>"),
+                "bescheide": [
+                    uploaded_xml(VALID_BESCHEID_FIXTURE.name, current_content),
+                    uploaded_xml("vorjahr.txt", b"<nachricht/>"),
+                ],
             },
             follow=True,
         )
@@ -2297,12 +2296,9 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("summary_items", response.context)
         self.assertNotIn("previous_bescheid", response.context)
-        self.assertEqual(
-            response.context["previous_error"],
-            "Vorjahresbescheid: Die hochgeladene Datei muss eine XML-Datei sein.",
-        )
+        self.assertIn("multi_bescheid_upload_errors", response.context)
+        self.assertEqual(len(response.context["multi_bescheid_upload_errors"]), 1)
         self.assertContains(response, "Zusammenfassung")
-        self.assertContains(response, "Vorjahresbescheid")
 
     def test_pdf_report_requires_successful_upload(self):
         response = self.client.get(reverse("xgewerbesteuer_pdf_report"))
@@ -2319,7 +2315,7 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
 
         upload_response = self.client.post(
             reverse("xgewerbesteuer_upload"),
-            data={"bescheid": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
+            data={"bescheide": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
             follow=True,
         )
 
@@ -2340,7 +2336,7 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
     def test_invalid_upload_does_not_create_pdf_report(self):
         response = self.client.post(
             reverse("xgewerbesteuer_upload"),
-            data={"bescheid": uploaded_xml("bescheid.xml", b"<nachricht/>")},
+            data={"bescheide": uploaded_xml("bescheid.xml", b"<nachricht/>")},
         )
 
         self.assertEqual(response.status_code, 200)
@@ -2365,7 +2361,7 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
 
         upload_response = self.client.post(
             reverse("xgewerbesteuer_upload"),
-            data={"bescheid": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
+            data={"bescheide": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
             follow=True,
         )
 
@@ -2393,7 +2389,7 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
     def test_invalid_upload_does_not_create_csv_export(self):
         response = self.client.post(
             reverse("xgewerbesteuer_upload"),
-            data={"bescheid": uploaded_xml("bescheid.xml", b"<nachricht/>")},
+            data={"bescheide": uploaded_xml("bescheid.xml", b"<nachricht/>")},
         )
 
         self.assertEqual(response.status_code, 200)
@@ -2408,7 +2404,7 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
 
         upload_response = self.client.post(
             reverse("xgewerbesteuer_upload"),
-            data={"bescheid": uploaded_xml(ADVANCE_PAYMENT_FIXTURE.name, content)},
+            data={"bescheide": uploaded_xml(ADVANCE_PAYMENT_FIXTURE.name, content)},
             follow=True,
         )
 
@@ -2425,7 +2421,7 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         response = self.client.post(
             reverse("xgewerbesteuer_upload"),
             data={
-                "bescheid": uploaded_xml(
+                "bescheide": uploaded_xml(
                     VALID_BESCHEID_FIXTURE.name,
                     VALID_BESCHEID_FIXTURE.read_bytes(),
                 )
@@ -2452,7 +2448,7 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         ):
             response = self.client.post(
                 reverse("xgewerbesteuer_upload"),
-                data={"bescheid": uploaded_xml("bescheid.xml", b"<nachricht/>")},
+                data={"bescheide": uploaded_xml("bescheid.xml", b"<nachricht/>")},
                 follow=True,
             )
 
@@ -2472,7 +2468,7 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         ):
             response = self.client.post(
                 reverse("xgewerbesteuer_upload"),
-                data={"bescheid": uploaded_xml("bescheid.xml", b"<nachricht/>")},
+                data={"bescheide": uploaded_xml("bescheid.xml", b"<nachricht/>")},
                 follow=True,
             )
 
@@ -2496,8 +2492,8 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
             upload_response = self.client.post(
                 reverse("xgewerbesteuer_upload"),
                 data={
-                    "bescheid": uploaded_xml("bescheid.xml", b"<nachricht/>"),
-                    "vergleichsbescheide": [
+                    "bescheide": [
+                        uploaded_xml("bescheid.xml", b"<nachricht/>"),
                         uploaded_xml("vergleich-2021.xml", b"<nachricht/>"),
                         uploaded_xml("vergleich-2022.xml", b"<nachricht/>"),
                     ],
@@ -2519,13 +2515,9 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         response = self.client.post(
             reverse("xgewerbesteuer_upload"),
             data={
-                "bescheid": uploaded_xml(
-                    VALID_BESCHEID_FIXTURE.name,
-                    VALID_BESCHEID_FIXTURE.read_bytes(),
-                ),
-                "vergleichsbescheide": [
+                "bescheide": [
                     uploaded_xml(fixture.name, fixture.read_bytes())
-                    for fixture in reversed(MULTI_YEAR_FIXTURES)
+                    for fixture in MULTI_YEAR_FIXTURES
                 ],
             },
             follow=True,
@@ -2555,13 +2547,9 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         response = self.client.post(
             reverse("xgewerbesteuer_upload"),
             data={
-                "bescheid": uploaded_xml(
-                    VALID_BESCHEID_FIXTURE.name,
-                    VALID_BESCHEID_FIXTURE.read_bytes(),
-                ),
-                "vergleichsbescheide": [
+                "bescheide": [
                     uploaded_xml(fixture.name, fixture.read_bytes())
-                    for fixture in reversed(MULTI_YEAR_FIXTURES)
+                    for fixture in MULTI_YEAR_FIXTURES
                 ],
             },
             follow=True,
@@ -2582,11 +2570,7 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         response = self.client.post(
             reverse("xgewerbesteuer_upload"),
             data={
-                "bescheid": uploaded_xml(
-                    VALID_BESCHEID_FIXTURE.name,
-                    VALID_BESCHEID_FIXTURE.read_bytes(),
-                ),
-                "vergleichsbescheide": [
+                "bescheide": [
                     uploaded_xml(fixture.name, fixture.read_bytes())
                     for fixture in MULTI_YEAR_FIXTURES
                 ],
@@ -2605,11 +2589,7 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         response = self.client.post(
             reverse("xgewerbesteuer_upload"),
             data={
-                "bescheid": uploaded_xml(
-                    VALID_BESCHEID_FIXTURE.name,
-                    VALID_BESCHEID_FIXTURE.read_bytes(),
-                ),
-                "vergleichsbescheide": [
+                "bescheide": [
                     uploaded_xml(fixture.name, fixture.read_bytes())
                     for fixture in MULTI_YEAR_FIXTURES
                 ],
@@ -2632,11 +2612,7 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         response = self.client.post(
             reverse("xgewerbesteuer_upload"),
             data={
-                "bescheid": uploaded_xml(
-                    VALID_BESCHEID_FIXTURE.name,
-                    VALID_BESCHEID_FIXTURE.read_bytes(),
-                ),
-                "vergleichsbescheide": [
+                "bescheide": [
                     uploaded_xml(fixture.name, fixture.read_bytes())
                     for fixture in MULTI_YEAR_FIXTURES
                 ],
@@ -2647,7 +2623,7 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "table-wrapper")
         self.assertContains(response, "table")
-        self.assertContains(response, "historical-chart")
+        self.assertContains(response, "multi-metric-chart")
         self.assertContains(response, "<table", html=False)
         self.assertContains(response, "Entwicklung der ausgelesenen Werte")
 
@@ -2677,11 +2653,11 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         response = self.client.post(
             reverse("xgewerbesteuer_upload"),
             data={
-                "bescheid": uploaded_xml(
-                    VALID_BESCHEID_FIXTURE.name,
-                    VALID_BESCHEID_FIXTURE.read_bytes(),
-                ),
-                "vergleichsbescheide": [
+                "bescheide": [
+                    uploaded_xml(
+                        VALID_BESCHEID_FIXTURE.name,
+                        VALID_BESCHEID_FIXTURE.read_bytes(),
+                    ),
                     uploaded_xml(
                         MULTI_YEAR_FIXTURES[1].name,
                         MULTI_YEAR_FIXTURES[1].read_bytes(),
@@ -2699,7 +2675,7 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(
             response.context["multi_bescheid_comparison"]["valid_count"],
-            2,
+            3,
         )
         self.assertEqual(len(response.context["multi_bescheid_upload_errors"]), 1)
         self.assertContains(response, "ungueltig.txt")
@@ -2712,11 +2688,11 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         response = self.client.post(
             reverse("xgewerbesteuer_upload"),
             data={
-                "bescheid": uploaded_xml(
-                    VALID_BESCHEID_FIXTURE.name,
-                    VALID_BESCHEID_FIXTURE.read_bytes(),
-                ),
-                "vergleichsbescheide": [
+                "bescheide": [
+                    uploaded_xml(
+                        VALID_BESCHEID_FIXTURE.name,
+                        VALID_BESCHEID_FIXTURE.read_bytes(),
+                    ),
                     uploaded_xml("erstbescheid-2023.xml", content),
                     uploaded_xml("aenderungsbescheid-2023.xml", content),
                 ],
@@ -2731,20 +2707,14 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertContains(response, "Mehrere Bescheide enthalten denselben Steuerzeitraum")
         self.assertContains(response, "multi-comparison-duplicate")
 
-    def test_single_valid_comparison_file_does_not_show_multi_year_comparison(self):
+    def test_single_file_upload_does_not_show_multi_year_comparison(self):
         response = self.client.post(
             reverse("xgewerbesteuer_upload"),
             data={
-                "bescheid": uploaded_xml(
+                "bescheide": uploaded_xml(
                     VALID_BESCHEID_FIXTURE.name,
                     VALID_BESCHEID_FIXTURE.read_bytes(),
                 ),
-                "vergleichsbescheide": [
-                    uploaded_xml(
-                        MULTI_YEAR_FIXTURES[2].name,
-                        MULTI_YEAR_FIXTURES[2].read_bytes(),
-                    ),
-                ],
             },
             follow=True,
         )
@@ -2765,8 +2735,8 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
             upload_response = self.client.post(
                 reverse("xgewerbesteuer_upload"),
                 data={
-                    "bescheid": uploaded_xml("bescheid.xml", b"<nachricht/>"),
-                    "vergleichsbescheide": [
+                    "bescheide": [
+                        uploaded_xml("bescheid.xml", b"<nachricht/>"),
                         uploaded_xml("vergleich-2021.xml", b"<nachricht/>"),
                         uploaded_xml("vergleich-2022.xml", b"<nachricht/>"),
                     ],
@@ -2795,7 +2765,7 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         ):
             response = self.client.post(
                 reverse("xgewerbesteuer_upload"),
-                data={"bescheid": uploaded_xml("bescheid.xml", b"<nachricht/>")},
+                data={"bescheide": uploaded_xml("bescheid.xml", b"<nachricht/>")},
                 follow=True,
             )
 
@@ -2813,7 +2783,7 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         ):
             upload_response = self.client.post(
                 reverse("xgewerbesteuer_upload"),
-                data={"bescheid": uploaded_xml("bescheid.xml", b"<nachricht/>")},
+                data={"bescheide": uploaded_xml("bescheid.xml", b"<nachricht/>")},
                 follow=True,
             )
 
@@ -2845,7 +2815,7 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
 
         response = self.client.post(
             reverse("xgewerbesteuer_upload"),
-            data={"bescheid": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
+            data={"bescheide": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
             follow=True,
         )
 
@@ -2863,8 +2833,10 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         response = self.client.post(
             reverse("xgewerbesteuer_upload"),
             data={
-                "bescheid": uploaded_xml(VALID_BESCHEID_FIXTURE.name, current_content),
-                "vorjahresbescheid": uploaded_xml("vorjahr.xml", b"<nachricht/>"),
+                "bescheide": [
+                    uploaded_xml(VALID_BESCHEID_FIXTURE.name, current_content),
+                    uploaded_xml("vorjahr.xml", b"<nachricht/>"),
+                ],
             },
             follow=True,
         )
@@ -2872,9 +2844,8 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("summary_items", response.context)
         self.assertNotIn("previous_bescheid", response.context)
-        self.assertIn("previous_error", response.context)
+        self.assertIn("multi_bescheid_upload_errors", response.context)
         self.assertContains(response, "Zusammenfassung")
-        self.assertContains(response, "Vorjahresbescheid")
 
     def test_post_valid_current_with_oversized_previous_file_keeps_current_summary(self):
         current_content = VALID_BESCHEID_FIXTURE.read_bytes()
@@ -2882,11 +2853,13 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         response = self.client.post(
             reverse("xgewerbesteuer_upload"),
             data={
-                "bescheid": uploaded_xml(VALID_BESCHEID_FIXTURE.name, current_content),
-                "vorjahresbescheid": uploaded_xml(
-                    "vorjahr.xml",
-                    b"x" * (MAX_UPLOAD_SIZE_BYTES + 1),
-                ),
+                "bescheide": [
+                    uploaded_xml(VALID_BESCHEID_FIXTURE.name, current_content),
+                    uploaded_xml(
+                        "vorjahr.xml",
+                        b"x" * (MAX_UPLOAD_SIZE_BYTES + 1),
+                    ),
+                ],
             },
             follow=True,
         )
@@ -2894,9 +2867,6 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("summary_items", response.context)
         self.assertNotIn("previous_bescheid", response.context)
-        self.assertEqual(
-            response.context["previous_error"],
-            "Vorjahresbescheid: Die hochgeladene Datei ist zu groß.",
-        )
+        self.assertIn("multi_bescheid_upload_errors", response.context)
+        self.assertEqual(len(response.context["multi_bescheid_upload_errors"]), 1)
         self.assertContains(response, "Zusammenfassung")
-        self.assertContains(response, "Vorjahresbescheid")

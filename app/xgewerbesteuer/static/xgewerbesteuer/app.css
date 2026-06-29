@@ -1077,6 +1077,235 @@ body {
     color: var(--color-primary-700);
 }
 
+/* ===== MULTI-METRIC CHART ===== */
+
+.multi-metric-chart {
+    margin-top: 1.5rem;
+}
+
+.multi-metric-chart__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    font-size: 0.8rem;
+    color: var(--color-text-secondary);
+}
+
+.multi-metric-chart__legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+}
+
+.multi-metric-chart__legend-swatch {
+    width: 0.875rem;
+    height: 0.875rem;
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+
+.multi-metric-chart__legend-swatch--primary {
+    background: var(--color-primary-600);
+}
+
+.multi-metric-chart__legend-swatch--secondary {
+    background: #7c3aed;
+}
+
+.multi-metric-chart__legend-swatch--tertiary {
+    background: #0891b2;
+}
+
+.multi-metric-chart__year {
+    margin-bottom: 0.75rem;
+}
+
+.multi-metric-chart__year-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.multi-metric-chart__bars {
+    display: grid;
+    gap: 0.2rem;
+}
+
+.multi-metric-chart__bar {
+    display: flex;
+    align-items: center;
+    min-height: 1.375rem;
+    padding: 0.125rem 0.5rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #fff;
+    white-space: nowrap;
+    min-width: 2rem;
+    transition: width 0.3s ease;
+}
+
+.multi-metric-chart__bar--primary {
+    background: var(--color-primary-600);
+}
+
+.multi-metric-chart__bar--secondary {
+    background: #7c3aed;
+}
+
+.multi-metric-chart__bar--tertiary {
+    background: #0891b2;
+}
+
+/* ===== DELTA CARDS ===== */
+
+.delta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+
+.delta-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 1rem;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-card);
+}
+
+.delta-card__icon {
+    flex-shrink: 0;
+    width: 2rem;
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.delta-card--up {
+    border-color: var(--color-error-border);
+    background: var(--color-error-bg);
+}
+
+.delta-card--up .delta-card__icon {
+    background: var(--color-error);
+    color: #fff;
+}
+
+.delta-card--down {
+    border-color: var(--color-success-border);
+    background: var(--color-success-bg);
+}
+
+.delta-card--down .delta-card__icon {
+    background: var(--color-success);
+    color: #fff;
+}
+
+.delta-card--neutral {
+    border-color: var(--color-neutral-border);
+    background: var(--color-neutral-bg);
+}
+
+.delta-card--neutral .delta-card__icon {
+    background: var(--color-text-muted);
+    color: #fff;
+}
+
+.delta-card--incomparable {
+    border-color: var(--color-neutral-border);
+    background: var(--color-bg-card);
+}
+
+.delta-card--incomparable .delta-card__icon {
+    background: var(--color-text-light);
+    color: #fff;
+}
+
+.delta-card__content {
+    flex: 1;
+    min-width: 0;
+}
+
+.delta-card__label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin: 0 0 0.125rem 0;
+}
+
+.delta-card__values {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin: 0 0 0.125rem 0;
+    color: var(--color-text);
+}
+
+.delta-card__values span {
+    color: var(--color-text-muted);
+    font-weight: 400;
+}
+
+.delta-card__change {
+    font-size: 0.8rem;
+    font-weight: 500;
+    margin: 0;
+}
+
+.delta-card--up .delta-card__change {
+    color: var(--color-error);
+}
+
+.delta-card--down .delta-card__change {
+    color: var(--color-success);
+}
+
+.delta-card--neutral .delta-card__change,
+.delta-card--incomparable .delta-card__change {
+    color: var(--color-text-muted);
+}
+
+/* ===== CHANGE BADGES ===== */
+
+.change-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.825rem;
+    font-weight: 600;
+    padding: 0.125rem 0.375rem;
+    border-radius: var(--radius-sm);
+}
+
+.change-badge--up {
+    color: var(--color-error);
+    background: var(--color-error-bg);
+}
+
+.change-badge--down {
+    color: var(--color-success-text);
+    background: var(--color-success-bg);
+}
+
+.change-badge--neutral {
+    color: var(--color-text-muted);
+    background: var(--color-neutral-bg);
+}
+
+.change-badge--incomparable {
+    color: var(--color-text-light);
+    background: var(--color-neutral-bg);
+}
+
 /* ===== SAVED UPLOADS ===== */
 
 .saved-upload-actions {
