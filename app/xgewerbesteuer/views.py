@@ -9,12 +9,15 @@ from xml.etree.ElementTree import ParseError
 
 from defusedxml import ElementTree
 from defusedxml.common import DefusedXmlException
+from django.db import DatabaseError
 from django.http import HttpResponse
 from django.shortcuts import render
 from lxml import etree
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table
+
+from .models import SavedBescheidUpload
 
 
 SCHEMA_DIR = Path(__file__).resolve().parent / "schemas"
@@ -2060,6 +2063,170 @@ def create_ics_export(due_date_calendar):
     return "\r\n".join(lines) + "\r\n"
 
 
+def ensure_session_key(request):
+    if not request.session.session_key:
+        request.session.save()
+
+    return request.session.session_key
+
+
+def get_saved_uploads_for_request(request):
+    session_key = request.session.session_key
+
+    if not session_key:
+        return SavedBescheidUpload.objects.none()
+
+    return SavedBescheidUpload.objects.filter(session_key=session_key)
+
+
+def build_saved_upload_payload(bescheid, context_data):
+    result_keys = [
+        "current_bescheid",
+        "uploaded_file_name",
+        "uploaded_file_size",
+        "summary_items",
+        "calculation_explanation",
+        "advance_payments",
+        "payment_classification",
+        "due_date_calendar",
+        "plausibility_check",
+        "validation_success",
+        "notice_items",
+        "status_indicator",
+    ]
+
+    return {
+        "file_name": bescheid.get("file_name", ""),
+        "file_size": bescheid.get("file_size") or 0,
+        "municipality": normalize_comparison_value(bescheid.get("municipality")),
+        "tax_period": normalize_comparison_value(bescheid.get("tax_period")),
+        "amount_due": normalize_comparison_value(bescheid.get("amount_due")),
+        "payment_type": normalize_comparison_value(
+            bescheid.get("payment_classification", {}).get("type")
+        ),
+        "trade_tax_assessment_amount": normalize_comparison_value(
+            bescheid.get("trade_tax_assessment_amount")
+        ),
+        "assessment_rate": normalize_comparison_value(bescheid.get("assessment_rate")),
+        "due_dates": normalize_comparison_value(bescheid.get("due_dates")),
+        "advance_payments": bescheid.get("advance_payments", []),
+        "summary_items": context_data.get("summary_items", []),
+        "result_data": {
+            key: context_data.get(key)
+            for key in result_keys
+            if key in context_data
+        },
+    }
+
+
+def create_saved_upload(request, bescheid, context_data):
+    session_key = ensure_session_key(request)
+    payload = build_saved_upload_payload(bescheid, context_data)
+
+    return SavedBescheidUpload.objects.create(
+        session_key=session_key,
+        **payload,
+    )
+
+
+def prepare_download_sessions(request, context):
+    report_data = build_pdf_report_data(context)
+    request.session[PDF_REPORT_SESSION_KEY] = report_data
+    request.session[CSV_EXPORT_SESSION_KEY] = report_data
+    request.session.pop(ICS_EXPORT_SESSION_KEY, None)
+
+    due_date_calendar = context.get("due_date_calendar")
+
+    if due_date_calendar:
+        ics_content = create_ics_export(due_date_calendar)
+
+        if ics_content:
+            request.session[ICS_EXPORT_SESSION_KEY] = ics_content
+            context["has_ics_export"] = True
+        else:
+            context.pop("has_ics_export", None)
+
+
+def build_context_from_saved_upload(saved_upload):
+    context = saved_upload.result_data.copy()
+    current_bescheid = context.get("current_bescheid") or {
+        "file_name": saved_upload.file_name,
+        "file_size": saved_upload.file_size,
+        "municipality": saved_upload.municipality or "Nicht gefunden",
+        "tax_period": saved_upload.tax_period or "Nicht gefunden",
+        "amount_due": saved_upload.amount_due or "Nicht gefunden",
+        "trade_tax_assessment_amount": (
+            saved_upload.trade_tax_assessment_amount or "Nicht gefunden"
+        ),
+        "assessment_rate": saved_upload.assessment_rate or "Nicht gefunden",
+        "due_dates": saved_upload.due_dates or "Nicht gefunden",
+        "advance_payments": saved_upload.advance_payments,
+        "summary_items": saved_upload.summary_items,
+        "payment_classification": {
+            "type": saved_upload.payment_type or "Nicht gefunden",
+            "message": "",
+        },
+    }
+    context["current_bescheid"] = current_bescheid
+    context["uploaded_file_name"] = saved_upload.file_name
+    context["uploaded_file_size"] = saved_upload.file_size
+    context.setdefault("summary_items", saved_upload.summary_items)
+    context.setdefault("advance_payments", saved_upload.advance_payments)
+    context.setdefault("payment_classification", current_bescheid.get("payment_classification"))
+    context.setdefault("due_date_calendar", build_due_date_calendar(current_bescheid))
+    context.setdefault("plausibility_check", build_plausibility_check(current_bescheid))
+    context.setdefault("notice_items", build_notice_area(current_bescheid))
+    context.setdefault(
+        "status_indicator",
+        build_status_indicator(current_bescheid, context.get("notice_items")),
+    )
+    context["saved_upload_success"] = (
+        "Die gespeicherte Auswertung wurde erneut geöffnet."
+    )
+
+    return context
+
+
+def handle_saved_upload_action(request):
+    action = request.POST.get("action")
+
+    if action not in ["load_saved_upload", "delete_saved_upload"]:
+        return False, {}
+
+    session_key = request.session.session_key
+    saved_upload_id = request.POST.get("saved_upload_id")
+
+    if not session_key or not saved_upload_id:
+        return True, {
+            "saved_upload_error": (
+                "Die gespeicherte Auswertung konnte nicht gefunden werden."
+            )
+        }
+
+    saved_upload = SavedBescheidUpload.objects.filter(
+        id=saved_upload_id,
+        session_key=session_key,
+    ).first()
+
+    if saved_upload is None:
+        return True, {
+            "saved_upload_error": (
+                "Die gespeicherte Auswertung konnte nicht gefunden werden."
+            )
+        }
+
+    if action == "delete_saved_upload":
+        saved_upload.delete()
+        return True, {
+            "saved_upload_success": "Die gespeicherte Auswertung wurde gelöscht."
+        }
+
+    context = build_context_from_saved_upload(saved_upload)
+    prepare_download_sessions(request, context)
+
+    return True, context
+
+
 def xgewerbesteuer_pdf_report(request):
     report_data = request.session.get(PDF_REPORT_SESSION_KEY)
 
@@ -2117,6 +2284,14 @@ def xgewerbesteuer_default(request):
     context = {}
 
     if request.method == "POST":
+        handled_saved_action, saved_action_context = handle_saved_upload_action(request)
+
+        if handled_saved_action:
+            context.update(saved_action_context)
+            context["saved_uploads"] = get_saved_uploads_for_request(request)
+
+            return render(request, "xgewerbesteuer_default.html", context)
+
         request.session.pop(PDF_REPORT_SESSION_KEY, None)
         request.session.pop(CSV_EXPORT_SESSION_KEY, None)
         request.session.pop(ICS_EXPORT_SESSION_KEY, None)
@@ -2124,6 +2299,7 @@ def xgewerbesteuer_default(request):
         uploaded_file = request.FILES.get("bescheid")
         previous_uploaded_file = request.FILES.get("vorjahresbescheid")
         comparison_uploaded_files = request.FILES.getlist("vergleichsbescheide")
+        should_save_upload = request.POST.get("save_upload") == "on"
 
         if not uploaded_file:
             context["upload_error"] = "Bitte wählen Sie eine XML-Datei aus."
@@ -2217,13 +2393,20 @@ def xgewerbesteuer_default(request):
                     context.get("notice_items"),
                     context.get("change_comparison_items"),
                 )
-                report_data = build_pdf_report_data(context)
-                request.session[PDF_REPORT_SESSION_KEY] = report_data
-                request.session[CSV_EXPORT_SESSION_KEY] = report_data
-                ics_content = create_ics_export(context["due_date_calendar"])
+                prepare_download_sessions(request, context)
 
-                if ics_content:
-                    request.session[ICS_EXPORT_SESSION_KEY] = ics_content
-                    context["has_ics_export"] = True
+                if should_save_upload:
+                    try:
+                        create_saved_upload(request, current_bescheid, context)
+                        context["saved_upload_success"] = (
+                            "Die Auswertung wurde gespeichert und kann in dieser "
+                            "Browser-Session erneut geöffnet werden."
+                        )
+                    except DatabaseError:
+                        context["saved_upload_error"] = (
+                            "Die Auswertung konnte nicht gespeichert werden. "
+                            "Bitte versuchen Sie es später erneut."
+                        )
 
+    context["saved_uploads"] = get_saved_uploads_for_request(request)
     return render(request, "xgewerbesteuer_default.html", context)

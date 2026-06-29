@@ -8,10 +8,12 @@ from unittest.mock import patch
 
 from defusedxml import ElementTree
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import DatabaseError
 from django.template.loader import render_to_string
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, TestCase
 from django.urls import reverse
 
+from xgewerbesteuer.models import SavedBescheidUpload
 from xgewerbesteuer.views import (
     CSV_EXPORT_COLUMNS,
     CSV_EXPORT_SESSION_KEY,
@@ -214,6 +216,10 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
         self.assertIn(".plausibility-status--plausible", css_content)
         self.assertIn(".plausibility-status--warning", css_content)
         self.assertIn(".plausibility-status--not-checkable", css_content)
+        self.assertIn(".saved-upload-summary", css_content)
+        self.assertIn(".saved-upload-actions", css_content)
+        self.assertIn(".saved-upload-action", css_content)
+        self.assertIn(".saved-upload-notice", css_content)
 
     def test_responsive_css_contains_print_media_block(self):
         css_content = RESPONSIVE_CSS_FILE.read_text(encoding="utf-8")
@@ -1419,6 +1425,279 @@ class XGewerbesteuerXsdValidationTests(SimpleTestCase):
         self.assertIn("gewerbesteuer.xsd", schema_error)
 
 
+class SavedBescheidUploadTests(TestCase):
+    def create_session(self):
+        session = self.client.session
+        session.save()
+        return session.session_key
+
+    def create_saved_upload(self, session_key=None, **overrides):
+        defaults = {
+            "session_key": session_key or self.create_session(),
+            "file_name": "bescheid.xml",
+            "file_size": 128,
+            "municipality": "Stadt Musterhausen",
+            "tax_period": "2025",
+            "amount_due": "630.00",
+            "payment_type": "Nachzahlung",
+            "trade_tax_assessment_amount": "150.00",
+            "assessment_rate": "420",
+            "due_dates": "2025-02-15",
+            "advance_payments": [],
+            "summary_items": [
+                {"label": "Zahlbetrag", "value": "630.00"},
+            ],
+            "result_data": processed_bescheid_with_due_date()["bescheid"],
+        }
+        defaults.update(overrides)
+
+        return SavedBescheidUpload.objects.create(**defaults)
+
+    def test_model_can_store_structured_saved_upload(self):
+        saved_upload = self.create_saved_upload(
+            advance_payments=[
+                {
+                    "amount": "147.00",
+                    "due_date": "2025-03-15",
+                    "period": "2025",
+                    "type": "Vorauszahlung",
+                }
+            ],
+            summary_items=[{"label": "Gemeinde / Kommune", "value": "Stadt Musterhausen"}],
+        )
+
+        self.assertEqual(SavedBescheidUpload.objects.count(), 1)
+        self.assertEqual(saved_upload.advance_payments[0]["amount"], "147.00")
+        self.assertEqual(saved_upload.summary_items[0]["label"], "Gemeinde / Kommune")
+
+    def test_model_string_is_readable(self):
+        saved_upload = self.create_saved_upload(file_name="muster.xml", tax_period="2025")
+
+        self.assertEqual(str(saved_upload), "2025 - muster.xml")
+
+    def test_upload_is_saved_only_when_checkbox_enabled(self):
+        response = self.client.post(
+            reverse("xgewerbesteuer_default"),
+            data={
+                "bescheid": uploaded_xml(
+                    VALID_BESCHEID_FIXTURE.name,
+                    VALID_BESCHEID_FIXTURE.read_bytes(),
+                ),
+                "save_upload": "on",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(SavedBescheidUpload.objects.count(), 1)
+        self.assertContains(response, "Die Auswertung wurde gespeichert")
+
+    def test_upload_without_checkbox_is_not_persisted(self):
+        response = self.client.post(
+            reverse("xgewerbesteuer_default"),
+            data={
+                "bescheid": uploaded_xml(
+                    VALID_BESCHEID_FIXTURE.name,
+                    VALID_BESCHEID_FIXTURE.read_bytes(),
+                ),
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(SavedBescheidUpload.objects.count(), 0)
+
+    def test_saved_upload_does_not_store_original_xml(self):
+        self.client.post(
+            reverse("xgewerbesteuer_default"),
+            data={
+                "bescheid": uploaded_xml(
+                    VALID_BESCHEID_FIXTURE.name,
+                    VALID_BESCHEID_FIXTURE.read_bytes(),
+                ),
+                "save_upload": "on",
+            },
+        )
+
+        saved_upload = SavedBescheidUpload.objects.get()
+        stored_content = str(saved_upload.result_data)
+
+        self.assertNotIn("<nachricht", stored_content)
+        self.assertNotIn("XMLParser", stored_content)
+        self.assertNotIn("Traceback", stored_content)
+
+    def test_saved_uploads_are_listed_for_current_session(self):
+        session_key = self.create_session()
+        saved_upload = self.create_saved_upload(session_key=session_key)
+
+        response = self.client.get(reverse("xgewerbesteuer_default"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Gespeicherte Auswertungen")
+        self.assertContains(response, saved_upload.file_name)
+
+    def test_saved_uploads_from_other_session_are_hidden(self):
+        self.create_session()
+        self.create_saved_upload(session_key="other-session", file_name="fremd.xml")
+
+        response = self.client.get(reverse("xgewerbesteuer_default"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "fremd.xml")
+        self.assertContains(
+            response,
+            "Für diese Browser-Session sind keine gespeicherten Auswertungen vorhanden.",
+        )
+
+    def test_saved_upload_can_be_loaded(self):
+        session_key = self.create_session()
+        saved_upload = self.create_saved_upload(session_key=session_key)
+
+        response = self.client.post(
+            reverse("xgewerbesteuer_default"),
+            data={
+                "action": "load_saved_upload",
+                "saved_upload_id": str(saved_upload.id),
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Die gespeicherte Auswertung wurde erneut geöffnet.")
+        self.assertContains(response, "Zusammenfassung des Bescheids")
+        self.assertContains(response, "Plausibilitätsprüfung")
+
+    def test_saved_upload_from_other_session_cannot_be_loaded(self):
+        self.create_session()
+        saved_upload = self.create_saved_upload(session_key="other-session")
+
+        response = self.client.post(
+            reverse("xgewerbesteuer_default"),
+            data={
+                "action": "load_saved_upload",
+                "saved_upload_id": str(saved_upload.id),
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "konnte nicht gefunden werden")
+        self.assertNotContains(response, "Zusammenfassung des Bescheids")
+
+    def test_saved_upload_can_be_deleted(self):
+        session_key = self.create_session()
+        saved_upload = self.create_saved_upload(session_key=session_key)
+
+        response = self.client.post(
+            reverse("xgewerbesteuer_default"),
+            data={
+                "action": "delete_saved_upload",
+                "saved_upload_id": str(saved_upload.id),
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(SavedBescheidUpload.objects.count(), 0)
+        self.assertContains(response, "Die gespeicherte Auswertung wurde gelöscht.")
+
+    def test_saved_upload_from_other_session_cannot_be_deleted(self):
+        self.create_session()
+        saved_upload = self.create_saved_upload(session_key="other-session")
+
+        response = self.client.post(
+            reverse("xgewerbesteuer_default"),
+            data={
+                "action": "delete_saved_upload",
+                "saved_upload_id": str(saved_upload.id),
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(SavedBescheidUpload.objects.count(), 1)
+        self.assertContains(response, "konnte nicht gefunden werden")
+
+    def test_failed_save_shows_user_safe_error(self):
+        with patch(
+            "xgewerbesteuer.views.SavedBescheidUpload.objects.create",
+            side_effect=DatabaseError,
+        ):
+            response = self.client.post(
+                reverse("xgewerbesteuer_default"),
+                data={
+                    "bescheid": uploaded_xml(
+                        VALID_BESCHEID_FIXTURE.name,
+                        VALID_BESCHEID_FIXTURE.read_bytes(),
+                    ),
+                    "save_upload": "on",
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Die Auswertung konnte nicht gespeichert werden.")
+        self.assertNotContains(response, "Traceback")
+
+    def test_saved_upload_list_contains_expected_columns(self):
+        self.create_saved_upload(session_key=self.create_session())
+
+        response = self.client.get(reverse("xgewerbesteuer_default"))
+
+        self.assertContains(response, "Gespeichert am")
+        self.assertContains(response, "Dateiname")
+        self.assertContains(response, "Steuerjahr / Erhebungszeitraum")
+        self.assertContains(response, "Gemeinde / Kommune")
+        self.assertContains(response, "Zahlbetrag")
+
+    def test_saved_upload_list_contains_open_and_delete_actions(self):
+        self.create_saved_upload(session_key=self.create_session())
+
+        response = self.client.get(reverse("xgewerbesteuer_default"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Erneut öffnen")
+        self.assertContains(response, "Löschen")
+        self.assertContains(response, 'name="action"')
+        self.assertContains(response, 'name="saved_upload_id"')
+
+    def test_empty_saved_upload_state_is_visible(self):
+        response = self.client.get(reverse("xgewerbesteuer_default"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            "Für diese Browser-Session sind keine gespeicherten Auswertungen vorhanden.",
+        )
+
+    def test_saved_upload_load_keeps_downloads_working_when_data_is_available(self):
+        self.client.post(
+            reverse("xgewerbesteuer_default"),
+            data={
+                "bescheid": uploaded_xml("bescheid.xml", b"<nachricht/>"),
+                "save_upload": "on",
+            },
+        )
+
+        with patch(
+            "xgewerbesteuer.views.process_uploaded_bescheid",
+            return_value=processed_bescheid_with_due_date(),
+        ):
+            self.client.post(
+                reverse("xgewerbesteuer_default"),
+                data={
+                    "bescheid": uploaded_xml("bescheid.xml", b"<nachricht/>"),
+                    "save_upload": "on",
+                },
+            )
+
+        saved_upload = SavedBescheidUpload.objects.last()
+        self.client.post(
+            reverse("xgewerbesteuer_default"),
+            data={
+                "action": "load_saved_upload",
+                "saved_upload_id": str(saved_upload.id),
+            },
+        )
+
+        self.assertEqual(self.client.get(reverse("xgewerbesteuer_pdf_report")).status_code, 200)
+        self.assertEqual(self.client.get(reverse("xgewerbesteuer_csv_export")).status_code, 200)
+        self.assertEqual(self.client.get(reverse("xgewerbesteuer_ics_export")).status_code, 200)
+
+
 class XGewerbesteuerUploadViewTests(SimpleTestCase):
     databases = {"default"}
 
@@ -1430,8 +1709,11 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertContains(response, 'name="bescheid"')
         self.assertContains(response, 'name="vorjahresbescheid"')
         self.assertContains(response, 'name="vergleichsbescheide"')
+        self.assertContains(response, 'name="save_upload"')
         self.assertContains(response, 'multiple')
         self.assertContains(response, 'accept=".xml"')
+        self.assertContains(response, "Auswertung dieses Uploads speichern")
+        self.assertContains(response, "nicht die Original-XML-Datei")
         self.assertContains(response, "Anzeige des fälligen Zahlbetrags")
         self.assertContains(response, 'name="viewport"')
         self.assertContains(response, "responsive.css")
