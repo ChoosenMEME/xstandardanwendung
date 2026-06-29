@@ -122,6 +122,22 @@
     {% endif %}
 </div>
 
+{# === MESSAGE TYPE === #}
+{% if message_type_label %}
+    <section class="card" aria-labelledby="message-type-heading">
+        <h2 class="card__title" id="message-type-heading">{% trans "Nachrichtentyp" %}</h2>
+        <p class="mt-1">
+            <strong>{{ message_type_label }}</strong>
+            {% if message_type %}
+                <span class="text-sm text-muted">({{ message_type }})</span>
+            {% endif %}
+        </p>
+        {% if message_type_summary %}
+            <p class="text-secondary">{{ message_type_summary }}</p>
+        {% endif %}
+    </section>
+{% endif %}
+
 {# === SUMMARY TABLE === #}
 {% if summary_items %}
     <section class="card" aria-labelledby="summary-heading">
@@ -429,16 +445,19 @@
                 <thead>
                     <tr>
                         <th scope="col">{% trans "Bescheid" %}</th>
+                        <th scope="col">{% trans "Nachrichtentyp" %}</th>
                         <th scope="col">{% trans "Steuerjahr / Erhebungszeitraum" %}</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
                         <th scope="row">{% trans "Aktueller Bescheid" %}</th>
+                        <td><strong>{{ current_bescheid.message_type_label }}</strong></td>
                         <td><strong>{{ current_bescheid.tax_period }}</strong></td>
                     </tr>
                     <tr>
                         <th scope="row">{% trans "Vorbescheid" %}</th>
+                        <td><strong>{{ previous_bescheid.message_type_label }}</strong></td>
                         <td><strong>{{ previous_bescheid.tax_period }}</strong></td>
                     </tr>
                 </tbody>
@@ -516,6 +535,7 @@
                 <thead>
                     <tr>
                         <th scope="col">{% trans "Steuerjahr" %}</th>
+                        <th scope="col">{% trans "Nachrichtentyp" %}</th>
                         <th scope="col">{% trans "Datei" %}</th>
                         <th scope="col">{% trans "Gemeinde" %}</th>
                         <th scope="col">{% trans "Zahlbetrag" %}</th>
@@ -531,6 +551,7 @@
                     {% for record in multi_bescheid_comparison.records %}
                         <tr class="{{ record.css_class }}">
                             <th scope="row">{{ record.tax_period }}</th>
+                            <td>{{ record.message_type_label }}</td>
                             <td>{{ record.file_name }}</td>
                             <td>{{ record.municipality }}</td>
                             <td>{{ record.amount_due }}</td>

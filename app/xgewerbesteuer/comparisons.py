@@ -32,6 +32,29 @@ def build_period_comparison_notice(current_tax_period, previous_tax_period):
     )
 
 
+def build_message_type_comparison_notice(current_bescheid, previous_bescheid):
+    current_type = current_bescheid.get("message_type")
+    previous_type = previous_bescheid.get("message_type")
+    current_label = current_bescheid.get("message_type_label", "Nicht gefunden")
+    previous_label = previous_bescheid.get("message_type_label", "Nicht gefunden")
+
+    if current_type or previous_type:
+        if current_type != previous_type:
+            return (
+                "Die hochgeladenen Dateien enthalten unterschiedliche Nachrichtentypen "
+                f"({current_label} und {previous_label}). Ein direkter fachlicher "
+                "Vergleich ist nur eingeschraenkt moeglich."
+            )
+
+        if current_bescheid.get("supports_comparison") is False:
+            return (
+                f"Der Nachrichtentyp {current_label} ist fachlich nicht fuer einen "
+                "direkten Vorjahresvergleich vorgesehen."
+            )
+
+    return None
+
+
 def compare_decimal_values(current_value, previous_value):
     current_decimal = parse_decimal_value(current_value)
     previous_decimal = parse_decimal_value(previous_value)
@@ -117,6 +140,9 @@ def classify_change_importance(change_type):
 
 
 def build_change_comparison(current_bescheid, previous_bescheid):
+    if build_message_type_comparison_notice(current_bescheid, previous_bescheid):
+        return []
+
     comparison_fields = [
         {
             "label": "Zahlbetrag",
@@ -210,6 +236,10 @@ def build_multi_bescheid_record(bescheid):
     payment_classification = bescheid.get("payment_classification", {})
     record = {
         "file_name": normalize_comparison_value(bescheid.get("file_name")),
+        "message_type": normalize_comparison_value(bescheid.get("message_type")),
+        "message_type_label": normalize_comparison_value(
+            bescheid.get("message_type_label")
+        ),
         "tax_period": normalize_comparison_value(bescheid.get("tax_period")),
         "municipality": normalize_comparison_value(bescheid.get("municipality")),
         "amount_due": normalize_comparison_value(bescheid.get("amount_due")),
@@ -306,6 +336,18 @@ def build_multi_bescheid_comparison(bescheide):
     if any(record["notes"] for record in records):
         notices.append(
             "Einige Angaben fehlen oder konnten nicht eindeutig zugeordnet werden."
+        )
+
+    message_types = {
+        record["message_type"]
+        for record in records
+        if record.get("message_type") != "Nicht gefunden"
+    }
+
+    if len(message_types) > 1:
+        notices.append(
+            "Die hochgeladenen Dateien enthalten unterschiedliche Nachrichtentypen. "
+            "Ein direkter fachlicher Vergleich ist nur eingeschraenkt moeglich."
         )
 
     return {

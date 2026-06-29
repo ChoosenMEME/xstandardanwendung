@@ -26,6 +26,7 @@ from xgewerbesteuer.comparisons import (
     build_historical_chart_data,
     build_historical_development,
     build_historical_development_row,
+    build_message_type_comparison_notice,
     build_multi_bescheid_comparison,
     build_multi_bescheid_record,
     build_multi_bescheid_upload_errors,
@@ -37,6 +38,7 @@ from xgewerbesteuer.comparisons import (
 )
 from xgewerbesteuer.extractors import (
     clean_text,
+    detect_message_type,
     extract_amount_due,
     extract_assessment_rate,
     extract_advance_payments,
@@ -50,6 +52,7 @@ from xgewerbesteuer.calculations import (
     format_euro_value,
 )
 from xgewerbesteuer.services.bescheid import (
+    build_bescheid_data,
     build_due_date_calendar,
     build_due_date_calendar_entries,
     build_liquidity_impact,
@@ -58,6 +61,7 @@ from xgewerbesteuer.services.bescheid import (
     classify_liquidity_period,
     classify_payment_type,
     group_calendar_entries_by_month,
+    process_uploaded_bescheid,
 )
 from xgewerbesteuer.services.export import (
     CSV_EXPORT_COLUMNS,
@@ -91,6 +95,21 @@ ADVANCE_PAYMENT_FIXTURE = (
     FIXTURES_DIR
     / "GEWST-0003-12345678-1234567890000-2023-01-15_"
     "00000000-0000-0000-0000-000000000033.xml"
+)
+ASSESSMENT_FIXTURE = (
+    FIXTURES_DIR
+    / "GEWST-0001-12345678-1234567890000-2023-01-15_"
+    "00000000-0000-0000-0000-000000000013.xml"
+)
+INTEREST_FIXTURE = (
+    FIXTURES_DIR
+    / "GEWST-0002-12345678-1234567890000-2023-01-15_"
+    "00000000-0000-0000-0000-000000000023.xml"
+)
+CALCULATION_FIXTURE = (
+    FIXTURES_DIR
+    / "GEWST-0021-12345678-1234567890000-2023-01-15_"
+    "00000000-0000-0000-0000-000000000213.xml"
 )
 MULTI_YEAR_FIXTURES = [
     FIXTURES_DIR
@@ -266,6 +285,101 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
             "kommune",
         )
         self.assertEqual(get_local_name("kommune"), "kommune")
+
+    def test_detect_message_type_recognizes_supported_fixture_roots(self):
+        fixtures_by_type = {
+            ASSESSMENT_FIXTURE: "bescheide.gewerbesteuer.0001",
+            INTEREST_FIXTURE: "bescheide.zinsen.0002",
+            ADVANCE_PAYMENT_FIXTURE: "bescheide.vorauszahlung.0003",
+            VALID_BESCHEID_FIXTURE: "bescheide.gewerbesteuer.generisch.0010",
+            CALCULATION_FIXTURE: "berechnung.gewerbesteuer.0021",
+        }
+
+        for fixture_path, expected_message_type in fixtures_by_type.items():
+            with self.subTest(filename=fixture_path.name):
+                root = ElementTree.parse(fixture_path).getroot()
+
+                self.assertEqual(detect_message_type(root), expected_message_type)
+
+    def test_unknown_message_type_is_rejected_after_validation(self):
+        with patch(
+            "xgewerbesteuer.services.bescheid.validate_xml_against_xsd",
+            return_value=(True, "gewerbesteuer.xsd", None),
+        ):
+            result = process_uploaded_bescheid(
+                uploaded_xml("unbekannt.xml", b"<unbekannte.nachricht />")
+            )
+
+        self.assertFalse(result["is_valid"])
+        self.assertEqual(result["error_type"], "unsupported_message_type")
+        self.assertEqual(
+            result["message"],
+            "Der Nachrichtentyp der XML-Datei wird derzeit nicht unterstuetzt.",
+        )
+
+    def test_build_bescheid_data_carries_message_type_in_summary(self):
+        content = VALID_BESCHEID_FIXTURE.read_bytes()
+        bescheid = build_bescheid_data(
+            uploaded_xml(VALID_BESCHEID_FIXTURE.name, content),
+            ElementTree.fromstring(content),
+            "gewerbesteuer.xsd",
+        )
+        summary_items = {item["label"]: item["value"] for item in bescheid["summary_items"]}
+
+        self.assertEqual(
+            bescheid["message_type"],
+            "bescheide.gewerbesteuer.generisch.0010",
+        )
+        self.assertEqual(
+            bescheid["message_type_label"],
+            "Generische Gewerbesteuernachricht",
+        )
+        self.assertEqual(bescheid["message_type_category"], "generic")
+        self.assertEqual(
+            summary_items["Nachrichtentyp"],
+            "Generische Gewerbesteuernachricht",
+        )
+
+    def test_message_type_specific_payment_classification_uses_domain_labels(self):
+        fixtures_by_expectation = [
+            (INTEREST_FIXTURE, "Zinsbescheid", "interest"),
+            (ADVANCE_PAYMENT_FIXTURE, "Vorauszahlung", "advance_payment"),
+            (CALCULATION_FIXTURE, "Nicht pruefbar", "calculation"),
+        ]
+
+        for fixture_path, expected_payment_type, expected_category in fixtures_by_expectation:
+            with self.subTest(filename=fixture_path.name):
+                content = fixture_path.read_bytes()
+                bescheid = build_bescheid_data(
+                    uploaded_xml(fixture_path.name, content),
+                    ElementTree.fromstring(content),
+                    "gewerbesteuer.xsd",
+                )
+
+                self.assertEqual(bescheid["message_type_category"], expected_category)
+                self.assertEqual(
+                    bescheid["payment_classification"]["type"],
+                    expected_payment_type,
+                )
+
+    def test_different_message_types_create_neutral_comparison_notice(self):
+        current_content = VALID_BESCHEID_FIXTURE.read_bytes()
+        previous_content = INTEREST_FIXTURE.read_bytes()
+        current_bescheid = build_bescheid_data(
+            uploaded_xml(VALID_BESCHEID_FIXTURE.name, current_content),
+            ElementTree.fromstring(current_content),
+            "gewerbesteuer.xsd",
+        )
+        previous_bescheid = build_bescheid_data(
+            uploaded_xml(INTEREST_FIXTURE.name, previous_content),
+            ElementTree.fromstring(previous_content),
+            "gewerbesteuer.xsd",
+        )
+
+        notice = build_message_type_comparison_notice(current_bescheid, previous_bescheid)
+
+        self.assertIn("unterschiedliche Nachrichtentypen", notice)
+        self.assertEqual(build_change_comparison(current_bescheid, previous_bescheid), [])
 
     def test_extracts_core_values_from_fixture(self):
         root = ElementTree.parse(VALID_BESCHEID_FIXTURE).getroot()
@@ -1450,6 +1564,7 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
     def test_create_csv_export_contains_stable_columns_and_summary_values(self):
         report_data = {
             "summary_items": [
+                {"label": "Nachrichtentyp", "value": "Generische Gewerbesteuernachricht"},
                 {"label": "Gemeinde / Kommune", "value": "Stadt Musterhausen"},
                 {"label": "Steuerjahr / Erhebungszeitraum", "value": "2023"},
                 {"label": "Zahlbetrag", "value": "630.00"},
@@ -1473,6 +1588,7 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
 
         self.assertEqual(reader.fieldnames, CSV_EXPORT_COLUMNS)
         self.assertEqual(rows[0]["Datensatztyp"], "Zusammenfassung")
+        self.assertEqual(rows[0]["Nachrichtentyp"], "Generische Gewerbesteuernachricht")
         self.assertEqual(rows[0]["Gemeinde / Kommune"], "Stadt Musterhausen")
         self.assertEqual(rows[0]["Steuerjahr / Erhebungszeitraum"], "2023")
         self.assertEqual(rows[0]["Zahlbetrag"], "630.00")
@@ -1851,6 +1967,39 @@ class SavedBescheidUploadTests(TestCase):
         self.assertEqual(self.client.get(reverse("xgewerbesteuer_csv_export")).status_code, 200)
         self.assertEqual(self.client.get(reverse("xgewerbesteuer_ics_export")).status_code, 200)
 
+    def test_saved_upload_keeps_message_type_after_reopening(self):
+        response = self.client.post(
+            reverse("xgewerbesteuer_upload"),
+            data={
+                "bescheide": uploaded_xml(
+                    VALID_BESCHEID_FIXTURE.name,
+                    VALID_BESCHEID_FIXTURE.read_bytes(),
+                ),
+                "save_upload": "on",
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        saved_upload = SavedBescheidUpload.objects.last()
+        self.assertEqual(
+            saved_upload.result_data["current_bescheid"]["message_type_label"],
+            "Generische Gewerbesteuernachricht",
+        )
+
+        reopened_response = self.client.post(
+            reverse("xgewerbesteuer_load_saved"),
+            data={"saved_upload_id": str(saved_upload.id)},
+            follow=True,
+        )
+
+        self.assertEqual(reopened_response.status_code, 200)
+        self.assertEqual(
+            reopened_response.context["current_bescheid"]["message_type_label"],
+            "Generische Gewerbesteuernachricht",
+        )
+        self.assertContains(reopened_response, "Generische Gewerbesteuernachricht")
+
 
 class XGewerbesteuerUploadViewTests(SimpleTestCase):
     databases = {"default"}
@@ -2021,6 +2170,7 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
             response.context["uploaded_file_name"],
             VALID_BESCHEID_FIXTURE.name,
         )
+        self.assertEqual(summary_items["Nachrichtentyp"], "Generische Gewerbesteuernachricht")
         self.assertEqual(summary_items["Gemeinde / Kommune"], "Stadt Musterhausen")
         self.assertEqual(summary_items["Steuerjahr / Erhebungszeitraum"], "2023")
         self.assertEqual(summary_items["Zahlbetrag"], "630.00")
@@ -2028,7 +2178,11 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertEqual(summary_items["Gewerbesteuermessbetrag"], "150.00")
         self.assertEqual(summary_items["Hebesatz"], "420")
         self.assertIn("validation_success", response.context)
+        self.assertEqual(response.context["message_type_label"], "Generische Gewerbesteuernachricht")
         self.assertContains(response, "Zusammenfassung")
+        self.assertContains(response, "Nachrichtentyp")
+        self.assertContains(response, "Generische Gewerbesteuernachricht")
+        self.assertContains(response, "bescheide.gewerbesteuer.generisch.0010")
         self.assertContains(response, "Einordnung der Zahlung")
         self.assertContains(response, "Nachzahlung")
         self.assertIn("notice_items", response.context)
@@ -2254,6 +2408,10 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertEqual(response.context["advance_payments"][0]["amount"], "147.00")
         self.assertEqual(response.context["advance_payments"][0]["period"], "2023")
         self.assertEqual(response.context["payment_classification"]["type"], "Vorauszahlung")
+        self.assertEqual(
+            response.context["current_bescheid"]["message_type_label"],
+            "Vorauszahlungsbescheid",
+        )
         self.assertContains(response, "Vorauszahlungen")
         self.assertContains(response, "147.00")
         self.assertContains(response, "Vorauszahlung")
@@ -2282,6 +2440,8 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertContains(response, "Vergleich mit Vorbescheid")
         self.assertContains(response, "Aktueller Bescheid")
         self.assertContains(response, "Vorbescheid")
+        self.assertContains(response, "Nachrichtentyp")
+        self.assertContains(response, "Generische Gewerbesteuernachricht")
         self.assertContains(response, "2023")
         self.assertContains(response, "2022")
         self.assertIn("change_comparison_items", response.context)
@@ -2300,6 +2460,28 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertIn("status_indicator", response.context)
         self.assertEqual(response.context["status_indicator"]["status"], "warning")
         self.assertContains(response, "Warnung / Auffälligkeit")
+
+    def test_post_valid_current_and_different_previous_type_shows_neutral_notice(self):
+        current_content = VALID_BESCHEID_FIXTURE.read_bytes()
+        previous_content = INTEREST_FIXTURE.read_bytes()
+
+        response = self.client.post(
+            reverse("xgewerbesteuer_upload"),
+            data={
+                "bescheide": [
+                    uploaded_xml(VALID_BESCHEID_FIXTURE.name, current_content),
+                    uploaded_xml(INTEREST_FIXTURE.name, previous_content),
+                ],
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("previous_bescheid", response.context)
+        self.assertNotIn("change_comparison_items", response.context)
+        self.assertContains(response, "Zinsbescheid")
+        self.assertContains(response, "unterschiedliche Nachrichtentypen")
+        self.assertNotContains(response, "+117.50")
 
     def test_post_does_not_select_missing_tax_period_as_current_bescheid(self):
         known_period = processed_bescheid_with_due_date()
@@ -2370,6 +2552,14 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
 
         self.assertEqual(upload_response.status_code, 200)
         self.assertIn(PDF_REPORT_SESSION_KEY, self.client.session)
+        pdf_report_data = self.client.session[PDF_REPORT_SESSION_KEY]
+        pdf_summary_items = {
+            item["label"]: item["value"] for item in pdf_report_data["summary_items"]
+        }
+        self.assertEqual(
+            pdf_summary_items["Nachrichtentyp"],
+            "Generische Gewerbesteuernachricht",
+        )
 
         pdf_response = self.client.get(reverse("xgewerbesteuer_pdf_report"))
 
@@ -2429,6 +2619,8 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         csv_content = csv_response.content.decode("utf-8")
 
         self.assertIn("Datensatztyp", csv_content)
+        self.assertIn("Nachrichtentyp", csv_content)
+        self.assertIn("Generische Gewerbesteuernachricht", csv_content)
         self.assertIn("Stadt Musterhausen", csv_content)
         self.assertIn("Nachzahlung", csv_content)
         self.assertNotIn("<nachricht", csv_content)
@@ -2580,7 +2772,15 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
             [record["tax_period"] for record in comparison["records"]],
             ["2021", "2022", "2023"],
         )
+        self.assertTrue(
+            all(
+                record["message_type_label"] == "Generische Gewerbesteuernachricht"
+                for record in comparison["records"]
+            )
+        )
         self.assertContains(response, "Mehrjahresvergleich")
+        self.assertContains(response, "Nachrichtentyp")
+        self.assertContains(response, "Generische Gewerbesteuernachricht")
         self.assertContains(response, "Gültige Bescheide")
         self.assertContains(response, "400.00")
         self.assertContains(response, "512.50")

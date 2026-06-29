@@ -21,6 +21,7 @@ ICS_EXPORT_SESSION_KEY = "xgewerbesteuer_ics_export"
 
 CSV_EXPORT_COLUMNS = [
     "Datensatztyp",
+    "Nachrichtentyp",
     "Steuerjahr / Erhebungszeitraum",
     "Gemeinde / Kommune",
     "Zahlbetrag",
@@ -45,6 +46,9 @@ CSV_EXPORT_COLUMNS = [
 def build_pdf_report_data(context):
     return {
         "uploaded_file_name": context.get("uploaded_file_name"),
+        "message_type": context.get("message_type"),
+        "message_type_label": context.get("message_type_label"),
+        "message_type_summary": context.get("message_type_summary"),
         "summary_items": context.get("summary_items", []),
         "status_indicator": context.get("status_indicator"),
         "notice_items": context.get("notice_items", []),
@@ -217,6 +221,7 @@ def get_summary_value(report_data, label):
 
 def build_base_csv_row(report_data):
     return {
+        "Nachrichtentyp": get_summary_value(report_data, "Nachrichtentyp"),
         "Steuerjahr / Erhebungszeitraum": get_summary_value(
             report_data,
             "Steuerjahr / Erhebungszeitraum",

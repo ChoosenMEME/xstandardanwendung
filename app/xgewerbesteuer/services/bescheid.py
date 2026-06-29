@@ -22,6 +22,8 @@ from ..calculations import (
     split_due_dates,
 )
 from ..extractors import (
+    build_message_type_summary,
+    detect_message_type,
     extract_advance_payments,
     extract_amount_due,
     extract_assessment_rate,
@@ -29,6 +31,7 @@ from ..extractors import (
     extract_municipality,
     extract_tax_period,
     extract_trade_tax_assessment_amount,
+    is_supported_message_type,
 )
 from ..models import SavedBescheidUpload
 from ..validators import get_upload_error, validate_xml_against_xsd
@@ -82,7 +85,45 @@ def classify_payment_type(amount_due, advance_payments):
     }
 
 
+def adapt_payment_classification_for_message_type(
+    payment_classification,
+    message_type_summary,
+):
+    category = message_type_summary["message_type_category"]
+
+    if category == "interest":
+        return {
+            "type": "Zinsbescheid",
+            "message": (
+                "Diese Datei ist ein Zinsbescheid. Eine normale "
+                "Gewerbesteuer-Zahlungseinordnung ist nur eingeschraenkt moeglich."
+            ),
+        }
+
+    if category == "calculation":
+        return {
+            "type": "Nicht pruefbar",
+            "message": (
+                "Diese Datei ist eine Gewerbesteuerberechnung. Zahlungs- oder "
+                "Faelligkeitsangaben sind fachlich nicht zwingend enthalten."
+            ),
+        }
+
+    if category == "advance_payment":
+        return {
+            "type": "Vorauszahlung",
+            "message": (
+                "Diese Datei ist ein Vorauszahlungsbescheid. Vorauszahlungen "
+                "werden getrennt von endgueltigen Festsetzungen angezeigt."
+            ),
+        }
+
+    return payment_classification
+
+
 def build_bescheid_data(uploaded_file, root, schema_name):
+    message_type = detect_message_type(root)
+    message_type_summary = build_message_type_summary(message_type)
     municipality = extract_municipality(root)
     tax_period = extract_tax_period(root)
     amount_due = extract_amount_due(root)
@@ -91,8 +132,13 @@ def build_bescheid_data(uploaded_file, root, schema_name):
     due_dates = extract_due_dates(root)
     advance_payments = extract_advance_payments(root)
     payment_classification = classify_payment_type(amount_due, advance_payments)
+    payment_classification = adapt_payment_classification_for_message_type(
+        payment_classification,
+        message_type_summary,
+    )
 
     summary_items = [
+        {"label": "Nachrichtentyp", "value": message_type_summary["message_type_label"]},
         {"label": "Gemeinde / Kommune", "value": municipality},
         {"label": "Steuerjahr / Erhebungszeitraum", "value": tax_period},
         {"label": "Zahlbetrag", "value": amount_due},
@@ -111,6 +157,7 @@ def build_bescheid_data(uploaded_file, root, schema_name):
         "file_name": uploaded_file.name,
         "file_size": uploaded_file.size,
         "schema_name": schema_name,
+        **message_type_summary,
         "municipality": municipality,
         "tax_period": tax_period,
         "amount_due": amount_due,
@@ -148,6 +195,17 @@ def process_uploaded_bescheid(uploaded_file):
                     "Die Datei konnte nicht vollständig validiert werden. "
                     "Bitte prüfen Sie, ob es sich um einen gültigen "
                     "XGewerbesteuer-Bescheid handelt."
+                ),
+            }
+
+        message_type = detect_message_type(root)
+
+        if not is_supported_message_type(message_type):
+            return {
+                "is_valid": False,
+                "error_type": "unsupported_message_type",
+                "message": (
+                    "Der Nachrichtentyp der XML-Datei wird derzeit nicht unterstuetzt."
                 ),
             }
 
@@ -847,6 +905,9 @@ def get_saved_uploads_for_request(request):
 def build_saved_upload_payload(bescheid, context_data):
     result_keys = [
         "current_bescheid",
+        "message_type",
+        "message_type_label",
+        "message_type_summary",
         "uploaded_file_name",
         "uploaded_file_size",
         "summary_items",
@@ -899,6 +960,11 @@ def build_context_from_saved_upload(saved_upload):
     current_bescheid = context.get("current_bescheid") or {
         "file_name": saved_upload.file_name,
         "file_size": saved_upload.file_size,
+        "message_type": "Nicht gefunden",
+        "message_type_label": "Nicht gefunden",
+        "message_type_category": "unknown",
+        "message_type_summary": "",
+        "supports_comparison": False,
         "municipality": saved_upload.municipality or "Nicht gefunden",
         "tax_period": saved_upload.tax_period or "Nicht gefunden",
         "amount_due": saved_upload.amount_due or "Nicht gefunden",
@@ -917,6 +983,9 @@ def build_context_from_saved_upload(saved_upload):
     context["current_bescheid"] = current_bescheid
     context["uploaded_file_name"] = saved_upload.file_name
     context["uploaded_file_size"] = saved_upload.file_size
+    context.setdefault("message_type", current_bescheid.get("message_type"))
+    context.setdefault("message_type_label", current_bescheid.get("message_type_label"))
+    context.setdefault("message_type_summary", current_bescheid.get("message_type_summary"))
     context.setdefault("summary_items", saved_upload.summary_items)
     context.setdefault("advance_payments", saved_upload.advance_payments)
     context.setdefault("payment_classification", current_bescheid.get("payment_classification"))

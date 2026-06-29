@@ -9,6 +9,7 @@ from .calculations import build_plausibility_check
 from .comparisons import (
     build_change_comparison,
     build_historical_development,
+    build_message_type_comparison_notice,
     build_multi_bescheid_comparison,
     build_period_comparison_notice,
     extract_sort_year,
@@ -119,9 +120,16 @@ def xgewerbesteuer_upload(request):
     if len(sorted_bescheide) >= 2:
         previous_bescheid = sorted_bescheide[-2]
         session_data["previous_bescheid"] = previous_bescheid
-        session_data["period_comparison_notice"] = build_period_comparison_notice(
+        message_type_comparison_notice = build_message_type_comparison_notice(
+            current_bescheid,
+            previous_bescheid,
+        )
+        period_comparison_notice = build_period_comparison_notice(
             current_bescheid["tax_period"],
             previous_bescheid["tax_period"],
+        )
+        session_data["period_comparison_notice"] = (
+            message_type_comparison_notice or period_comparison_notice
         )
         session_data["change_comparison_items"] = build_change_comparison(
             current_bescheid,
@@ -174,6 +182,9 @@ def _build_result_context(session_data):
         "current_bescheid": current_bescheid,
         "uploaded_file_name": current_bescheid["file_name"],
         "uploaded_file_size": current_bescheid["file_size"],
+        "message_type": current_bescheid.get("message_type"),
+        "message_type_label": current_bescheid.get("message_type_label"),
+        "message_type_summary": current_bescheid.get("message_type_summary"),
         "all_bescheide_count": session_data.get("all_bescheide_count", 1),
         "summary_items": current_bescheid["summary_items"],
         "calculation_explanation": current_bescheid["calculation_explanation"],
@@ -257,6 +268,11 @@ def xgewerbesteuer_load_saved(request):
         "file_name": saved_upload.file_name,
         "file_size": saved_upload.file_size,
         "schema_name": "",
+        "message_type": "Nicht gefunden",
+        "message_type_label": "Nicht gefunden",
+        "message_type_category": "unknown",
+        "message_type_summary": "",
+        "supports_comparison": False,
         "municipality": saved_upload.municipality or "Nicht gefunden",
         "tax_period": saved_upload.tax_period or "Nicht gefunden",
         "amount_due": saved_upload.amount_due or "Nicht gefunden",
