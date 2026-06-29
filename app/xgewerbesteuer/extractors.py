@@ -1,10 +1,79 @@
 """XML-Datenextraktion fuer XGewerbesteuer-Bescheide."""
 
+SUPPORTED_MESSAGE_TYPES = {
+    "bescheide.gewerbesteuer.0001": {
+        "label": "Gewerbesteuerbescheid",
+        "category": "assessment",
+        "supports_comparison": True,
+        "summary": "Normaler Gewerbesteuerbescheid mit Festsetzungsdaten.",
+    },
+    "bescheide.zinsen.0002": {
+        "label": "Zinsbescheid",
+        "category": "interest",
+        "supports_comparison": False,
+        "summary": "Zinsbescheid; Steuerberechnungen sind nur eingeschraenkt pruefbar.",
+    },
+    "bescheide.vorauszahlung.0003": {
+        "label": "Vorauszahlungsbescheid",
+        "category": "advance_payment",
+        "supports_comparison": True,
+        "summary": "Vorauszahlungsbescheid mit gesonderter Einordnung der Vorauszahlungen.",
+    },
+    "bescheide.gewerbesteuer.generisch.0010": {
+        "label": "Generische Gewerbesteuernachricht",
+        "category": "generic",
+        "supports_comparison": True,
+        "summary": "Generische Gewerbesteuernachricht mit automatisch ausgelesenen Kerndaten.",
+    },
+    "berechnung.gewerbesteuer.0021": {
+        "label": "Gewerbesteuerberechnung",
+        "category": "calculation",
+        "supports_comparison": False,
+        "summary": "Gewerbesteuerberechnung; Zahlungs- und Faelligkeitsdaten koennen fehlen.",
+    },
+}
+
 
 def get_local_name(tag):
     if "}" in tag:
         return tag.split("}", 1)[1]
     return tag
+
+
+def detect_message_type(root):
+    """Bestimmt den XGewerbesteuer-Nachrichtentyp aus dem Wurzelelement."""
+    return get_local_name(root.tag)
+
+
+def get_message_type_config(message_type):
+    return SUPPORTED_MESSAGE_TYPES.get(message_type)
+
+
+def is_supported_message_type(message_type):
+    return message_type in SUPPORTED_MESSAGE_TYPES
+
+
+def build_message_type_summary(message_type):
+    config = get_message_type_config(message_type)
+
+    if not config:
+        return {
+            "message_type": message_type,
+            "message_type_label": "Nicht unterstuetzter Nachrichtentyp",
+            "message_type_category": "unsupported",
+            "message_type_summary": (
+                "Der Nachrichtentyp der XML-Datei wird derzeit nicht unterstuetzt."
+            ),
+            "supports_comparison": False,
+        }
+
+    return {
+        "message_type": message_type,
+        "message_type_label": config["label"],
+        "message_type_category": config["category"],
+        "message_type_summary": config["summary"],
+        "supports_comparison": config["supports_comparison"],
+    }
 
 
 def clean_text(text):
