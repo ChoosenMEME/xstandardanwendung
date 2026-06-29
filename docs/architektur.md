@@ -225,7 +225,6 @@ Alle Routen liegen unter dem konfigurierbaren `APP_PATH`-Prefix.
 
 Die URL-Struktur wird um Seiten fuer Ergebnis, Export, Historie und Demo erweitert.
 
-
 ```text
 /                      -> Startseite / Upload
 /ergebnis/<id>/        -> Auswertung eines Bescheids
@@ -438,92 +437,7 @@ Neue Abhaengigkeiten werden nur eingefuehrt, wenn Django-Bordmittel nicht ausrei
 
 ---
 
-## 11. Umsetzungsreihenfolge
-
-Die Reihenfolge orientiert sich an Abhaengigkeiten zwischen den Issues und den
-Prioritaeten (muss > soll > kann).
-
-### Phase 1: Grundlagen bereinigen
-
-Voraussetzung fuer alle weiteren Aenderungen.
-
-1. **Sentinel durch None ersetzen** (Issue #263, soll):
-   Template-Filter einfuehren, Extraktionsfunktionen auf `None` umstellen.
-2. **Modulaufteilung** (Issue #265, kann):
-   `views.py` in `extractors.py`, `validators.py`, `calculations.py`, `comparisons.py`
-   aufteilen. Services-Verzeichnis anlegen.
-3. **DEFAULT_AUTO_FIELD setzen** (Issue #264, kann):
-   `DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"` in `settings.py`.
-
-### Phase 2: UI/UX verbessern
-
-Bestehende Funktionalitaet besser darstellen.
-
-4. **KERN-UX-konformes Layout** (Issue #37, soll):
-   Inline-Styles entfernen, KERN-UX-Klassen verwenden, Partials einfuehren.
-5. **Responsive Design** (Issue #36, soll):
-   Tabellen und Cards fuer kleine Bildschirme optimieren.
-6. **Fehlerseite bei ungueligem Upload** (Issue #25, muss):
-   Eigenes Fehler-Template mit verstaendlicher Meldung.
-7. **UI/UX-Verbesserung der Auswertungsstrecke** (Issue #255, kann):
-   Kennzahlen-Cards, visuelle Hierarchie, Leerezustaende.
-8. **Ampel-/Statusanzeige** (Issue #33, soll),
-   **Hinweisbereich** (Issue #32, soll),
-   **Hervorhebung wichtiger Aenderungen** (Issue #31, soll),
-   **Begriffserklaeung per Tooltip** (Issue #41, kann).
-
-### Phase 3: Fachliche Erweiterungen
-
-Neue Analysefunktionen auf Basis der bereinigten Architektur.
-
-9. **Plausibilitaetspruefung** (Issue #44, kann):
-   Formelcheck, Rundungstoleranz, Plausibilitaetshinweise.
-10. **Demo-Beispielfall laden** (Issue #258, kann):
-    Fixture-basierter Demo-Einstieg ohne eigene Datei.
-11. **STATIC_URL an APP_PATH anpassen** (Issue #262, soll).
-12. **Supportfreundliche Fehler-ID** (Issue #261, kann),
-    **Validierungsdetails nur bei Fehler** (Issue #260, kann).
-
-### Phase 4: Export
-
-Auswertungsdaten in externen Formaten bereitstellen.
-
-13. **Export als CSV** (Issue #35, soll):
-    `services/export.py` mit CSV-Erzeugung.
-14. **Export als PDF-Bericht** (Issue #34, soll):
-    PDF-Erzeugung mit weasyprint oder reportlab.
-15. **Download einer Fristdatei** (Issue #40, kann):
-    ICS-Export fuer Kalenderanwendungen.
-
-### Phase 5: Persistenz und Vergleich
-
-Bescheiddaten speichern und ueber mehrere Jahre vergleichen.
-
-16. **Datenmodell einfuehren** (Voraussetzung fuer #46, #43, #42):
-    `Bescheid`-Model mit Migrationen.
-17. **Speichern vergangener Uploads** (Issue #46, kann):
-    Bewusstes Speichern mit Uebersicht und Loeschmoeglichkeit.
-18. **Mehrere Bescheide vergleichen** (Issue #42, kann):
-    Mehrfachupload oder Auswahl aus gespeicherten Bescheiden.
-19. **Historische Entwicklung anzeigen** (Issue #43, kann):
-    Chronologische Tabelle und optionales Diagramm.
-20. **Kalenderansicht fuer Fristen** (Issue #39, kann),
-    **Liquiditaetsauswirkung** (Issue #38, kann).
-
-### Phase 6: Authentifizierung und Datenschutz
-
-Zugriffsschutz fuer gespeicherte Daten.
-
-21. **Benutzerkonto / Login** (Issue #47, kann):
-    Django-Auth, geschuetzte Views, Nutzerzuordnung.
-22. **Login mit OIDC** (Issue #254, kann):
-    Optionale OIDC-Anbindung als Erweiterung.
-23. **Datenschutz-/Anonymisierungsmodus** (Issue #259, kann):
-    Maskierung sensibler Felder in Anzeige und Export.
-
----
-
-## 12. Testarchitektur
+## 11. Testarchitektur
 
 ### Teststruktur
 

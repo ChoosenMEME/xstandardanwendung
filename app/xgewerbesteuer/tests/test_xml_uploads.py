@@ -46,11 +46,16 @@ from xgewerbesteuer.extractors import (
     extract_trade_tax_assessment_amount,
     get_local_name,
 )
+from xgewerbesteuer.calculations import (
+    format_euro_value,
+)
 from xgewerbesteuer.services.bescheid import (
     build_due_date_calendar,
     build_due_date_calendar_entries,
+    build_liquidity_impact,
     build_notice_area,
     build_status_indicator,
+    classify_liquidity_period,
     classify_payment_type,
     group_calendar_entries_by_month,
 )
@@ -1307,6 +1312,154 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
 
         self.assertIsNone(create_ics_export(calendar))
 
+    def test_classify_liquidity_period_uses_fixed_thresholds(self):
+        from datetime import date
+        reference_date = date(2025, 1, 15)
+
+        self.assertEqual(
+            classify_liquidity_period("2025-01-15", reference_date)["key"],
+            "due_now",
+        )
+        self.assertEqual(
+            classify_liquidity_period("2025-02-14", reference_date)["key"],
+            "within_30_days",
+        )
+        self.assertEqual(
+            classify_liquidity_period("2025-03-16", reference_date)["key"],
+            "within_90_days",
+        )
+        self.assertEqual(
+            classify_liquidity_period("2025-05-01", reference_date)["key"],
+            "later",
+        )
+        self.assertEqual(
+            classify_liquidity_period(None, reference_date)["key"],
+            "without_date",
+        )
+
+    def test_build_liquidity_impact_groups_payments_by_period(self):
+        from datetime import date
+        reference_date = date(2025, 1, 15)
+        current_bescheid = {
+            "amount_due": "630.00",
+            "due_dates": "2025-01-15, 2025-02-14, 2025-03-16, 2025-05-01",
+            "payment_classification": {"type": "Nachzahlung"},
+            "advance_payments": [],
+        }
+
+        liquidity_impact = build_liquidity_impact(current_bescheid, reference_date)
+        groups_by_key = {
+            group["key"]: group
+            for group in liquidity_impact["groups"]
+        }
+
+        self.assertEqual(len(groups_by_key["due_now"]["items"]), 1)
+        self.assertEqual(len(groups_by_key["within_30_days"]["items"]), 1)
+        self.assertEqual(len(groups_by_key["within_90_days"]["items"]), 1)
+        self.assertEqual(len(groups_by_key["later"]["items"]), 1)
+        self.assertEqual(liquidity_impact["reference_date"], "15.01.2025")
+
+    def test_build_liquidity_impact_sums_only_positive_amounts(self):
+        from datetime import date
+        reference_date = date(2025, 1, 15)
+        current_bescheid = {
+            "amount_due": "100.00",
+            "due_dates": "2025-02-14",
+            "payment_classification": {"type": "Nachzahlung"},
+            "advance_payments": [
+                {
+                    "amount": "200.00",
+                    "due_date": "2025-02-14",
+                    "period": "2025",
+                    "type": "Vorauszahlung",
+                }
+            ],
+        }
+
+        liquidity_impact = build_liquidity_impact(current_bescheid, reference_date)
+        within_30_days = next(
+            group
+            for group in liquidity_impact["groups"]
+            if group["key"] == "within_30_days"
+        )
+
+        self.assertEqual(within_30_days["total_burden"], "300,00 EUR")
+
+    def test_build_liquidity_impact_does_not_count_refunds_as_burden(self):
+        from datetime import date
+        reference_date = date(2025, 1, 15)
+        current_bescheid = {
+            "amount_due": "-50.00",
+            "due_dates": "2025-02-14",
+            "payment_classification": {"type": "Erstattung"},
+            "advance_payments": [],
+        }
+
+        liquidity_impact = build_liquidity_impact(current_bescheid, reference_date)
+        within_30_days = next(
+            group
+            for group in liquidity_impact["groups"]
+            if group["key"] == "within_30_days"
+        )
+
+        self.assertEqual(within_30_days["total_burden"], "0,00 EUR")
+        self.assertEqual(within_30_days["items"][0]["impact"], "relief")
+
+    def test_build_liquidity_impact_does_not_count_zero_amount_as_burden(self):
+        from datetime import date
+        reference_date = date(2025, 1, 15)
+        current_bescheid = {
+            "amount_due": "0.00",
+            "due_dates": "2025-02-14",
+            "payment_classification": {"type": "Keine Zahlung"},
+            "advance_payments": [],
+        }
+
+        liquidity_impact = build_liquidity_impact(current_bescheid, reference_date)
+        within_30_days = next(
+            group
+            for group in liquidity_impact["groups"]
+            if group["key"] == "within_30_days"
+        )
+
+        self.assertEqual(within_30_days["total_burden"], "0,00 EUR")
+        self.assertEqual(within_30_days["items"][0]["impact"], "neutral")
+
+    def test_build_liquidity_impact_marks_missing_date_or_amount_neutrally(self):
+        from datetime import date
+        reference_date = date(2025, 1, 15)
+        current_bescheid = {
+            "amount_due": "Nicht gefunden",
+            "due_dates": "2025-02-14",
+            "payment_classification": {"type": "Nicht eindeutig bestimmbar"},
+            "advance_payments": [
+                {
+                    "amount": "147.00",
+                    "due_date": "Nicht gefunden",
+                    "period": "2025",
+                    "type": "Vorauszahlung",
+                }
+            ],
+        }
+
+        liquidity_impact = build_liquidity_impact(current_bescheid, reference_date)
+        groups_by_key = {
+            group["key"]: group
+            for group in liquidity_impact["groups"]
+        }
+
+        missing_amount_item = groups_by_key["within_30_days"]["items"][0]
+        missing_date_item = groups_by_key["without_date"]["items"][0]
+
+        self.assertEqual(missing_amount_item["impact"], "neutral")
+        self.assertIn("Betrag", missing_amount_item["notice"])
+        self.assertEqual(missing_date_item["impact"], "neutral")
+        self.assertIn("Fälligkeit", missing_date_item["notice"])
+
+    def test_format_euro_value_uses_german_currency_format(self):
+        self.assertEqual(format_euro_value(Decimal("630")), "630,00 EUR")
+        self.assertEqual(format_euro_value(Decimal("1234.5")), "1.234,50 EUR")
+
     def test_create_csv_export_contains_stable_columns_and_summary_values(self):
         report_data = {
             "summary_items": [
@@ -2026,6 +2179,33 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
             response,
             "Für diesen Bescheid wurden keine verwertbaren Fälligkeitstermine gefunden.",
         )
+
+    def test_valid_upload_displays_liquidity_impact(self):
+        content = VALID_BESCHEID_FIXTURE.read_bytes()
+
+        response = self.client.post(
+            reverse("xgewerbesteuer_default"),
+            data={"bescheid": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("liquidity_impact", response.context)
+        self.assertContains(response, "Liquiditätsauswirkung")
+        self.assertContains(response, "Sofort/fällig")
+        self.assertContains(response, "keine Finanz- oder Steuerberatung")
+
+    def test_advance_payment_upload_displays_liquidity_impact(self):
+        content = ADVANCE_PAYMENT_FIXTURE.read_bytes()
+
+        response = self.client.post(
+            reverse("xgewerbesteuer_default"),
+            data={"bescheid": uploaded_xml(ADVANCE_PAYMENT_FIXTURE.name, content)},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("liquidity_impact", response.context)
+        self.assertContains(response, "Liquiditätsauswirkung")
+        self.assertContains(response, "Vorauszahlung")
 
     def test_invalid_upload_uses_kern_error_component(self):
         response = self.client.post(reverse("xgewerbesteuer_default"), data={})
