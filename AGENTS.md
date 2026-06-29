@@ -51,6 +51,7 @@ Aktuelle Struktur:
 ├── CONTRIBUTING.md
 ├── AGENTS.md
 ├── docs/
+│   ├── architektur.md
 │   ├── design.md
 │   ├── design-thinking.md
 │   ├── datenstandard.md
