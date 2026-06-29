@@ -215,6 +215,38 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
         self.assertIn(".plausibility-status--warning", css_content)
         self.assertIn(".plausibility-status--not-checkable", css_content)
 
+    def test_responsive_css_contains_print_media_block(self):
+        css_content = RESPONSIVE_CSS_FILE.read_text(encoding="utf-8")
+
+        self.assertIn("@media print", css_content)
+        self.assertIn("@page", css_content)
+        self.assertIn("margin: 1.5cm", css_content)
+
+    def test_print_css_hides_interactive_elements(self):
+        css_content = RESPONSIVE_CSS_FILE.read_text(encoding="utf-8")
+
+        self.assertIn(".no-print", css_content)
+        self.assertIn(".form-card", css_content)
+        self.assertIn(".download-panel", css_content)
+        self.assertIn(".download-actions", css_content)
+        self.assertIn("button", css_content)
+        self.assertIn("display: none !important", css_content)
+
+    def test_print_css_keeps_tables_readable(self):
+        css_content = RESPONSIVE_CSS_FILE.read_text(encoding="utf-8")
+
+        self.assertIn(".responsive-table-wrapper", css_content)
+        self.assertIn("overflow: visible", css_content)
+        self.assertIn("table-layout: auto", css_content)
+        self.assertIn("overflow-wrap: anywhere", css_content)
+        self.assertIn("white-space: normal", css_content)
+
+    def test_print_css_contains_page_break_rules(self):
+        css_content = RESPONSIVE_CSS_FILE.read_text(encoding="utf-8")
+
+        self.assertIn("break-inside", css_content)
+        self.assertIn("page-break-inside", css_content)
+
     def test_clean_text_normalizes_whitespace_and_empty_values(self):
         self.assertEqual(clean_text("  Stadt   Musterhausen\nNord  "), "Stadt Musterhausen Nord")
         self.assertIsNone(clean_text("   \n  "))
@@ -1414,6 +1446,13 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertContains(response, "form-field")
         self.assertContains(response, "primary-action")
 
+    def test_upload_form_is_marked_as_no_print(self):
+        response = self.client.get(reverse("xgewerbesteuer_default"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'class="form-card no-print"')
+        self.assertContains(response, 'class="upload-form"')
+
     def test_post_without_file_shows_missing_file_error(self):
         response = self.client.post(reverse("xgewerbesteuer_default"), data={})
 
@@ -1583,6 +1622,33 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertContains(response, "download-panel")
         self.assertContains(response, "download-action")
         self.assertContains(response, "status-card--deadline")
+
+    def test_download_area_is_marked_as_no_print_after_valid_upload(self):
+        content = VALID_BESCHEID_FIXTURE.read_bytes()
+
+        response = self.client.post(
+            reverse("xgewerbesteuer_default"),
+            data={"bescheid": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'class="download-panel no-print"')
+        self.assertContains(response, 'class="download-actions no-print"')
+
+    def test_result_sections_remain_marked_for_print_after_valid_upload(self):
+        content = VALID_BESCHEID_FIXTURE.read_bytes()
+
+        response = self.client.post(
+            reverse("xgewerbesteuer_default"),
+            data={"bescheid": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "result-section print-section")
+        self.assertContains(response, "Zusammenfassung des Bescheids")
+        self.assertContains(response, "Plausibilitätsprüfung")
+        self.assertContains(response, "Kalenderansicht der Fälligkeiten")
+        self.assertContains(response, "Hinweisbereich")
 
     def test_valid_upload_displays_due_date_calendar(self):
         content = VALID_BESCHEID_FIXTURE.read_bytes()
@@ -2039,6 +2105,28 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         )
         self.assertContains(response, "Historische Entwicklung")
         self.assertContains(response, "Mehrjahresvergleich")
+
+    def test_multi_year_sections_remain_visible_for_print(self):
+        response = self.client.post(
+            reverse("xgewerbesteuer_default"),
+            data={
+                "bescheid": uploaded_xml(
+                    VALID_BESCHEID_FIXTURE.name,
+                    VALID_BESCHEID_FIXTURE.read_bytes(),
+                ),
+                "vergleichsbescheide": [
+                    uploaded_xml(fixture.name, fixture.read_bytes())
+                    for fixture in MULTI_YEAR_FIXTURES
+                ],
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "result-section print-section")
+        self.assertContains(response, "Mehrjahresvergleich")
+        self.assertContains(response, "Historische Entwicklung")
+        self.assertContains(response, "responsive-table-wrapper")
+        self.assertContains(response, "responsive-table")
 
     def test_historical_development_table_contains_values_and_changes(self):
         response = self.client.post(

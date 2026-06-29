@@ -309,3 +309,83 @@
         padding: 0.5rem 0.75rem;
     }
 }
+
+@media print {
+    @page {
+        margin: 1.5cm;
+    }
+
+    body {
+        background: #ffffff;
+        color: #000000;
+        font-size: 11pt;
+        line-height: 1.35;
+    }
+
+    .app-shell {
+        width: 100%;
+        padding: 0;
+        margin: 0;
+    }
+
+    .no-print,
+    .form-card,
+    .download-panel,
+    .download-actions,
+    .primary-action,
+    .download-action,
+    input,
+    button {
+        display: none !important;
+    }
+
+    .content-section,
+    .result-section,
+    .message-card,
+    .status-card,
+    .notice-card,
+    .plausibility-status,
+    .due-date-calendar-month {
+        border: 1px solid #999999;
+        box-shadow: none;
+        break-inside: avoid;
+        page-break-inside: avoid;
+        background: #ffffff;
+    }
+
+    .print-section {
+        break-inside: auto;
+        page-break-inside: auto;
+    }
+
+    .responsive-table-wrapper {
+        overflow: visible;
+        max-width: 100%;
+    }
+
+    .responsive-table {
+        width: 100%;
+        min-width: 0;
+        table-layout: auto;
+        border-collapse: collapse;
+    }
+
+    .responsive-table th,
+    .responsive-table td {
+        white-space: normal;
+        overflow-wrap: anywhere;
+        word-break: normal;
+        border-bottom: 1px solid #cccccc;
+        padding: 0.2cm 0.25cm 0.2cm 0;
+    }
+
+    a {
+        color: #000000;
+        text-decoration: none;
+    }
+
+    .historical-chart-bar {
+        border: 1px solid #999999;
+        background: #ffffff;
+    }
+}
