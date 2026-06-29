@@ -200,6 +200,24 @@
     margin-bottom: 0;
 }
 
+.saved-upload-summary {
+    margin-bottom: 1rem;
+}
+
+.saved-upload-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.saved-upload-action {
+    min-height: 2.5rem;
+}
+
+.saved-upload-notice {
+    color: #4b5563;
+}
+
 .section-heading {
     margin-top: 2rem;
 }

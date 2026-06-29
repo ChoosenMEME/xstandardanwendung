@@ -82,6 +82,18 @@ Gewerbesteuerbescheid-Assistent
                 Die Dateien werden nur für diese Anfrage verarbeitet und nicht dauerhaft gespeichert.
             </p>
 
+            <p class="form-field">
+                <label>
+                    <input type="checkbox" id="save_upload" name="save_upload">
+                    Auswertung dieses Uploads speichern
+                </label>
+            </p>
+
+            <p class="help-text">
+                Es werden nur strukturierte Auswertungsdaten gespeichert, nicht die Original-XML-Datei.
+                Gespeicherte Auswertungen sind nur in dieser Browser-Session sichtbar.
+            </p>
+
             <p>
                 <button type="submit" class="primary-action">
                     Bescheide hochladen
@@ -89,6 +101,88 @@ Gewerbesteuerbescheid-Assistent
             </p>
         </form>
     </section>
+
+    <section class="content-section saved-upload-section" aria-labelledby="saved-upload-heading">
+        <h2 id="saved-upload-heading">Gespeicherte Auswertungen</h2>
+
+        <p class="saved-upload-notice">
+            Gespeicherte Auswertungen sind nur für diese Browser-Session sichtbar.
+            Es werden keine Original-XML-Dateien gespeichert.
+        </p>
+
+        {% if saved_uploads %}
+            <p class="saved-upload-summary">
+                Für diese Browser-Session sind gespeicherte Auswertungen vorhanden.
+            </p>
+
+            <div class="responsive-table-wrapper">
+                <table class="responsive-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Gespeichert am</th>
+                            <th scope="col">Dateiname</th>
+                            <th scope="col">Steuerjahr / Erhebungszeitraum</th>
+                            <th scope="col">Gemeinde / Kommune</th>
+                            <th scope="col">Zahlbetrag</th>
+                            <th scope="col">Aktionen</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for saved_upload in saved_uploads %}
+                            <tr>
+                                <td>{{ saved_upload.uploaded_at|date:"d.m.Y H:i" }}</td>
+                                <td>{{ saved_upload.file_name }}</td>
+                                <td>{{ saved_upload.tax_period }}</td>
+                                <td>{{ saved_upload.municipality }}</td>
+                                <td>{{ saved_upload.amount_due }}</td>
+                                <td>
+                                    <div class="saved-upload-actions">
+                                        <form method="post">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="action" value="load_saved_upload">
+                                            <input type="hidden" name="saved_upload_id" value="{{ saved_upload.id }}">
+                                            <button type="submit" class="saved-upload-action">
+                                                Erneut öffnen
+                                            </button>
+                                        </form>
+
+                                        <form method="post">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="action" value="delete_saved_upload">
+                                            <input type="hidden" name="saved_upload_id" value="{{ saved_upload.id }}">
+                                            <button type="submit" class="saved-upload-action">
+                                                Löschen
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p class="saved-upload-notice">
+                Für diese Browser-Session sind keine gespeicherten Auswertungen vorhanden.
+            </p>
+        {% endif %}
+    </section>
+
+    {% if saved_upload_success %}
+        <div class="message-card message-card--success" role="status">
+            <p>
+                <strong>{{ saved_upload_success }}</strong>
+            </p>
+        </div>
+    {% endif %}
+
+    {% if saved_upload_error %}
+        <div role="alert" class="message-card message-card--error">
+            <p>
+                <strong>{{ saved_upload_error }}</strong>
+            </p>
+        </div>
+    {% endif %}
 
     {% if uploaded_file_name or validation_success %}
         <div class="message-card message-card--success" role="status">
