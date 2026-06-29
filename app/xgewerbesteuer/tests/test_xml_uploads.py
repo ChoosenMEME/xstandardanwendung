@@ -1,6 +1,7 @@
 """Regressionstests fuer XML-Upload, Extraktion und Validierung."""
 
 import csv
+from decimal import Decimal
 from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
@@ -27,10 +28,14 @@ from xgewerbesteuer.views import (
     build_multi_bescheid_comparison,
     build_multi_bescheid_record,
     build_multi_bescheid_upload_errors,
+    build_plausibility_check,
+    calculate_expected_trade_tax,
     calculate_historical_change,
+    compare_plausibility_amounts,
     create_ics_export,
     escape_ics_text,
     format_ics_date,
+    PLAUSIBILITY_TOLERANCE,
     group_bescheide_by_tax_period,
     group_calendar_entries_by_month,
     build_notice_area,
@@ -130,6 +135,30 @@ def processed_bescheid_with_due_date():
     }
 
 
+def processed_bescheid_with_plausibility_values(
+    amount_due="630.00",
+    trade_tax_assessment_amount="150.00",
+    assessment_rate="420",
+):
+    result = processed_bescheid_with_due_date()
+    bescheid = result["bescheid"]
+
+    bescheid["amount_due"] = amount_due
+    bescheid["trade_tax_assessment_amount"] = trade_tax_assessment_amount
+    bescheid["assessment_rate"] = assessment_rate
+    bescheid["summary_items"] = [
+        {"label": "Gemeinde / Kommune", "value": "Stadt Musterhausen"},
+        {"label": "Steuerjahr / Erhebungszeitraum", "value": "2025"},
+        {"label": "Zahlbetrag", "value": amount_due},
+        {"label": "Zahlungsart", "value": "Nachzahlung"},
+        {"label": "Gewerbesteuermessbetrag", "value": trade_tax_assessment_amount},
+        {"label": "Hebesatz", "value": assessment_rate},
+        {"label": "Fälligkeiten", "value": "2025-02-15"},
+    ]
+
+    return result
+
+
 def comparison_bescheid(
     tax_period,
     amount_due="100.00",
@@ -181,6 +210,10 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
         self.assertIn(".historical-development-notice", css_content)
         self.assertIn(".historical-chart", css_content)
         self.assertIn(".historical-chart-bar", css_content)
+        self.assertIn(".plausibility-status", css_content)
+        self.assertIn(".plausibility-status--plausible", css_content)
+        self.assertIn(".plausibility-status--warning", css_content)
+        self.assertIn(".plausibility-status--not-checkable", css_content)
 
     def test_clean_text_normalizes_whitespace_and_empty_values(self):
         self.assertEqual(clean_text("  Stadt   Musterhausen\nNord  "), "Stadt Musterhausen Nord")
@@ -588,6 +621,103 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
             comparison_by_label["Zahlbetrag"]["change_type"],
             "Erhöhung",
         )
+
+    def test_plausible_values_create_no_warning(self):
+        plausibility = build_plausibility_check(
+            comparison_bescheid("2025", amount_due="105.00")
+        )
+
+        self.assertEqual(plausibility["status"], "plausible")
+        self.assertEqual(plausibility["label"], "Plausibel")
+
+    def test_unplausible_values_create_warning(self):
+        plausibility = build_plausibility_check(
+            comparison_bescheid("2025", amount_due="120.00")
+        )
+
+        self.assertEqual(plausibility["status"], "warning")
+        self.assertEqual(plausibility["label"], "Warnung / Abweichung")
+        self.assertIn("weicht", plausibility["message"])
+
+    def test_rounding_difference_within_tolerance_is_accepted(self):
+        comparison = compare_plausibility_amounts(
+            "105.01",
+            calculate_expected_trade_tax("25.00", "420"),
+        )
+
+        self.assertEqual(PLAUSIBILITY_TOLERANCE, Decimal("0.02"))
+        self.assertEqual(comparison["status"], "plausible")
+
+    def test_missing_amount_due_is_not_checkable(self):
+        plausibility = build_plausibility_check(
+            comparison_bescheid("2025", amount_due="Nicht gefunden")
+        )
+
+        self.assertEqual(plausibility["status"], "not_checkable")
+        self.assertIn("Ausgelesener Zahlbetrag", plausibility["message"])
+
+    def test_missing_trade_tax_assessment_amount_is_not_checkable(self):
+        bescheid = comparison_bescheid("2025", amount_due="105.00")
+        bescheid["trade_tax_assessment_amount"] = "Nicht gefunden"
+
+        plausibility = build_plausibility_check(bescheid)
+
+        self.assertEqual(plausibility["status"], "not_checkable")
+        self.assertIn("Gewerbesteuermessbetrag", plausibility["message"])
+
+    def test_missing_assessment_rate_is_not_checkable(self):
+        bescheid = comparison_bescheid("2025", amount_due="105.00")
+        bescheid["assessment_rate"] = "Nicht gefunden"
+
+        plausibility = build_plausibility_check(bescheid)
+
+        self.assertEqual(plausibility["status"], "not_checkable")
+        self.assertIn("Hebesatz", plausibility["message"])
+
+    def test_zero_values_are_handled_explicitly(self):
+        plausible_zero = build_plausibility_check(
+            {
+                **comparison_bescheid("2025", amount_due="0.00"),
+                "trade_tax_assessment_amount": "0.00",
+            }
+        )
+        warning_zero = build_plausibility_check(
+            comparison_bescheid("2025", amount_due="0.00")
+        )
+
+        self.assertEqual(plausible_zero["status"], "plausible")
+        self.assertEqual(warning_zero["status"], "warning")
+
+    def test_negative_values_are_explained_neutrally(self):
+        plausibility = build_plausibility_check(
+            comparison_bescheid("2025", amount_due="-105.00")
+        )
+
+        self.assertEqual(plausibility["status"], "not_checkable")
+        self.assertIn("Negative Beträge", plausibility["message"])
+
+    def test_expected_trade_tax_uses_assessment_amount_times_rate(self):
+        expected_amount = calculate_expected_trade_tax("150.00", "420")
+
+        self.assertEqual(expected_amount, Decimal("630.00"))
+
+    def test_plausibility_messages_contain_no_raw_xml_or_parser_details(self):
+        plausibility = build_plausibility_check(
+            comparison_bescheid("2025", amount_due="120.00")
+        )
+        content = " ".join(
+            [
+                plausibility["message"],
+                plausibility["expected_amount"],
+                plausibility["actual_amount"],
+                plausibility["difference"],
+            ]
+        )
+
+        self.assertNotIn("<nachricht", content)
+        self.assertNotIn("XMLParser", content)
+        self.assertNotIn("Traceback", content)
+        self.assertNotIn("DEBUG", content)
 
     def test_sort_bescheid_records_chronologically_orders_multiple_years(self):
         records = [
@@ -1758,6 +1888,96 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertEqual(csv_response.status_code, 200)
         self.assertIn("Vorauszahlung", csv_content)
         self.assertIn("147.00", csv_content)
+
+    def test_valid_upload_displays_plausibility_check(self):
+        response = self.client.post(
+            reverse("xgewerbesteuer_default"),
+            data={
+                "bescheid": uploaded_xml(
+                    VALID_BESCHEID_FIXTURE.name,
+                    VALID_BESCHEID_FIXTURE.read_bytes(),
+                )
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["plausibility_check"]["status"], "plausible")
+        self.assertContains(response, "Plausibilitätsprüfung")
+        self.assertContains(response, "Status: Plausibel")
+        self.assertContains(response, "Gewerbesteuer = Gewerbesteuermessbetrag")
+        self.assertContains(response, "ersetzt keine steuerliche Beratung")
+        self.assertNotContains(response, "Warnung / Abweichung")
+
+    def test_unplausible_upload_displays_plausibility_warning(self):
+        with patch(
+            "xgewerbesteuer.views.process_uploaded_bescheid",
+            return_value=processed_bescheid_with_plausibility_values(
+                amount_due="120.00",
+                trade_tax_assessment_amount="25.00",
+                assessment_rate="420",
+            ),
+        ):
+            response = self.client.post(
+                reverse("xgewerbesteuer_default"),
+                data={"bescheid": uploaded_xml("bescheid.xml", b"<nachricht/>")},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["plausibility_check"]["status"], "warning")
+        self.assertContains(response, "Warnung / Abweichung")
+        self.assertContains(response, "weicht von der rechnerischen Grundformel ab")
+
+    def test_upload_with_missing_values_displays_not_checkable_plausibility(self):
+        with patch(
+            "xgewerbesteuer.views.process_uploaded_bescheid",
+            return_value=processed_bescheid_with_plausibility_values(
+                amount_due="Nicht gefunden",
+                trade_tax_assessment_amount="25.00",
+                assessment_rate="420",
+            ),
+        ):
+            response = self.client.post(
+                reverse("xgewerbesteuer_default"),
+                data={"bescheid": uploaded_xml("bescheid.xml", b"<nachricht/>")},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.context["plausibility_check"]["status"],
+            "not_checkable",
+        )
+        self.assertContains(response, "Nicht prüfbar")
+        self.assertContains(response, "Nicht berechenbar")
+
+    def test_plausibility_keeps_comparisons_history_and_downloads_working(self):
+        with patch(
+            "xgewerbesteuer.views.process_uploaded_bescheid",
+            side_effect=[
+                processed_bescheid_with_due_date(),
+                {"is_valid": True, "bescheid": comparison_bescheid("2021")},
+                {"is_valid": True, "bescheid": comparison_bescheid("2022")},
+            ],
+        ):
+            upload_response = self.client.post(
+                reverse("xgewerbesteuer_default"),
+                data={
+                    "bescheid": uploaded_xml("bescheid.xml", b"<nachricht/>"),
+                    "vergleichsbescheide": [
+                        uploaded_xml("vergleich-2021.xml", b"<nachricht/>"),
+                        uploaded_xml("vergleich-2022.xml", b"<nachricht/>"),
+                    ],
+                },
+            )
+
+        self.assertEqual(upload_response.status_code, 200)
+        self.assertIn("plausibility_check", upload_response.context)
+        self.assertIn("multi_bescheid_comparison", upload_response.context)
+        self.assertIn("historical_development", upload_response.context)
+        self.assertContains(upload_response, "Zusammenfassung des Bescheids")
+
+        self.assertEqual(self.client.get(reverse("xgewerbesteuer_pdf_report")).status_code, 200)
+        self.assertEqual(self.client.get(reverse("xgewerbesteuer_csv_export")).status_code, 200)
+        self.assertEqual(self.client.get(reverse("xgewerbesteuer_ics_export")).status_code, 200)
 
     def test_multi_bescheid_upload_displays_multi_year_comparison(self):
         response = self.client.post(
