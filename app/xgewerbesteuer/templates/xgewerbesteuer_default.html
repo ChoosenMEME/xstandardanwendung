@@ -52,7 +52,7 @@ Gewerbesteuerbescheid-Assistent
         </p>
     </section>
 
-    <section class="form-card" aria-labelledby="upload-heading">
+    <section class="form-card no-print" aria-labelledby="upload-heading">
         <h2 id="upload-heading">Bescheid hochladen</h2>
 
         <p class="form-hint">
@@ -147,7 +147,7 @@ Gewerbesteuerbescheid-Assistent
     {% endif %}
 
     {% if summary_items %}
-        <section class="result-section" aria-labelledby="summary-heading">
+        <section class="result-section print-section" aria-labelledby="summary-heading">
             <h2 id="summary-heading">Zusammenfassung des Bescheids</h2>
 
             <p>
@@ -173,7 +173,7 @@ Gewerbesteuerbescheid-Assistent
                 </div>
             {% endif %}
 
-            <div class="download-panel">
+            <div class="download-panel no-print">
                 <h2>PDF-Bericht</h2>
 
                 <p>
@@ -197,7 +197,7 @@ Gewerbesteuerbescheid-Assistent
                     </p>
                 {% endif %}
 
-                <div class="download-actions" aria-label="Downloadmöglichkeiten">
+                <div class="download-actions no-print" aria-label="Downloadmöglichkeiten">
                     <a class="download-action" href="{% url 'xgewerbesteuer_pdf_report' %}">
                         PDF-Bericht herunterladen
                     </a>
@@ -235,7 +235,7 @@ Gewerbesteuerbescheid-Assistent
         </section>
 
         {% if plausibility_check %}
-            <section class="result-section plausibility-section" aria-labelledby="plausibility-heading">
+            <section class="result-section print-section plausibility-section" aria-labelledby="plausibility-heading">
                 <h2 id="plausibility-heading">Plausibilitätsprüfung</h2>
 
                 <p>
@@ -293,7 +293,7 @@ Gewerbesteuerbescheid-Assistent
         {% endif %}
 
         {% if multi_bescheid_comparison %}
-            <section class="result-section" aria-labelledby="multi-comparison-heading">
+            <section class="result-section print-section" aria-labelledby="multi-comparison-heading">
                 <h2 id="multi-comparison-heading">Mehrjahresvergleich</h2>
 
                 <p>
@@ -375,7 +375,7 @@ Gewerbesteuerbescheid-Assistent
         {% endif %}
 
         {% if historical_development %}
-            <section class="result-section" aria-labelledby="historical-development-heading">
+            <section class="result-section print-section" aria-labelledby="historical-development-heading">
                 <h2 id="historical-development-heading">Historische Entwicklung</h2>
 
                 <p>
@@ -451,7 +451,7 @@ Gewerbesteuerbescheid-Assistent
         {% endif %}
 
         {% if due_date_calendar %}
-            <section class="result-section due-date-calendar-section" aria-labelledby="due-date-calendar-heading">
+            <section class="result-section print-section due-date-calendar-section" aria-labelledby="due-date-calendar-heading">
                 <h2 id="due-date-calendar-heading">Kalenderansicht der Fälligkeiten</h2>
 
                 <p>
@@ -523,7 +523,7 @@ Gewerbesteuerbescheid-Assistent
         {% endif %}
 
         {% if notice_items %}
-            <section class="result-section" aria-labelledby="notice-heading">
+            <section class="result-section print-section" aria-labelledby="notice-heading">
                 <h2 id="notice-heading">Hinweisbereich</h2>
 
                 <p>
@@ -555,7 +555,7 @@ Gewerbesteuerbescheid-Assistent
         {% endif %}
 
         {% if previous_bescheid %}
-            <section class="result-section" aria-labelledby="previous-heading">
+            <section class="result-section print-section" aria-labelledby="previous-heading">
                 <h2 id="previous-heading">Vergleich mit Vorjahresbescheid</h2>
 
                 <p>
@@ -635,7 +635,7 @@ Gewerbesteuerbescheid-Assistent
         {% endif %}
 
         {% if payment_classification %}
-            <section class="result-section" aria-labelledby="payment-heading">
+            <section class="result-section print-section" aria-labelledby="payment-heading">
                 <h2 id="payment-heading">Einordnung der Zahlung</h2>
 
                 <p>
@@ -655,7 +655,7 @@ Gewerbesteuerbescheid-Assistent
         {% endif %}
 
         {% if calculation_explanation %}
-            <section class="result-section" aria-labelledby="calculation-heading">
+            <section class="result-section print-section" aria-labelledby="calculation-heading">
                 <h2 id="calculation-heading">Erklärung der Berechnungslogik</h2>
 
                 {% if calculation_explanation.can_calculate %}
@@ -692,7 +692,7 @@ Gewerbesteuerbescheid-Assistent
         {% endif %}
 
         {% if advance_payments %}
-            <section class="result-section" aria-labelledby="advance-payment-heading">
+            <section class="result-section print-section" aria-labelledby="advance-payment-heading">
                 <h2 id="advance-payment-heading">Vorauszahlungen</h2>
 
                 <p>
