@@ -1,4 +1,5 @@
 import csv
+import hashlib
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from io import BytesIO, StringIO
@@ -25,6 +26,7 @@ XSD_SCHEMA_FILES = [
 MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024
 PDF_REPORT_SESSION_KEY = "xgewerbesteuer_pdf_report"
 CSV_EXPORT_SESSION_KEY = "xgewerbesteuer_csv_export"
+ICS_EXPORT_SESSION_KEY = "xgewerbesteuer_ics_export"
 
 CSV_EXPORT_COLUMNS = [
     "Datensatztyp",
@@ -1518,6 +1520,93 @@ def create_csv_export(report_data):
     return output.getvalue()
 
 
+def escape_ics_text(value):
+    """Escape text according to RFC 5545 for safe use in ICS fields."""
+    if value is None:
+        return ""
+
+    text = str(value).replace("\\", "\\\\")
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    text = text.replace("\n", "\\n")
+    text = text.replace(";", "\\;").replace(",", "\\,")
+
+    return text
+
+
+def format_ics_date(value):
+    parsed_date = parse_date_value(value)
+
+    if parsed_date is None:
+        return None
+
+    return parsed_date.strftime("%Y%m%d")
+
+
+def build_ics_event(entry, index):
+    ics_date = format_ics_date(entry.get("date"))
+
+    if ics_date is None:
+        return None
+
+    payment_type = entry.get("payment_type") or "Zahlungstermin"
+    amount = entry.get("amount") or "Betrag nicht gefunden"
+    display_date = entry.get("display_date") or format_german_date(entry.get("date"))
+    uid_source = "|".join([ics_date, str(index), payment_type, amount])
+    uid_hash = hashlib.sha256(uid_source.encode("utf-8")).hexdigest()[:16]
+    summary = f"Gewerbesteuer: {payment_type}"
+    description = "\n".join(
+        [
+            f"Fälligkeit: {display_date}",
+            f"Betrag: {amount}",
+            f"Zahlungsart: {payment_type}",
+            "Diese Frist wurde aus den validierten Bescheiddaten ermittelt.",
+        ]
+    )
+
+    return [
+        "BEGIN:VEVENT",
+        (
+            f"UID:xgewerbesteuer-frist-{ics_date}-{index}-{uid_hash}"
+            "@xgewerbesteuer-assistent.local"
+        ),
+        f"DTSTAMP:{ics_date}T000000Z",
+        f"DTSTART;VALUE=DATE:{ics_date}",
+        f"SUMMARY:{escape_ics_text(summary)}",
+        f"DESCRIPTION:{escape_ics_text(description)}",
+        "END:VEVENT",
+    ]
+
+
+def create_ics_export(due_date_calendar):
+    """Create an ICS calendar from validated due-date calendar entries."""
+    events = []
+
+    for month in due_date_calendar.get("months", []):
+        for entry in month.get("entries", []):
+            event = build_ics_event(entry, len(events) + 1)
+
+            if event:
+                events.append(event)
+
+    if not events:
+        return None
+
+    lines = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//XGewerbesteuer Assistent//Fristenexport//DE",
+        "CALSCALE:GREGORIAN",
+        "METHOD:PUBLISH",
+    ]
+
+    for event in events:
+        lines.extend(event)
+
+    lines.append("END:VCALENDAR")
+
+    return "\r\n".join(lines) + "\r\n"
+
+
 def xgewerbesteuer_pdf_report(request):
     report_data = request.session.get(PDF_REPORT_SESSION_KEY)
 
@@ -1554,12 +1643,30 @@ def xgewerbesteuer_csv_export(request):
     return response
 
 
+def xgewerbesteuer_ics_export(request):
+    ics_content = request.session.get(ICS_EXPORT_SESSION_KEY)
+
+    if not ics_content:
+        return HttpResponse(
+            "Es liegen keine verwertbaren Fälligkeitstermine für eine Fristdatei vor. "
+            "Bitte laden Sie zuerst einen gültigen Bescheid mit Fälligkeiten hoch.",
+            status=404,
+            content_type="text/plain; charset=utf-8",
+        )
+
+    response = HttpResponse(ics_content, content_type="text/calendar; charset=utf-8")
+    response["Content-Disposition"] = 'attachment; filename="fristtermine.ics"'
+
+    return response
+
+
 def xgewerbesteuer_default(request):
     context = {}
 
     if request.method == "POST":
         request.session.pop(PDF_REPORT_SESSION_KEY, None)
         request.session.pop(CSV_EXPORT_SESSION_KEY, None)
+        request.session.pop(ICS_EXPORT_SESSION_KEY, None)
 
         uploaded_file = request.FILES.get("bescheid")
         previous_uploaded_file = request.FILES.get("vorjahresbescheid")
@@ -1630,5 +1737,10 @@ def xgewerbesteuer_default(request):
                 report_data = build_pdf_report_data(context)
                 request.session[PDF_REPORT_SESSION_KEY] = report_data
                 request.session[CSV_EXPORT_SESSION_KEY] = report_data
+                ics_content = create_ics_export(context["due_date_calendar"])
+
+                if ics_content:
+                    request.session[ICS_EXPORT_SESSION_KEY] = ics_content
+                    context["has_ics_export"] = True
 
     return render(request, "xgewerbesteuer_default.html", context)

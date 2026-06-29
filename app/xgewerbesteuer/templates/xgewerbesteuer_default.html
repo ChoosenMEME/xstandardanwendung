@@ -183,6 +183,15 @@ Gewerbesteuerbescheid-Assistent
                     Die Datei enthält strukturierte Auswertungsdaten für Tabellenprogramme.
                 </p>
 
+                {% if has_ics_export or due_date_calendar.has_entries %}
+                    <h2>Fristdatei</h2>
+
+                    <p>
+                        Die Fristdatei kann in Kalenderprogramme importiert werden.
+                        Es werden nur die aus dem Bescheid ermittelten Fälligkeitstermine exportiert.
+                    </p>
+                {% endif %}
+
                 <div class="download-actions" aria-label="Downloadmöglichkeiten">
                     <a class="download-action" href="{% url 'xgewerbesteuer_pdf_report' %}">
                         PDF-Bericht herunterladen
@@ -191,6 +200,12 @@ Gewerbesteuerbescheid-Assistent
                     <a class="download-action" href="{% url 'xgewerbesteuer_csv_export' %}">
                         CSV-Export herunterladen
                     </a>
+
+                    {% if has_ics_export or due_date_calendar.has_entries %}
+                        <a class="download-action" href="{% url 'xgewerbesteuer_ics_export' %}">
+                            Fristdatei herunterladen (.ics)
+                        </a>
+                    {% endif %}
                 </div>
             </div>
 

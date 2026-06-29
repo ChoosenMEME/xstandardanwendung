@@ -3,6 +3,7 @@
 import csv
 from io import StringIO
 from pathlib import Path
+from unittest.mock import patch
 
 from defusedxml import ElementTree
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -13,11 +14,16 @@ from django.urls import reverse
 from xgewerbesteuer.views import (
     CSV_EXPORT_COLUMNS,
     CSV_EXPORT_SESSION_KEY,
+    ICS_EXPORT_SESSION_KEY,
     MAX_UPLOAD_SIZE_BYTES,
     PDF_REPORT_SESSION_KEY,
     build_due_date_calendar,
     build_due_date_calendar_entries,
+    build_ics_event,
     build_change_comparison,
+    create_ics_export,
+    escape_ics_text,
+    format_ics_date,
     group_calendar_entries_by_month,
     build_notice_area,
     build_period_comparison_notice,
@@ -65,6 +71,43 @@ RESPONSIVE_CSS_FILE = (
 
 def uploaded_xml(name, content):
     return SimpleUploadedFile(name, content, content_type="application/xml")
+
+
+def processed_bescheid_with_due_date():
+    summary_items = [
+        {"label": "Gemeinde / Kommune", "value": "Stadt Musterhausen"},
+        {"label": "Steuerjahr / Erhebungszeitraum", "value": "2025"},
+        {"label": "Zahlbetrag", "value": "630.00"},
+        {"label": "Zahlungsart", "value": "Nachzahlung"},
+        {"label": "Gewerbesteuermessbetrag", "value": "150.00"},
+        {"label": "Hebesatz", "value": "420"},
+        {"label": "Fälligkeiten", "value": "2025-02-15"},
+    ]
+
+    return {
+        "is_valid": True,
+        "bescheid": {
+            "file_name": "bescheid.xml",
+            "file_size": 128,
+            "schema_name": "gewerbesteuer.xsd",
+            "municipality": "Stadt Musterhausen",
+            "tax_period": "2025",
+            "amount_due": "630.00",
+            "trade_tax_assessment_amount": "150.00",
+            "assessment_rate": "420",
+            "due_dates": "2025-02-15",
+            "summary_items": summary_items,
+            "calculation_explanation": {
+                "can_calculate": False,
+                "message": "Testdaten.",
+            },
+            "advance_payments": [],
+            "payment_classification": {
+                "type": "Nachzahlung",
+                "message": "Testeinordnung.",
+            },
+        },
+    }
 
 
 class XGewerbesteuerExtractionTests(SimpleTestCase):
@@ -684,6 +727,132 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
         self.assertEqual(calendar["months"], [])
         self.assertEqual(len(calendar["undated_items"]), 1)
         self.assertIn("Fälligkeitstermin nicht verwertbar", calendar["undated_items"][0]["notes"])
+
+    def test_create_ics_export_contains_calendar_boundaries(self):
+        calendar = build_due_date_calendar(
+            {
+                "amount_due": "630.00",
+                "due_dates": "2025-02-15",
+                "payment_classification": {"type": "Nachzahlung"},
+                "advance_payments": [],
+            }
+        )
+
+        ics_content = create_ics_export(calendar)
+
+        self.assertTrue(ics_content.startswith("BEGIN:VCALENDAR\r\n"))
+        self.assertIn("END:VCALENDAR\r\n", ics_content)
+        self.assertIn("VERSION:2.0\r\n", ics_content)
+
+    def test_create_ics_export_writes_one_event_for_one_due_date(self):
+        calendar = build_due_date_calendar(
+            {
+                "amount_due": "630.00",
+                "due_dates": "2025-02-15",
+                "payment_classification": {"type": "Nachzahlung"},
+                "advance_payments": [],
+            }
+        )
+
+        ics_content = create_ics_export(calendar)
+
+        self.assertEqual(ics_content.count("BEGIN:VEVENT"), 1)
+        self.assertEqual(ics_content.count("END:VEVENT"), 1)
+
+    def test_create_ics_export_writes_multiple_events_for_multiple_due_dates(self):
+        calendar = build_due_date_calendar(
+            {
+                "amount_due": "630.00",
+                "due_dates": "2025-02-15, 2025-03-15",
+                "payment_classification": {"type": "Nachzahlung"},
+                "advance_payments": [],
+            }
+        )
+
+        ics_content = create_ics_export(calendar)
+
+        self.assertEqual(ics_content.count("BEGIN:VEVENT"), 2)
+        self.assertIn("DTSTART;VALUE=DATE:20250215", ics_content)
+        self.assertIn("DTSTART;VALUE=DATE:20250315", ics_content)
+
+    def test_build_ics_event_contains_required_lines(self):
+        event = build_ics_event(
+            {
+                "date": "2025-02-15",
+                "display_date": "15.02.2025",
+                "amount": "630,00 EUR",
+                "payment_type": "Nachzahlung",
+            },
+            1,
+        )
+        event_content = "\r\n".join(event)
+
+        self.assertIn("BEGIN:VEVENT", event)
+        self.assertIn("DTSTART;VALUE=DATE:20250215", event)
+        self.assertIn("SUMMARY:Gewerbesteuer: Nachzahlung", event)
+        self.assertIn("DESCRIPTION:", event_content)
+        self.assertIn("UID:", event_content)
+        self.assertIn("END:VEVENT", event)
+
+    def test_format_ics_date_uses_yyyymmdd_format(self):
+        self.assertEqual(format_ics_date("2025-02-15"), "20250215")
+        self.assertEqual(format_ics_date("15.02.2025"), "20250215")
+        self.assertIsNone(format_ics_date("kein-datum"))
+
+    def test_escape_ics_text_escapes_special_characters(self):
+        self.assertEqual(
+            escape_ics_text("A,B;C\\D\nE"),
+            "A\\,B\\;C\\\\D\\nE",
+        )
+
+    def test_create_ics_export_handles_missing_optional_values(self):
+        calendar = {
+            "has_entries": True,
+            "months": [
+                {
+                    "key": "2025-02",
+                    "label": "Februar 2025",
+                    "entries": [{"date": "2025-02-15"}],
+                }
+            ],
+            "undated_items": [],
+            "empty_message": "",
+        }
+
+        ics_content = create_ics_export(calendar)
+
+        self.assertIn("BEGIN:VEVENT", ics_content)
+        self.assertIn("DTSTART;VALUE=DATE:20250215", ics_content)
+        self.assertIn("Betrag nicht gefunden", ics_content)
+
+    def test_create_ics_export_contains_no_raw_xml_debug_or_parser_details(self):
+        calendar = build_due_date_calendar(
+            {
+                "amount_due": "630.00",
+                "due_dates": "2025-02-15",
+                "payment_classification": {"type": "Nachzahlung"},
+                "advance_payments": [],
+            }
+        )
+
+        ics_content = create_ics_export(calendar)
+
+        self.assertNotIn("<nachricht", ics_content)
+        self.assertNotIn("Traceback", ics_content)
+        self.assertNotIn("DEBUG", ics_content)
+        self.assertNotIn("XMLParser", ics_content)
+
+    def test_create_ics_export_returns_none_without_usable_due_dates(self):
+        calendar = build_due_date_calendar(
+            {
+                "amount_due": "630.00",
+                "due_dates": "Nicht gefunden",
+                "payment_classification": {"type": "Nachzahlung"},
+                "advance_payments": [],
+            }
+        )
+
+        self.assertIsNone(create_ics_export(calendar))
 
     def test_create_csv_export_contains_stable_columns_and_summary_values(self):
         report_data = {
@@ -1312,6 +1481,76 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertEqual(csv_response.status_code, 200)
         self.assertIn("Vorauszahlung", csv_content)
         self.assertIn("147.00", csv_content)
+
+    def test_valid_upload_with_due_date_displays_ics_download_link(self):
+        with patch(
+            "xgewerbesteuer.views.process_uploaded_bescheid",
+            return_value=processed_bescheid_with_due_date(),
+        ):
+            response = self.client.post(
+                reverse("xgewerbesteuer_default"),
+                data={"bescheid": uploaded_xml("bescheid.xml", b"<nachricht/>")},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(ICS_EXPORT_SESSION_KEY, self.client.session)
+        self.assertIn(PDF_REPORT_SESSION_KEY, self.client.session)
+        self.assertIn(CSV_EXPORT_SESSION_KEY, self.client.session)
+        self.assertContains(response, "Fristdatei herunterladen (.ics)")
+        self.assertContains(response, reverse("xgewerbesteuer_ics_export"))
+        self.assertContains(
+            response,
+            "Die Fristdatei kann in Kalenderprogramme importiert werden.",
+        )
+
+    def test_ics_export_download_after_valid_upload(self):
+        with patch(
+            "xgewerbesteuer.views.process_uploaded_bescheid",
+            return_value=processed_bescheid_with_due_date(),
+        ):
+            upload_response = self.client.post(
+                reverse("xgewerbesteuer_default"),
+                data={"bescheid": uploaded_xml("bescheid.xml", b"<nachricht/>")},
+            )
+
+        self.assertEqual(upload_response.status_code, 200)
+
+        ics_response = self.client.get(reverse("xgewerbesteuer_ics_export"))
+
+        self.assertEqual(ics_response.status_code, 200)
+        self.assertEqual(ics_response["Content-Type"], "text/calendar; charset=utf-8")
+        self.assertIn(
+            'attachment; filename="fristtermine.ics"',
+            ics_response["Content-Disposition"],
+        )
+        self.assertIn("BEGIN:VCALENDAR", ics_response.content.decode("utf-8"))
+        self.assertIn("DTSTART;VALUE=DATE:20250215", ics_response.content.decode("utf-8"))
+
+    def test_ics_export_requires_successful_upload_with_due_date(self):
+        response = self.client.get(reverse("xgewerbesteuer_ics_export"))
+
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response["Content-Type"], "text/plain; charset=utf-8")
+        self.assertIn(
+            "keine verwertbaren Fälligkeitstermine",
+            response.content.decode("utf-8"),
+        )
+
+    def test_valid_upload_without_usable_due_date_does_not_offer_ics_download(self):
+        content = VALID_BESCHEID_FIXTURE.read_bytes()
+
+        response = self.client.post(
+            reverse("xgewerbesteuer_default"),
+            data={"bescheid": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn(ICS_EXPORT_SESSION_KEY, self.client.session)
+        self.assertNotContains(response, "Fristdatei herunterladen (.ics)")
+
+        ics_response = self.client.get(reverse("xgewerbesteuer_ics_export"))
+
+        self.assertEqual(ics_response.status_code, 404)
 
     def test_post_valid_current_with_schema_invalid_previous_keeps_current_summary(self):
         current_content = VALID_BESCHEID_FIXTURE.read_bytes()
