@@ -43,6 +43,23 @@ AI_ASSISTANT_MODEL = os.getenv("AI_ASSISTANT_MODEL", "")
 AI_ASSISTANT_BASE_URL = os.getenv("AI_ASSISTANT_BASE_URL", "")
 AI_ASSISTANT_TIMEOUT_SECONDS = int(os.getenv("AI_ASSISTANT_TIMEOUT_SECONDS", "10"))
 
+LOGIN_URL = "login"
+LOGIN_REDIRECT_URL = "xgewerbesteuer_dashboard"
+LOGOUT_REDIRECT_URL = "xgewerbesteuer_dashboard"
+
+EMAIL_BACKEND = os.getenv(
+    "EMAIL_BACKEND",
+    "django.core.mail.backends.console.EmailBackend"
+    if DEBUG
+    else "django.core.mail.backends.smtp.EmailBackend",
+)
+EMAIL_HOST = os.getenv("EMAIL_HOST", "localhost")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "25"))
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "0") == "1"
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "webmaster@localhost")
+
 
 def build_static_url(app_path):
     """Build STATIC_URL with the configured application path prefix."""

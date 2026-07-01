@@ -24,6 +24,13 @@ services:
       AI_ASSISTANT_MODEL: ${AI_ASSISTANT_MODEL:-}
       AI_ASSISTANT_BASE_URL: ${AI_ASSISTANT_BASE_URL:-}
       AI_ASSISTANT_TIMEOUT_SECONDS: ${AI_ASSISTANT_TIMEOUT_SECONDS:-10}
+      EMAIL_BACKEND: ${EMAIL_BACKEND:-django.core.mail.backends.console.EmailBackend}
+      EMAIL_HOST: ${EMAIL_HOST:-localhost}
+      EMAIL_PORT: ${EMAIL_PORT:-25}
+      EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
+      EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
+      EMAIL_USE_TLS: ${EMAIL_USE_TLS:-0}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-webmaster@localhost}
     volumes:
       # Quellcode live in Container spiegeln (inkl. Dev-DB + Tests).
       - ./app:/app

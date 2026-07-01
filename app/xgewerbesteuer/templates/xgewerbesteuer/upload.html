@@ -101,18 +101,27 @@
 
         <hr class="section-divider">
 
-        <div class="form-group">
-            <div class="form-checkbox-group">
-                <input type="checkbox" id="save_upload" name="save_upload">
-                <label class="form-checkbox-label" for="save_upload">
-                    {% trans "Auswertung für diese Browser-Session speichern" %}
-                </label>
+        {% if user.is_authenticated %}
+            <div class="form-group">
+                <div class="form-checkbox-group">
+                    <input type="checkbox" id="save_upload" name="save_upload">
+                    <label class="form-checkbox-label" for="save_upload">
+                        {% trans "Auswertung in meinem Benutzerkonto speichern" %}
+                    </label>
+                </div>
             </div>
-        </div>
 
-        <p class="form-section-hint">
-            {% trans "Die Dateien werden nur für diese Anfrage verarbeitet. Es werden keine Original-XML-Dateien gespeichert, sondern nur die strukturierten Auswertungsdaten." %}
-        </p>
+            <p class="form-section-hint">
+                {% trans "Die Dateien werden nur für diese Anfrage verarbeitet. Es werden keine Original-XML-Dateien gespeichert, sondern nur die strukturierten Auswertungsdaten." %}
+            </p>
+        {% else %}
+            <p class="form-section-hint">
+                {% blocktrans %}Um eine Auswertung dauerhaft zu speichern, melden Sie sich bitte an oder registrieren Sie sich.{% endblocktrans %}
+                <a href="{% url 'login' %}?next={{ request.path }}">{% trans "Anmelden" %}</a>
+                &middot;
+                <a href="{% url 'xgewerbesteuer_signup' %}">{% trans "Registrieren" %}</a>
+            </p>
+        {% endif %}
 
         <div class="form-actions">
             <button type="submit" class="btn btn--primary btn--lg">

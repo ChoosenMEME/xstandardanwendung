@@ -201,8 +201,10 @@ AdvancePayment (optional, falls Normalisierung gewuenscht)
 * **Strukturierte Daten statt Roh-XML**: Gespeichert werden die extrahierten
   Auswertungsdaten, nicht das vollstaendige XML. Das reduziert Speicherbedarf und
   Datenschutzrisiken. Optionales Speichern des Original-XML ist bewusst aktivierbar.
-* **User-Zuordnung optional**: Ohne Login-Feature (Issues #47, #254) bleibt `user`
-  leer. Bescheide sind dann sessiongebunden oder oeffentlich.
+* **User-Zuordnung seit Issue #47 erforderlich fuers Speichern**: Neue gespeicherte
+  Auswertungen setzen `user` ueber Login voraus (siehe Abschnitt 8). Vor Issue #47
+  angelegte Zeilen behalten `user=NULL` und bleiben ueber die Oberflaeche nicht mehr
+  erreichbar, werden aber nicht geloescht.
 * **JSONField fuer variable Listen**: Faelligkeiten und Vorauszahlungen haben
   unterschiedliche Laengen pro Bescheid. JSONField vermeidet unnoetige Joins
   fuer Lesezugriffe.
@@ -377,15 +379,42 @@ Die Authentifizierung wird stufenweise eingefuehrt:
 
 | Stufe | Zustand | Oeffentlich | Geschuetzt |
 | --- | --- | --- | --- |
-| 1 | Ohne Login (aktuell) | Alles | Nichts |
-| 2 | Django-Auth (Issue #47) | Upload, Demo, Ergebnis | Historie, gespeicherte Bescheide |
-| 3 | OIDC optional (Issue #254) | Upload, Demo, Ergebnis | Historie, gespeicherte Bescheide |
+| 1 | Ohne Login | Alles | Nichts |
+| 2 | Django-Auth (Issue #47, umgesetzt) | Upload, Demo, Ergebnis, Hilfe, Exporte, Dashboard-Grundgeruest | Speichern/Laden/Loeschen gespeicherter Bescheide |
+| 3 | OIDC optional (Issue #254) | wie Stufe 2 | wie Stufe 2 |
 
-### 8.2 Zugriffsregeln
+Stufe 2 nutzt ausschliesslich Django-Bordmittel: `django.contrib.auth`
+(`LoginView`, `LogoutView`, `login_required`), `UserCreationForm` fuer die
+Selbstregistrierung sowie `PasswordResetView`/`PasswordResetConfirmView` fuer
+den Passwort-Vergessen-Flow. Es gibt keine Abhaengigkeit zu allauth oder OIDC;
+das bleibt der optionalen Stufe 3 vorbehalten.
+
+### 8.2 Welche Funktionen brauchen Login
+
+* **Oeffentlich (kein Login):** Bescheid hochladen (`/upload/`), Demo-Beispielfall
+  (`/demo/`), Ergebnisanzeige (`/ergebnis/`), Hilfe (`/hilfe/`), CSV-/PDF-/ICS-Export,
+  Dashboard-Grundgeruest (`/`).
+* **Login erforderlich:** Auswertung speichern (Checkbox beim Upload),
+  gespeicherte Auswertung laden/oeffnen (`/gespeichert/laden/`), gespeicherte
+  Auswertung loeschen (`/gespeichert/loeschen/`), Anzeige der eigenen
+  gespeicherten Auswertungen im Dashboard.
+
+### 8.3 Zugriffsregeln
 
 * Einmaliger Upload und Auswertung bleiben immer ohne Login nutzbar.
-* Gespeicherte Bescheide sind an den Nutzer gebunden (`Bescheid.user`).
-* Ohne Login-Feature werden Bescheide nicht dauerhaft gespeichert.
+* Gespeicherte Bescheide sind an den Nutzer gebunden (`SavedBescheidUpload.user`).
+* Ohne Login werden keine Bescheide gespeichert; die Speichern-Option wird
+  anonymen Nutzer:innen nicht angeboten, stattdessen ein Login-Hinweis.
+* `xgewerbesteuer_load_saved` und `xgewerbesteuer_delete_saved` sind mit
+  `@login_required` geschuetzt und filtern ausschliesslich nach dem
+  angemeldeten Nutzer; fremde oder unbekannte IDs liefern dieselbe generische
+  Fehlermeldung (kein Enumeration-Leak).
+* Selbstregistrierung erfolgt ueber `UserCreationForm`, danach automatischer
+  Login. Es gibt keine E-Mail-Verifizierung, passend zum kleinen,
+  nicht-oeffentlichen Nutzerkreis der Anwendung.
+* Passwort-Vergessen nutzt Djangos Standardverhalten und bestaetigt jede
+  Anfrage mit derselben Erfolgsseite, unabhaengig davon, ob die E-Mail-Adresse
+  existiert (kein User-Enumeration-Leak).
 * OIDC ist optional konfigurierbar und erzwingt keinen Login fuer oeffentliche Seiten.
 
 ---

@@ -39,10 +39,34 @@
                         {% trans "Hilfe" %}
                     </a>
                 </li>
-                {# Vorbereitung: Account-Navigation (noch nicht implementiert) #}
-                {# <li class="nav-account-placeholder" role="none"> #}
-                {#     <a href="{% url 'account_login' %}" class="nav-link" role="menuitem">Anmelden</a> #}
-                {# </li> #}
+                {% if user.is_authenticated %}
+                    <li class="nav-account-placeholder" role="none">
+                        <span class="nav-account__name">{{ user.username }}</span>
+                    </li>
+                    <li role="none">
+                        <form method="post" action="{% url 'logout' %}" class="nav-logout-form">
+                            {% csrf_token %}
+                            <button type="submit" class="nav-link nav-link--button" role="menuitem">
+                                {% trans "Abmelden" %}
+                            </button>
+                        </form>
+                    </li>
+                {% else %}
+                    <li role="none">
+                        <a href="{% url 'login' %}"
+                           class="nav-link {% if request.resolver_match.url_name == 'login' %}nav-link--active{% endif %}"
+                           role="menuitem">
+                            {% trans "Anmelden" %}
+                        </a>
+                    </li>
+                    <li role="none">
+                        <a href="{% url 'xgewerbesteuer_signup' %}"
+                           class="nav-link {% if request.resolver_match.url_name == 'xgewerbesteuer_signup' %}nav-link--active{% endif %}"
+                           role="menuitem">
+                            {% trans "Registrieren" %}
+                        </a>
+                    </li>
+                {% endif %}
             </ul>
         </nav>
     </div>

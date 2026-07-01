@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Registrieren" %} - {% trans "Gewerbesteuer-Assistent" %}{% endblock %}
+
+{% block container_class %}container--narrow{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-header__title">{% trans "Konto erstellen" %}</h1>
+    <p class="page-header__description">
+        {% trans "Mit einem Benutzerkonto können Sie Auswertungen speichern und später wieder öffnen." %}
+    </p>
+</div>
+
+{% if form.non_field_errors %}
+    <div class="alert alert--error" role="alert">
+        <span class="alert__icon">!</span>
+        <div class="alert__content">
+            <p class="alert__title">{% trans "Registrierung nicht möglich" %}</p>
+            {% for error in form.non_field_errors %}
+                <p class="alert__text">{{ error }}</p>
+            {% endfor %}
+        </div>
+    </div>
+{% endif %}
+
+<div class="card">
+    <form method="post">
+        {% csrf_token %}
+
+        {% for field in form %}
+            <div class="form-group">
+                <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                <input type="{{ field.field.widget.input_type }}" class="form-input"
+                       id="{{ field.id_for_label }}" name="{{ field.html_name }}" required>
+                {% if field.help_text %}
+                    <span class="form-hint">{{ field.help_text }}</span>
+                {% endif %}
+                {% for error in field.errors %}
+                    <span class="form-hint">{{ error }}</span>
+                {% endfor %}
+            </div>
+        {% endfor %}
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn--primary btn--lg">
+                {% trans "Konto erstellen" %}
+            </button>
+        </div>
+    </form>
+</div>
+
+<p class="page-header__description mt-2">
+    {% trans "Sie haben bereits ein Konto?" %}
+    <a href="{% url 'login' %}">{% trans "Jetzt anmelden" %}</a>
+</p>
+{% endblock %}

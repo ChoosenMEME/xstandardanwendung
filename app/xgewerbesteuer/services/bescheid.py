@@ -919,12 +919,10 @@ def ensure_session_key(request):
 
 
 def get_saved_uploads_for_request(request):
-    session_key = request.session.session_key
-
-    if not session_key:
+    if not request.user.is_authenticated:
         return SavedBescheidUpload.objects.none()
 
-    return SavedBescheidUpload.objects.filter(session_key=session_key)
+    return SavedBescheidUpload.objects.filter(user=request.user)
 
 
 def build_saved_upload_payload(bescheid, context_data):
@@ -979,6 +977,7 @@ def create_saved_upload(request, bescheid, context_data):
 
     return SavedBescheidUpload.objects.create(
         session_key=session_key,
+        user=request.user,
         **payload,
     )
 

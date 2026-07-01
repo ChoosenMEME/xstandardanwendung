@@ -59,10 +59,23 @@
 <section class="card" aria-labelledby="saved-upload-heading">
     <h2 class="card__title" id="saved-upload-heading">{% trans "Gespeicherte Auswertungen" %}</h2>
     <p class="card__subtitle">
-        {% trans "Gespeicherte Auswertungen sind nur für diese Browser-Session sichtbar. Es werden keine Original-XML-Dateien gespeichert." %}
+        {% trans "Gespeicherte Auswertungen sind nur in Ihrem Benutzerkonto sichtbar. Es werden keine Original-XML-Dateien gespeichert." %}
     </p>
 
-    {% if saved_uploads %}
+    {% if not user.is_authenticated %}
+        <div class="empty-state mt-2">
+            <p class="empty-state__title">{% trans "Anmeldung erforderlich" %}</p>
+            <p class="empty-state__text">
+                {% trans "Melden Sie sich an oder registrieren Sie sich, um Auswertungen zu speichern und hier wiederzufinden." %}
+            </p>
+            <a href="{% url 'login' %}" class="btn btn--primary">
+                {% trans "Anmelden" %}
+            </a>
+            <a href="{% url 'xgewerbesteuer_signup' %}" class="btn btn--secondary">
+                {% trans "Registrieren" %}
+            </a>
+        </div>
+    {% elif saved_uploads %}
         <div class="table-wrapper mt-2">
             <table class="table">
                 <thead>

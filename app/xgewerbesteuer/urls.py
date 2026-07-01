@@ -1,3 +1,4 @@
+from django.contrib.auth import views as auth_views
 from django.urls import path
 
 from .views import (
@@ -11,6 +12,7 @@ from .views import (
     xgewerbesteuer_load_saved,
     xgewerbesteuer_pdf_report,
     xgewerbesteuer_results,
+    xgewerbesteuer_signup,
     xgewerbesteuer_upload,
 )
 
@@ -26,4 +28,41 @@ urlpatterns = [
     path("csv-export/", xgewerbesteuer_csv_export, name="xgewerbesteuer_csv_export"),
     path("fristdatei.ics", xgewerbesteuer_ics_export, name="xgewerbesteuer_ics_export"),
     path("pdf-bericht/", xgewerbesteuer_pdf_report, name="xgewerbesteuer_pdf_report"),
+    path(
+        "login/",
+        auth_views.LoginView.as_view(template_name="registration/login.html"),
+        name="login",
+    ),
+    path("logout/", auth_views.LogoutView.as_view(), name="logout"),
+    path("registrieren/", xgewerbesteuer_signup, name="xgewerbesteuer_signup"),
+    path(
+        "passwort-vergessen/",
+        auth_views.PasswordResetView.as_view(
+            template_name="registration/password_reset_form.html",
+            email_template_name="registration/password_reset_email.html",
+            subject_template_name="registration/password_reset_subject.txt",
+        ),
+        name="password_reset",
+    ),
+    path(
+        "passwort-vergessen/gesendet/",
+        auth_views.PasswordResetDoneView.as_view(
+            template_name="registration/password_reset_done.html",
+        ),
+        name="password_reset_done",
+    ),
+    path(
+        "passwort-zuruecksetzen/<uidb64>/<token>/",
+        auth_views.PasswordResetConfirmView.as_view(
+            template_name="registration/password_reset_confirm.html",
+        ),
+        name="password_reset_confirm",
+    ),
+    path(
+        "passwort-zuruecksetzen/abgeschlossen/",
+        auth_views.PasswordResetCompleteView.as_view(
+            template_name="registration/password_reset_complete.html",
+        ),
+        name="password_reset_complete",
+    ),
 ]
