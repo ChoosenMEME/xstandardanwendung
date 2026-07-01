@@ -11,6 +11,7 @@ from django.urls import reverse
 from xgewerbesteuer.services.assistant import (
     ASSISTANT_ANSWER_NOTICE,
     ASSISTANT_LABEL,
+    ASSISTANT_UNAVAILABLE_MESSAGE,
     MAX_ASSISTANT_QUESTION_LENGTH,
     build_assistant_context,
     build_assistant_prompt,
@@ -369,10 +370,11 @@ class AssistantViewTests(TestCase):
             response = self.client.post(
                 reverse("xgewerbesteuer_assistant"),
                 data={"assistant_question": "Bitte erklaeren."},
-            )
+        )
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "nicht erreichbar")
+        self.assertContains(response, ASSISTANT_UNAVAILABLE_MESSAGE)
+        self.assertNotContains(response, "nicht erreichbar")
         self.assertNotContains(response, "SECRET_TOKEN")
 
     def test_ajax_provider_error_is_returned_without_secret_configuration(self):
@@ -392,7 +394,8 @@ class AssistantViewTests(TestCase):
 
         payload = response.json()
         self.assertEqual(payload["ok"], False)
-        self.assertIn("nicht rechtzeitig geantwortet", payload["error"])
+        self.assertEqual(payload["error"], ASSISTANT_UNAVAILABLE_MESSAGE)
+        self.assertNotIn("nicht rechtzeitig geantwortet", str(payload))
         self.assertNotIn("SECRET_TOKEN", str(payload))
 
     def test_assistant_context_is_built_from_supported_fixture_uploads(self):

@@ -29,6 +29,8 @@ from .services.bescheid import (
     process_uploaded_bescheid,
 )
 from .services.assistant import (
+    ASSISTANT_UNAVAILABLE_MESSAGE,
+    AssistantInputError,
     answer_assistant_question,
     build_assistant_ui_context,
     get_assistant_mode,
@@ -363,12 +365,8 @@ def xgewerbesteuer_assistant(request):
                 result_context=result_context,
             )
         )
-    except AssistantProviderError as _exc:
-        user_error_message = (
-            "Der Assistent ist aktuell nicht verfügbar. "
-            "Bitte versuchen Sie es später erneut."
-        )
-
+    except AssistantInputError as exc:
+        user_error_message = exc.args[0]
         if wants_json:
             return JsonResponse({
                 "ok": False,
@@ -382,6 +380,24 @@ def xgewerbesteuer_assistant(request):
         context.update(
             build_assistant_ui_context(
                 error=user_error_message,
+                question=question,
+                result_context=result_context,
+            )
+        )
+    except AssistantProviderError:
+        if wants_json:
+            return JsonResponse({
+                "ok": False,
+                "answer": "",
+                "error": ASSISTANT_UNAVAILABLE_MESSAGE,
+                "mode": mode,
+                "mode_label": mode_label,
+            })
+
+        context = result_context or {}
+        context.update(
+            build_assistant_ui_context(
+                error=ASSISTANT_UNAVAILABLE_MESSAGE,
                 question=question,
                 result_context=result_context,
             )

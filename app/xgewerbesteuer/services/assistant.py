@@ -15,6 +15,10 @@ ASSISTANT_ANSWER_NOTICE = (
 )
 ASSISTANT_LABEL = "KI-generierte Antwort"
 MAX_ASSISTANT_QUESTION_LENGTH = 1000
+ASSISTANT_UNAVAILABLE_MESSAGE = (
+    "Der Assistent ist aktuell nicht verfügbar. "
+    "Bitte versuchen Sie es später erneut."
+)
 ASSISTANT_MODE_GENERAL = "general"
 ASSISTANT_MODE_RESULT = "result"
 ASSISTANT_MODE_LABELS = {
@@ -45,6 +49,10 @@ RESULT_SPECIFIC_TERMS = [
     "bescheidwert",
     "gewerbesteuerbetrag",
 ]
+
+
+class AssistantInputError(Exception):
+    """Benutzerverstaendlicher Eingabefehler vor dem Provider-Aufruf."""
 
 
 def _copy_existing(source, mapping):
@@ -238,10 +246,10 @@ def answer_assistant_question(question, result_context=None):
     stripped_question = (question or "").strip()
 
     if not stripped_question:
-        raise AssistantProviderError("Bitte geben Sie eine Frage ein.")
+        raise AssistantInputError("Bitte geben Sie eine Frage ein.")
 
     if len(stripped_question) > MAX_ASSISTANT_QUESTION_LENGTH:
-        raise AssistantProviderError(
+        raise AssistantInputError(
             "Die Frage ist zu lang. Bitte kuerzen Sie sie auf maximal "
             f"{MAX_ASSISTANT_QUESTION_LENGTH} Zeichen."
         )
