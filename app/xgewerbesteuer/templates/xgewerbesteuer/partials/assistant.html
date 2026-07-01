@@ -1,71 +1,114 @@
 {% load i18n %}
 
-<section class="card assistant-card no-print" aria-labelledby="assistant-heading">
-    <h2 class="card__title" id="assistant-heading">{% trans "KI-Assistent" %}</h2>
-    <p class="card__subtitle">
-        {% trans "Der KI-Assistent beantwortet Fragen zur aktuell angezeigten Auswertung." %}
-        {% trans "Es werden nur reduzierte Auswertungsdaten verwendet, nicht die Original-XML-Datei." %}
-    </p>
-    <p class="disclaimer">
-        {% trans "Die Antwort ist KI-generiert und ersetzt keine steuerliche Beratung." %}
-    </p>
+<aside
+  class="assistant-panel no-print"
+  id="assistant-panel"
+  aria-labelledby="assistant-heading"
+  hidden
+>
+  <div class="assistant-panel__header">
+    <div>
+      <h2 class="assistant-panel__title" id="assistant-heading">{% trans "KI-Assistent" %}</h2>
+      <p class="assistant-panel__subtitle">
+        {% trans "Der KI-Assistent beantwortet Fragen zur Anwendung oder zur aktuellen Auswertung." %}
+      </p>
+    </div>
+    <button
+      class="assistant-panel__close"
+      type="button"
+      id="assistant-close"
+      aria-label="{% trans 'KI-Assistent schließen' %}"
+    >
+      {% trans "Schließen" %}
+    </button>
+  </div>
 
-    <dl class="assistant-meta" aria-label="{% trans 'KI-Konfiguration' %}">
-        <div>
-            <dt>{% trans "Anbieter" %}</dt>
-            <dd>{{ assistant.display_name }}</dd>
-        </div>
-        <div>
-            <dt>{% trans "Verarbeitung" %}</dt>
-            <dd>{{ assistant.processing_notice }}</dd>
-        </div>
-    </dl>
+  <p class="disclaimer">
+    {% trans "Es werden nur reduzierte Auswertungsdaten verwendet, nicht die Original-XML-Datei." %}
+  </p>
+  <p class="disclaimer">
+    {% trans "Die Antwort ist KI-generiert und ersetzt keine steuerliche Beratung." %}
+  </p>
 
-    {% if assistant.unconfigured_message %}
-        <div class="alert alert--info" role="status">
-            <span class="alert__icon">i</span>
-            <div class="alert__content">
-                <p class="alert__text">{{ assistant.unconfigured_message }}</p>
-            </div>
-        </div>
-    {% endif %}
+  <dl class="assistant-meta" aria-label="{% trans 'KI-Konfiguration' %}">
+    <div>
+      <dt>{% trans "Anbieter" %}</dt>
+      <dd>{{ assistant.display_name }}</dd>
+    </div>
+    <div>
+      <dt>{% trans "Verarbeitung" %}</dt>
+      <dd>{{ assistant.processing_notice }}</dd>
+    </div>
+    <div>
+      <dt>{% trans "Modus" %}</dt>
+      <dd>{{ assistant.mode_label }}</dd>
+    </div>
+  </dl>
 
-    {% if assistant.error %}
-        <div class="alert alert--warning" role="alert">
-            <span class="alert__icon">!</span>
-            <div class="alert__content">
-                <p class="alert__text">{{ assistant.error }}</p>
-            </div>
-        </div>
-    {% endif %}
+  {% if assistant.unconfigured_message %}
+    <div class="alert alert--info" role="status">
+      <span class="alert__icon">i</span>
+      <div class="alert__content">
+        <p class="alert__text">{{ assistant.unconfigured_message }}</p>
+      </div>
+    </div>
+  {% endif %}
 
-    <form class="assistant-form" method="post" action="{% url 'xgewerbesteuer_assistant' %}">
-        {% csrf_token %}
-        <div class="form-group">
-            <label for="assistant-question">{% trans "Frage zur Auswertung" %}</label>
-            <textarea
-                id="assistant-question"
-                name="assistant_question"
-                rows="4"
-                maxlength="1000"
-                {% if not assistant.enabled %}aria-describedby="assistant-disabled-notice"{% endif %}
-            >{{ assistant.question }}</textarea>
-            <p class="form-help" id="assistant-disabled-notice">
-                {% trans "Maximal 1000 Zeichen. Es werden keine Fragen oder Antworten dauerhaft gespeichert." %}
-            </p>
-        </div>
+  {% if assistant.error %}
+    <div class="alert alert--warning" role="alert">
+      <span class="alert__icon">!</span>
+      <div class="alert__content">
+        <p class="alert__text">{{ assistant.error }}</p>
+      </div>
+    </div>
+  {% endif %}
 
-        <div class="form-actions">
-            <button class="btn btn--primary" type="submit">
-                {% trans "Frage senden" %}
-            </button>
-        </div>
-    </form>
+  <form class="assistant-form" id="assistant-form" method="post" action="{% url 'xgewerbesteuer_assistant' %}">
+    {% csrf_token %}
+    <div class="form-group">
+      <label for="assistant-question">{% trans "Frage" %}</label>
+      <textarea
+        id="assistant-question"
+        name="assistant_question"
+        rows="4"
+        maxlength="1000"
+        aria-describedby="assistant-help"
+      >{{ assistant.question }}</textarea>
+      <p class="form-help" id="assistant-help">
+        {% trans "Maximal 1000 Zeichen. Der Verlauf bleibt nur im aktuellen Browser-Tab erhalten und wird beim Schließen des Tabs gelöscht." %}
+      </p>
+    </div>
 
-    {% if assistant.answer %}
-        <div class="assistant-answer" role="status" aria-live="polite">
-            <p class="assistant-answer__label">{% trans "Antwort" %}</p>
-            <p>{{ assistant.answer|linebreaksbr }}</p>
-        </div>
-    {% endif %}
-</section>
+    <div class="form-actions assistant-panel__actions">
+      <button class="btn btn--primary" type="submit">
+        {% trans "Frage senden" %}
+      </button>
+      <button
+        class="btn btn--secondary"
+        type="button"
+        id="assistant-clear-history"
+        aria-label="{% trans 'Verlauf loeschen' %}"
+      >
+        {% trans "Verlauf löschen" %}
+      </button>
+    </div>
+  </form>
+
+  <p class="form-help" id="assistant-status" role="status" aria-live="polite"></p>
+
+  <section class="assistant-history" aria-labelledby="assistant-history-heading">
+    <h3 class="assistant-history__title" id="assistant-history-heading">{% trans "Antwort-/Chatverlauf" %}</h3>
+    <div id="assistant-history" aria-live="polite">
+      {% if assistant.answer %}
+        <article class="assistant-message">
+          <p class="assistant-message__label">{% trans "Sie:" %}</p>
+          <p>{{ assistant.question }}</p>
+          <p class="assistant-message__label">{% trans "KI-Assistent:" %}</p>
+          <p>{{ assistant.answer|linebreaksbr }}</p>
+        </article>
+      {% else %}
+        <p class="assistant-history__empty">{% trans "Noch keine Fragen gestellt." %}</p>
+      {% endif %}
+    </div>
+  </section>
+</aside>
