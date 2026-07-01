@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Anmelden" %} - {% trans "Gewerbesteuer-Assistent" %}{% endblock %}
+
+{% block container_class %}container--narrow{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-header__title">{% trans "Anmelden" %}</h1>
+    <p class="page-header__description">
+        {% trans "Melden Sie sich an, um gespeicherte Auswertungen zu sehen, zu öffnen oder zu speichern." %}
+    </p>
+</div>
+
+{% if form.non_field_errors %}
+    <div class="alert alert--error" role="alert">
+        <span class="alert__icon">!</span>
+        <div class="alert__content">
+            <p class="alert__title">{% trans "Anmeldung nicht möglich" %}</p>
+            {% for error in form.non_field_errors %}
+                <p class="alert__text">{{ error }}</p>
+            {% endfor %}
+        </div>
+    </div>
+{% endif %}
+
+<div class="card">
+    <form method="post">
+        {% csrf_token %}
+
+        <div class="form-group">
+            <label class="form-label" for="{{ form.username.id_for_label }}">
+                {% trans "Benutzername" %}
+            </label>
+            <input type="text" class="form-input" id="{{ form.username.id_for_label }}"
+                   name="{{ form.username.html_name }}" autofocus required>
+            {% for error in form.username.errors %}
+                <span class="form-hint">{{ error }}</span>
+            {% endfor %}
+        </div>
+
+        <div class="form-group">
+            <label class="form-label" for="{{ form.password.id_for_label }}">
+                {% trans "Passwort" %}
+            </label>
+            <div class="form-password-wrapper">
+                <input type="password" class="form-input" id="{{ form.password.id_for_label }}"
+                       name="{{ form.password.html_name }}" required data-password-input>
+                <button type="button" class="form-password-toggle" data-password-toggle aria-pressed="false">
+                    {% trans "Anzeigen" %}
+                </button>
+            </div>
+            {% for error in form.password.errors %}
+                <span class="form-hint">{{ error }}</span>
+            {% endfor %}
+        </div>
+
+        <input type="hidden" name="next" value="{{ next }}">
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn--primary btn--lg">
+                {% trans "Anmelden" %}
+            </button>
+        </div>
+    </form>
+</div>
+
+<p class="page-header__description mt-2">
+    {% trans "Noch kein Konto?" %}
+    <a href="{% url 'xgewerbesteuer_signup' %}">{% trans "Jetzt registrieren" %}</a>
+</p>
+<p class="page-header__description">
+    <a href="{% url 'password_reset' %}">{% trans "Passwort vergessen?" %}</a>
+</p>
+{% endblock %}

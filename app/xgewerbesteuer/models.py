@@ -1,8 +1,15 @@
+from django.conf import settings
 from django.db import models
 
 
 class SavedBescheidUpload(models.Model):
     session_key = models.CharField(max_length=80, db_index=True)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        null=True,
+        related_name="saved_bescheid_uploads",
+    )
     file_name = models.CharField(max_length=255)
     file_size = models.PositiveIntegerField()
     uploaded_at = models.DateTimeField(auto_now_add=True)

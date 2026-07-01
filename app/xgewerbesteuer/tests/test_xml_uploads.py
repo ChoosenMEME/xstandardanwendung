@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from defusedxml import ElementTree
+from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import DatabaseError
 from django.template.loader import render_to_string
@@ -1822,14 +1823,16 @@ class XGewerbesteuerXsdValidationTests(SimpleTestCase):
 
 
 class SavedBescheidUploadTests(TestCase):
-    def create_session(self):
-        session = self.client.session
-        session.save()
-        return session.session_key
+    def create_user(self, username="nutzerin", password="test-passwort-123"):
+        return User.objects.create_user(username=username, password=password)
 
-    def create_saved_upload(self, session_key=None, **overrides):
+    def login_as(self, user):
+        self.client.force_login(user)
+
+    def create_saved_upload(self, user=None, **overrides):
         defaults = {
-            "session_key": session_key or self.create_session(),
+            "session_key": "irrelevant-legacy-session",
+            "user": user,
             "file_name": "bescheid.xml",
             "file_size": 128,
             "municipality": "Stadt Musterhausen",
@@ -1871,7 +1874,9 @@ class SavedBescheidUploadTests(TestCase):
 
         self.assertEqual(str(saved_upload), "2025 - muster.xml")
 
-    def test_upload_is_saved_only_when_checkbox_enabled(self):
+    def test_upload_is_saved_only_when_checkbox_enabled_and_logged_in(self):
+        self.login_as(self.create_user())
+
         response = self.client.post(
             reverse("xgewerbesteuer_upload"),
             data={
@@ -1903,7 +1908,26 @@ class SavedBescheidUploadTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(SavedBescheidUpload.objects.count(), 0)
 
+    def test_upload_with_checkbox_while_anonymous_is_not_persisted(self):
+        response = self.client.post(
+            reverse("xgewerbesteuer_upload"),
+            data={
+                "bescheide": uploaded_xml(
+                    VALID_BESCHEID_FIXTURE.name,
+                    VALID_BESCHEID_FIXTURE.read_bytes(),
+                ),
+                "save_upload": "on",
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(SavedBescheidUpload.objects.count(), 0)
+        self.assertContains(response, "Bitte melden Sie sich an")
+
     def test_saved_upload_does_not_store_original_xml(self):
+        self.login_as(self.create_user())
+
         self.client.post(
             reverse("xgewerbesteuer_upload"),
             data={
@@ -1923,9 +1947,29 @@ class SavedBescheidUploadTests(TestCase):
         self.assertNotIn("XMLParser", stored_content)
         self.assertNotIn("Traceback", stored_content)
 
-    def test_saved_uploads_are_listed_for_current_session(self):
-        session_key = self.create_session()
-        saved_upload = self.create_saved_upload(session_key=session_key)
+    def test_saved_upload_created_via_view_is_owned_by_current_user(self):
+        user = self.create_user()
+        self.login_as(user)
+
+        self.client.post(
+            reverse("xgewerbesteuer_upload"),
+            data={
+                "bescheide": uploaded_xml(
+                    VALID_BESCHEID_FIXTURE.name,
+                    VALID_BESCHEID_FIXTURE.read_bytes(),
+                ),
+                "save_upload": "on",
+            },
+            follow=True,
+        )
+
+        saved_upload = SavedBescheidUpload.objects.get()
+        self.assertEqual(saved_upload.user, user)
+
+    def test_saved_uploads_are_listed_for_current_user(self):
+        user = self.create_user()
+        self.login_as(user)
+        saved_upload = self.create_saved_upload(user=user)
 
         response = self.client.get(reverse("xgewerbesteuer_dashboard"))
 
@@ -1933,9 +1977,9 @@ class SavedBescheidUploadTests(TestCase):
         self.assertContains(response, "Gespeicherte Auswertungen")
         self.assertContains(response, saved_upload.file_name)
 
-    def test_saved_uploads_from_other_session_are_hidden(self):
-        self.create_session()
-        self.create_saved_upload(session_key="other-session", file_name="fremd.xml")
+    def test_saved_uploads_from_other_user_are_hidden(self):
+        self.login_as(self.create_user("nutzerin"))
+        self.create_saved_upload(user=self.create_user("andere-nutzerin"), file_name="fremd.xml")
 
         response = self.client.get(reverse("xgewerbesteuer_dashboard"))
 
@@ -1946,9 +1990,19 @@ class SavedBescheidUploadTests(TestCase):
             "Keine gespeicherten Auswertungen",
         )
 
+    def test_saved_uploads_are_hidden_for_anonymous_visitors(self):
+        self.create_saved_upload(user=self.create_user(), file_name="fremd.xml")
+
+        response = self.client.get(reverse("xgewerbesteuer_dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "fremd.xml")
+        self.assertContains(response, "Anmeldung erforderlich")
+
     def test_saved_upload_can_be_loaded(self):
-        session_key = self.create_session()
-        saved_upload = self.create_saved_upload(session_key=session_key)
+        user = self.create_user()
+        self.login_as(user)
+        saved_upload = self.create_saved_upload(user=user)
 
         response = self.client.post(
             reverse("xgewerbesteuer_load_saved"),
@@ -1963,9 +2017,9 @@ class SavedBescheidUploadTests(TestCase):
         self.assertContains(response, "Zusammenfassung")
         self.assertContains(response, "Plausibilitätsprüfung")
 
-    def test_saved_upload_from_other_session_cannot_be_loaded(self):
-        self.create_session()
-        saved_upload = self.create_saved_upload(session_key="other-session")
+    def test_saved_upload_from_other_user_cannot_be_loaded(self):
+        self.login_as(self.create_user("nutzerin"))
+        saved_upload = self.create_saved_upload(user=self.create_user("andere-nutzerin"))
 
         response = self.client.post(
             reverse("xgewerbesteuer_load_saved"),
@@ -1979,9 +2033,21 @@ class SavedBescheidUploadTests(TestCase):
         self.assertContains(response, "konnte nicht gefunden werden")
         self.assertNotContains(response, "Zusammenfassung")
 
+    def test_anonymous_load_saved_redirects_to_login(self):
+        saved_upload = self.create_saved_upload(user=self.create_user())
+
+        response = self.client.post(
+            reverse("xgewerbesteuer_load_saved"),
+            data={"saved_upload_id": str(saved_upload.id)},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("login"), response.url)
+
     def test_saved_upload_can_be_deleted(self):
-        session_key = self.create_session()
-        saved_upload = self.create_saved_upload(session_key=session_key)
+        user = self.create_user()
+        self.login_as(user)
+        saved_upload = self.create_saved_upload(user=user)
 
         response = self.client.post(
             reverse("xgewerbesteuer_delete_saved"),
@@ -1995,9 +2061,9 @@ class SavedBescheidUploadTests(TestCase):
         self.assertEqual(SavedBescheidUpload.objects.count(), 0)
         self.assertContains(response, "Die gespeicherte Auswertung wurde gelöscht.")
 
-    def test_saved_upload_from_other_session_cannot_be_deleted(self):
-        self.create_session()
-        saved_upload = self.create_saved_upload(session_key="other-session")
+    def test_saved_upload_from_other_user_cannot_be_deleted(self):
+        self.login_as(self.create_user("nutzerin"))
+        saved_upload = self.create_saved_upload(user=self.create_user("andere-nutzerin"))
 
         response = self.client.post(
             reverse("xgewerbesteuer_delete_saved"),
@@ -2011,7 +2077,21 @@ class SavedBescheidUploadTests(TestCase):
         self.assertEqual(SavedBescheidUpload.objects.count(), 1)
         self.assertContains(response, "konnte nicht gefunden werden")
 
+    def test_anonymous_delete_saved_redirects_to_login(self):
+        saved_upload = self.create_saved_upload(user=self.create_user())
+
+        response = self.client.post(
+            reverse("xgewerbesteuer_delete_saved"),
+            data={"saved_upload_id": str(saved_upload.id)},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("login"), response.url)
+        self.assertEqual(SavedBescheidUpload.objects.count(), 1)
+
     def test_failed_save_shows_user_safe_error(self):
+        self.login_as(self.create_user())
+
         with patch(
             "xgewerbesteuer.services.bescheid.SavedBescheidUpload.objects.create",
             side_effect=DatabaseError,
@@ -2033,7 +2113,9 @@ class SavedBescheidUploadTests(TestCase):
         self.assertNotContains(response, "Traceback")
 
     def test_saved_upload_list_contains_expected_columns(self):
-        self.create_saved_upload(session_key=self.create_session())
+        user = self.create_user()
+        self.login_as(user)
+        self.create_saved_upload(user=user)
 
         response = self.client.get(reverse("xgewerbesteuer_dashboard"))
 
@@ -2044,7 +2126,9 @@ class SavedBescheidUploadTests(TestCase):
         self.assertContains(response, "Zahlbetrag")
 
     def test_saved_upload_list_contains_open_and_delete_actions(self):
-        self.create_saved_upload(session_key=self.create_session())
+        user = self.create_user()
+        self.login_as(user)
+        self.create_saved_upload(user=user)
 
         response = self.client.get(reverse("xgewerbesteuer_dashboard"))
 
@@ -2053,7 +2137,9 @@ class SavedBescheidUploadTests(TestCase):
         self.assertContains(response, "Löschen")
         self.assertContains(response, 'name="saved_upload_id"')
 
-    def test_empty_saved_upload_state_is_visible(self):
+    def test_empty_saved_upload_state_is_visible_when_logged_in(self):
+        self.login_as(self.create_user())
+
         response = self.client.get(reverse("xgewerbesteuer_dashboard"))
 
         self.assertEqual(response.status_code, 200)
@@ -2062,7 +2148,25 @@ class SavedBescheidUploadTests(TestCase):
             "Keine gespeicherten Auswertungen",
         )
 
+    def test_login_prompt_is_visible_for_anonymous_visitors(self):
+        response = self.client.get(reverse("xgewerbesteuer_dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Anmeldung erforderlich")
+
+    def test_upload_page_shows_save_option_for_logged_in_users(self):
+        self.login_as(self.create_user())
+
+        response = self.client.get(reverse("xgewerbesteuer_upload"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'name="save_upload"')
+        self.assertContains(response, "Benutzerkonto speichern")
+        self.assertContains(response, "Original-XML-Dateien")
+
     def test_saved_upload_load_keeps_downloads_working_when_data_is_available(self):
+        self.login_as(self.create_user())
+
         self.client.post(
             reverse("xgewerbesteuer_upload"),
             data={
@@ -2098,6 +2202,8 @@ class SavedBescheidUploadTests(TestCase):
         self.assertEqual(self.client.get(reverse("xgewerbesteuer_ics_export")).status_code, 200)
 
     def test_saved_upload_keeps_message_type_after_reopening(self):
+        self.login_as(self.create_user())
+
         response = self.client.post(
             reverse("xgewerbesteuer_upload"),
             data={
@@ -2140,11 +2246,10 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Gewerbesteuer-Assistent")
         self.assertContains(response, 'name="bescheide"')
-        self.assertContains(response, 'name="save_upload"')
+        self.assertNotContains(response, 'name="save_upload"')
         self.assertContains(response, 'multiple')
         self.assertContains(response, 'accept=".xml"')
-        self.assertContains(response, "Browser-Session speichern")
-        self.assertContains(response, "Original-XML-Dateien")
+        self.assertContains(response, "melden Sie sich bitte an")
         self.assertContains(response, 'name="viewport"')
         self.assertContains(response, "app.css")
         self.assertContains(response, "@kern-ux/native")

@@ -145,6 +145,26 @@ body {
     margin-left: 0.75rem;
     padding-left: 0.75rem;
     border-left: 1px solid var(--color-border);
+    display: flex;
+    align-items: center;
+}
+
+.nav-account__name {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+}
+
+.nav-logout-form {
+    display: inline-flex;
+    margin: 0;
+}
+
+.nav-link--button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
 }
 
 .nav-toggle {
@@ -609,6 +629,92 @@ body {
 
 .form-input[type="file"] {
     padding: 0.45rem 0.75rem;
+}
+
+.form-input--error {
+    border-color: var(--color-error-border);
+}
+
+.form-input--error:focus {
+    border-color: var(--color-error);
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
+}
+
+.form-hint--error {
+    color: var(--color-error-text);
+}
+
+.form-password-wrapper {
+    position: relative;
+}
+
+.form-password-wrapper .form-input {
+    padding-right: 4.5rem;
+}
+
+.form-password-toggle {
+    position: absolute;
+    top: 50%;
+    right: 0.4rem;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    color: var(--color-text-muted);
+    font-size: 0.8rem;
+    font-weight: 500;
+    padding: 0.3rem 0.5rem;
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+}
+
+.form-password-toggle:hover {
+    color: var(--color-text);
+    background: var(--color-neutral-bg);
+}
+
+.form-password-toggle:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+.password-requirements {
+    list-style: none;
+    margin: 0.5rem 0 0 0;
+    padding: 0;
+    font-size: 0.825rem;
+}
+
+.password-requirements__item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--color-text-muted);
+    line-height: 1.6;
+}
+
+.password-requirements__item::before {
+    content: "○";
+    flex-shrink: 0;
+}
+
+.password-requirements__item--met {
+    color: var(--color-success-text);
+}
+
+.password-requirements__item--met::before {
+    content: "✓";
+    color: var(--color-success);
+    font-weight: 700;
+}
+
+.password-requirements__item--unmet {
+    color: var(--color-error-text);
+}
+
+.password-requirements__item--unmet::before {
+    content: "✗";
+    color: var(--color-error);
+    font-weight: 700;
 }
 
 .form-checkbox-group {

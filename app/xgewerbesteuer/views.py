@@ -3,6 +3,8 @@
 from pathlib import Path
 
 from django.contrib import messages
+from django.contrib.auth import login as auth_login
+from django.contrib.auth.decorators import login_required
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import DatabaseError
 from django.http import HttpResponse, JsonResponse
@@ -17,6 +19,7 @@ from .comparisons import (
     build_period_comparison_notice,
     extract_sort_year,
 )
+from .forms import SignupForm
 from .services.bescheid import (
     build_due_date_calendar,
     build_liquidity_impact,
@@ -184,13 +187,17 @@ def xgewerbesteuer_upload(request):
     session_data = _build_result_session_data(results, upload_errors)
     current_bescheid = session_data["current_bescheid"]
 
-    if should_save_upload:
+    if should_save_upload and not request.user.is_authenticated:
+        session_data["saved_upload_error"] = (
+            "Bitte melden Sie sich an, um Auswertungen zu speichern."
+        )
+    elif should_save_upload:
         context_for_save = _build_result_context(session_data)
         try:
             create_saved_upload(request, current_bescheid, context_for_save)
             session_data["saved_upload_success"] = (
-                "Die Auswertung wurde gespeichert und kann in dieser "
-                "Browser-Session erneut geöffnet werden."
+                "Die Auswertung wurde gespeichert und kann in Ihrem "
+                "Benutzerkonto erneut geöffnet werden."
             )
         except DatabaseError:
             session_data["saved_upload_error"] = (
@@ -409,14 +416,14 @@ def xgewerbesteuer_assistant(request):
     return render(request, "xgewerbesteuer/dashboard.html", context)
 
 
+@login_required
 def xgewerbesteuer_load_saved(request):
     if request.method != "POST":
         return redirect("xgewerbesteuer_dashboard")
 
-    session_key = request.session.session_key
     saved_upload_id = request.POST.get("saved_upload_id")
 
-    if not session_key or not saved_upload_id:
+    if not saved_upload_id:
         messages.error(
             request,
             "Die gespeicherte Auswertung konnte nicht gefunden werden.",
@@ -427,7 +434,7 @@ def xgewerbesteuer_load_saved(request):
 
     saved_upload = SavedBescheidUpload.objects.filter(
         id=saved_upload_id,
-        session_key=session_key,
+        user=request.user,
     ).first()
 
     if saved_upload is None:
@@ -480,14 +487,14 @@ def xgewerbesteuer_load_saved(request):
     return redirect("xgewerbesteuer_results")
 
 
+@login_required
 def xgewerbesteuer_delete_saved(request):
     if request.method != "POST":
         return redirect("xgewerbesteuer_dashboard")
 
-    session_key = request.session.session_key
     saved_upload_id = request.POST.get("saved_upload_id")
 
-    if not session_key or not saved_upload_id:
+    if not saved_upload_id:
         messages.error(
             request,
             "Die gespeicherte Auswertung konnte nicht gefunden werden.",
@@ -498,7 +505,7 @@ def xgewerbesteuer_delete_saved(request):
 
     deleted_count, _ = SavedBescheidUpload.objects.filter(
         id=saved_upload_id,
-        session_key=session_key,
+        user=request.user,
     ).delete()
 
     if deleted_count:
@@ -513,6 +520,27 @@ def xgewerbesteuer_delete_saved(request):
         )
 
     return redirect("xgewerbesteuer_dashboard")
+
+
+def xgewerbesteuer_signup(request):
+    if request.user.is_authenticated:
+        return redirect("xgewerbesteuer_dashboard")
+
+    if request.method == "POST":
+        form = SignupForm(request.POST)
+
+        if form.is_valid():
+            user = form.save()
+            auth_login(request, user)
+            messages.success(
+                request,
+                "Ihr Konto wurde erstellt. Sie sind jetzt angemeldet.",
+            )
+            return redirect("xgewerbesteuer_dashboard")
+    else:
+        form = SignupForm()
+
+    return render(request, "registration/signup.html", {"form": form})
 
 
 def xgewerbesteuer_help(request):
