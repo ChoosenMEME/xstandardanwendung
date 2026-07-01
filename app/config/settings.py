@@ -15,6 +15,8 @@ from pathlib import Path
 
 from django.core.exceptions import ImproperlyConfigured
 
+from .url_paths import normalize_route_prefix
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -30,6 +32,11 @@ DEBUG = os.getenv("DEBUG", "0") == "1"
 ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "").split()
 APP_PATH = os.getenv("APP_PATH", "")
 DEFAULT_SQLITE_PATH = BASE_DIR / "dev.db.sqlite3" if DEBUG else Path("/data/db.sqlite3")
+
+
+def build_static_url(app_path):
+    """Build STATIC_URL with the configured application path prefix."""
+    return f"/{normalize_route_prefix(app_path)}static/"
 
 
 # Application definition
@@ -121,6 +128,6 @@ USE_TZ = True
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-STATIC_URL = '/static/'
+STATIC_URL = build_static_url(APP_PATH)
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [BASE_DIR / "static"]

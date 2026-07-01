@@ -2,6 +2,7 @@ from django.conf import settings
 from django.test import SimpleTestCase
 from django.urls import resolve
 
+from config.settings import build_static_url
 from config.url_paths import normalize_route_prefix
 
 
@@ -10,6 +11,13 @@ class AppPathConfigurationTests(SimpleTestCase):
         self.assertEqual(normalize_route_prefix("/gewerbesteuer"), "gewerbesteuer/")
         self.assertEqual(normalize_route_prefix("gewerbesteuer"), "gewerbesteuer/")
         self.assertEqual(normalize_route_prefix(""), "")
+
+    def test_static_url_without_app_path_stays_default(self):
+        self.assertEqual(build_static_url(""), "/static/")
+
+    def test_static_url_uses_normalized_app_path_prefix(self):
+        self.assertEqual(build_static_url("gewerbesteuer"), "/gewerbesteuer/static/")
+        self.assertEqual(build_static_url("/gewerbesteuer/"), "/gewerbesteuer/static/")
 
     def test_configured_app_path_routes_to_dashboard_view(self):
         route = "/" + normalize_route_prefix(settings.APP_PATH)
