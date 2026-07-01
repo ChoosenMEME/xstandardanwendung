@@ -49,6 +49,13 @@ class AppPathConfigurationTests(SimpleTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "xgewerbesteuer/upload.html")
 
+    def test_demo_page_route_redirects_to_results_or_upload(self):
+        route = "/" + normalize_route_prefix(settings.APP_PATH) + "demo/"
+
+        match = resolve(route)
+
+        self.assertEqual(match.url_name, "xgewerbesteuer_demo")
+
     def test_help_page_is_reachable(self):
         route = "/" + normalize_route_prefix(settings.APP_PATH) + "hilfe/"
 

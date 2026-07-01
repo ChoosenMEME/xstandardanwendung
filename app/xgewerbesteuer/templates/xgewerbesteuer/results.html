@@ -37,6 +37,16 @@
     </div>
 {% endif %}
 
+{% if is_demo and demo_notice %}
+    <div class="alert alert--info" role="status">
+        <span class="alert__icon">i</span>
+        <div class="alert__content">
+            <p class="alert__title">{% trans "Demo-Beispielfall" %}</p>
+            <p class="alert__text">{{ demo_notice }}</p>
+        </div>
+    </div>
+{% endif %}
+
 {% if multi_bescheid_upload_errors %}
     <div class="alert alert--warning" role="alert">
         <span class="alert__icon">!</span>
