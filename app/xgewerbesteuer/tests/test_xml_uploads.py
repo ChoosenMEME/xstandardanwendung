@@ -33,6 +33,8 @@ from xgewerbesteuer.comparisons import (
     build_period_comparison_notice,
     calculate_historical_change,
     classify_change_importance,
+    compare_decimal_values,
+    compare_text_values,
     group_bescheide_by_tax_period,
     sort_bescheid_records_chronologically,
 )
@@ -50,6 +52,7 @@ from xgewerbesteuer.extractors import (
 )
 from xgewerbesteuer.calculations import (
     format_euro_value,
+    parse_decimal_value,
 )
 from xgewerbesteuer.services.bescheid import (
     build_bescheid_data,
@@ -453,9 +456,9 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
     def test_extract_helpers_return_not_found_for_missing_optional_values(self):
         root = self.parse("<nachricht />")
 
-        self.assertEqual(extract_amount_due(root), "Nicht gefunden")
-        self.assertEqual(extract_assessment_rate(root), "Nicht gefunden")
-        self.assertEqual(extract_due_dates(root), "Nicht gefunden")
+        self.assertIsNone(extract_amount_due(root))
+        self.assertIsNone(extract_assessment_rate(root))
+        self.assertIsNone(extract_due_dates(root))
 
     def test_extract_advance_payments_from_fixture(self):
         root = ElementTree.parse(ADVANCE_PAYMENT_FIXTURE).getroot()
@@ -464,7 +467,7 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
 
         self.assertEqual(len(advance_payments), 1)
         self.assertEqual(advance_payments[0]["amount"], "147.00")
-        self.assertEqual(advance_payments[0]["due_date"], "Nicht gefunden")
+        self.assertIsNone(advance_payments[0]["due_date"])
         self.assertEqual(advance_payments[0]["period"], "2023")
         self.assertEqual(advance_payments[0]["type"], "Vorauszahlung")
 
@@ -473,13 +476,34 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
 
         self.assertEqual(extract_advance_payments(root), [])
 
+    def test_extract_advance_payments_sorts_with_missing_values(self):
+        root = self.parse(
+            """
+            <nachricht>
+              <vorauszahlung>
+                <vorauszahlungsbetrag>200.00</vorauszahlungsbetrag>
+              </vorauszahlung>
+              <vorauszahlung>
+                <vorauszahlungsbetrag>100.00</vorauszahlungsbetrag>
+                <faelligkeitsdatum>2025-02-15</faelligkeitsdatum>
+                <bezugsjahr>2025</bezugsjahr>
+              </vorauszahlung>
+            </nachricht>
+            """
+        )
+
+        advance_payments = extract_advance_payments(root)
+
+        self.assertIsNone(advance_payments[0]["due_date"])
+        self.assertEqual(advance_payments[1]["due_date"], "2025-02-15")
+
     def test_classifies_advance_payment_when_advance_payments_exist(self):
         classification = classify_payment_type(
             "147.00",
             [
                 {
                     "amount": "147.00",
-                    "due_date": "Nicht gefunden",
+                    "due_date": None,
                     "period": "2023",
                     "type": "Vorauszahlung",
                 }
@@ -504,9 +528,12 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
         self.assertEqual(classification["type"], "Keine Zahlung")
 
     def test_classifies_missing_amount_as_not_determinable(self):
-        classification = classify_payment_type("Nicht gefunden", [])
+        classification = classify_payment_type(None, [])
 
         self.assertEqual(classification["type"], "Nicht eindeutig bestimmbar")
+
+    def test_parse_decimal_value_returns_none_for_none(self):
+        self.assertIsNone(parse_decimal_value(None))
 
     def test_period_comparison_notice_handles_different_same_and_missing_years(self):
         self.assertIn(
@@ -519,8 +546,15 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
         )
         self.assertIn(
             "nicht vollständig",
-            build_period_comparison_notice("Nicht gefunden", "2022"),
+            build_period_comparison_notice(None, "2022"),
         )
+
+    def test_comparison_helpers_treat_none_as_not_comparable(self):
+        decimal_result = compare_decimal_values(None, "100.00")
+        text_result = compare_text_values(None, "2022")
+
+        self.assertEqual(decimal_result["change_type"], "Nicht vergleichbar")
+        self.assertEqual(text_result["change_type"], "Nicht vergleichbar")
 
     def test_classify_change_importance_marks_relevant_changes(self):
         increase = classify_change_importance("Erhöhung")
@@ -547,8 +581,8 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
     def test_build_notice_area_prioritizes_warning_before_info(self):
         current_bescheid = {
             "municipality": "Stadt Musterhausen",
-            "tax_period": "Nicht gefunden",
-            "amount_due": "Nicht gefunden",
+            "tax_period": None,
+            "amount_due": None,
             "payment_classification": {
                 "type": "Nicht eindeutig bestimmbar",
             },
@@ -624,7 +658,7 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
             "municipality": "Stadt Musterhausen",
             "tax_period": "2023",
             "amount_due": "630.00",
-            "due_dates": "Nicht gefunden",
+            "due_dates": None,
             "payment_classification": {
                 "type": "Nachzahlung",
             },
@@ -640,7 +674,7 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
             "municipality": "Stadt Musterhausen",
             "tax_period": "2023",
             "amount_due": "0.00",
-            "due_dates": "Nicht gefunden",
+            "due_dates": None,
             "payment_classification": {
                 "type": "Keine Zahlung",
             },
@@ -661,10 +695,10 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
 
     def test_build_status_indicator_marks_incomplete_data_neutrally(self):
         current_bescheid = {
-            "municipality": "Nicht gefunden",
-            "tax_period": "Nicht gefunden",
-            "amount_due": "Nicht gefunden",
-            "due_dates": "Nicht gefunden",
+            "municipality": None,
+            "tax_period": None,
+            "amount_due": None,
+            "due_dates": None,
             "payment_classification": {
                 "type": "Nicht eindeutig bestimmbar",
             },
@@ -680,7 +714,7 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
             "municipality": "Stadt Musterhausen",
             "tax_period": "2023",
             "amount_due": "0.00",
-            "due_dates": "Nicht gefunden",
+            "due_dates": None,
             "payment_classification": {
                 "type": "Keine Zahlung",
             },
@@ -696,14 +730,14 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
             "amount_due": "630.00",
             "trade_tax_assessment_amount": "150.00",
             "assessment_rate": "420",
-            "due_dates": "Nicht gefunden",
+            "due_dates": None,
             "tax_period": "2023",
         }
         previous_bescheid = {
             "amount_due": "512.50",
             "trade_tax_assessment_amount": "125.00",
             "assessment_rate": "420",
-            "due_dates": "Nicht gefunden",
+            "due_dates": None,
             "tax_period": "2022",
         }
 
@@ -811,7 +845,7 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
 
     def test_missing_amount_due_is_not_checkable(self):
         plausibility = build_plausibility_check(
-            comparison_bescheid("2025", amount_due="Nicht gefunden")
+            comparison_bescheid("2025", amount_due=None)
         )
 
         self.assertEqual(plausibility["status"], "not_checkable")
@@ -819,7 +853,7 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
 
     def test_missing_trade_tax_assessment_amount_is_not_checkable(self):
         bescheid = comparison_bescheid("2025", amount_due="105.00")
-        bescheid["trade_tax_assessment_amount"] = "Nicht gefunden"
+        bescheid["trade_tax_assessment_amount"] = None
 
         plausibility = build_plausibility_check(bescheid)
 
@@ -828,7 +862,7 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
 
     def test_missing_assessment_rate_is_not_checkable(self):
         bescheid = comparison_bescheid("2025", amount_due="105.00")
-        bescheid["assessment_rate"] = "Nicht gefunden"
+        bescheid["assessment_rate"] = None
 
         plausibility = build_plausibility_check(bescheid)
 
@@ -910,15 +944,15 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
     def test_build_multi_bescheid_comparison_keeps_missing_values(self):
         comparison = build_multi_bescheid_comparison(
             [
-                comparison_bescheid("Nicht gefunden", amount_due="Nicht gefunden"),
+                comparison_bescheid(None, amount_due=None),
                 comparison_bescheid("2023"),
             ]
         )
 
         missing_record = comparison["records"][1]
 
-        self.assertEqual(missing_record["tax_period"], "Nicht gefunden")
-        self.assertEqual(missing_record["amount_due"], "Nicht gefunden")
+        self.assertIsNone(missing_record["tax_period"])
+        self.assertIsNone(missing_record["amount_due"])
         self.assertTrue(missing_record["notes"])
 
     def test_group_bescheide_by_tax_period_detects_duplicate_years(self):
@@ -938,10 +972,10 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
 
     def test_build_multi_bescheid_record_marks_missing_municipality_neutrally(self):
         record = build_multi_bescheid_record(
-            comparison_bescheid("2023", municipality="Nicht gefunden")
+            comparison_bescheid("2023", municipality=None)
         )
 
-        self.assertEqual(record["municipality"], "Nicht gefunden")
+        self.assertIsNone(record["municipality"])
         self.assertIn("Gemeinde / Kommune", record["notes"][0])
 
     def test_build_multi_bescheid_record_includes_advance_payments(self):
@@ -1056,19 +1090,19 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
     def test_historical_development_marks_missing_values_neutrally(self):
         row = build_historical_development_row(
             build_multi_bescheid_record(
-                comparison_bescheid("2022", amount_due="Nicht gefunden")
+                comparison_bescheid("2022", amount_due=None)
             ),
             build_multi_bescheid_record(comparison_bescheid("2021")),
         )
 
-        self.assertEqual(row["amount_due"], "Nicht gefunden")
+        self.assertIsNone(row["amount_due"])
         self.assertEqual(row["amount_due_change"], "Nicht berechenbar")
 
     def test_missing_historical_value_does_not_affect_other_years(self):
         history = build_historical_development(
             [
                 build_multi_bescheid_record(
-                    comparison_bescheid("2021", amount_due="Nicht gefunden")
+                    comparison_bescheid("2021", amount_due=None)
                 ),
                 build_multi_bescheid_record(comparison_bescheid("2022", "512.50")),
                 build_multi_bescheid_record(comparison_bescheid("2023", "630.00")),
@@ -1134,8 +1168,8 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
 
     def test_build_due_date_calendar_uses_advance_payment_due_dates(self):
         current_bescheid = {
-            "amount_due": "Nicht gefunden",
-            "due_dates": "Nicht gefunden",
+            "amount_due": None,
+            "due_dates": None,
             "payment_classification": {"type": "Vorauszahlung"},
             "advance_payments": [
                 {
@@ -1155,13 +1189,13 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
 
     def test_build_due_date_calendar_keeps_unparseable_advance_payment_undated(self):
         current_bescheid = {
-            "amount_due": "Nicht gefunden",
-            "due_dates": "Nicht gefunden",
+            "amount_due": None,
+            "due_dates": None,
             "payment_classification": {"type": "Vorauszahlung"},
             "advance_payments": [
                 {
                     "amount": "147.00",
-                    "due_date": "Nicht gefunden",
+                    "due_date": None,
                     "period": "2025",
                     "type": "Vorauszahlung",
                 }
@@ -1238,7 +1272,7 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
 
     def test_build_due_date_calendar_marks_missing_amount_neutrally(self):
         current_bescheid = {
-            "amount_due": "Nicht gefunden",
+            "amount_due": None,
             "due_dates": "2025-02-15",
             "payment_classification": {"type": "Nachzahlung"},
             "advance_payments": [],
@@ -1267,7 +1301,7 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
     def test_build_due_date_calendar_returns_empty_state_without_due_dates(self):
         current_bescheid = {
             "amount_due": "630.00",
-            "due_dates": "Nicht gefunden",
+            "due_dates": None,
             "payment_classification": {"type": "Nachzahlung"},
             "advance_payments": [],
         }
@@ -1412,7 +1446,7 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
         calendar = build_due_date_calendar(
             {
                 "amount_due": "630.00",
-                "due_dates": "Nicht gefunden",
+                "due_dates": None,
                 "payment_classification": {"type": "Nachzahlung"},
                 "advance_payments": [],
             }
@@ -1537,13 +1571,13 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
         from datetime import date
         reference_date = date(2025, 1, 15)
         current_bescheid = {
-            "amount_due": "Nicht gefunden",
+            "amount_due": None,
             "due_dates": "2025-02-14",
             "payment_classification": {"type": "Nicht eindeutig bestimmbar"},
             "advance_payments": [
                 {
                     "amount": "147.00",
-                    "due_date": "Nicht gefunden",
+                    "due_date": None,
                     "period": "2025",
                     "type": "Vorauszahlung",
                 }
@@ -2492,6 +2526,32 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertContains(response, "btn btn--secondary")
         self.assertContains(response, "status-banner--deadline")
 
+    def test_result_template_displays_none_values_as_not_found(self):
+        rendered = render_to_string(
+            "xgewerbesteuer/results.html",
+            {
+                "uploaded_file_name": "fiktiver-bescheid.xml",
+                "uploaded_file_size": 123,
+                "summary_items": [
+                    {"label": "Gemeinde / Kommune", "value": None},
+                    {"label": "Zahlbetrag", "value": ""},
+                ],
+                "change_comparison_items": [
+                    {
+                        "label": "Zahlbetrag",
+                        "previous_value": None,
+                        "current_value": "512.50",
+                        "difference": "Nicht vergleichbar",
+                        "percentage": "Nicht vergleichbar",
+                        "change_type": "Nicht vergleichbar",
+                    }
+                ],
+            },
+        )
+
+        self.assertIn("Nicht gefunden", rendered)
+        self.assertNotIn(">None<", rendered)
+
     def test_download_area_is_marked_as_no_print_after_valid_upload(self):
         content = VALID_BESCHEID_FIXTURE.read_bytes()
 
@@ -2750,7 +2810,7 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         known_period["bescheid"]["tax_period"] = "2023"
         known_period["bescheid"]["file_name"] = "known.xml"
         missing_period = processed_bescheid_with_due_date()
-        missing_period["bescheid"]["tax_period"] = "Nicht gefunden"
+        missing_period["bescheid"]["tax_period"] = None
         missing_period["bescheid"]["file_name"] = "missing.xml"
 
         with patch(
@@ -2964,7 +3024,7 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         with patch(
             "xgewerbesteuer.views.process_uploaded_bescheid",
             return_value=processed_bescheid_with_plausibility_values(
-                amount_due="Nicht gefunden",
+                amount_due=None,
                 trade_tax_assessment_amount="25.00",
                 assessment_rate="420",
             ),
@@ -3142,7 +3202,7 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         historical_development = build_historical_development(
             [
                 build_multi_bescheid_record(
-                    comparison_bescheid("2021", amount_due="Nicht gefunden")
+                    comparison_bescheid("2021", amount_due=None)
                 ),
                 build_multi_bescheid_record(comparison_bescheid("2022", "512.50")),
             ]

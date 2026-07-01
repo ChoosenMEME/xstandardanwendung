@@ -13,9 +13,9 @@ register = template.Library()
 
 @register.filter
 def default_display(value):
-    """Zeigt 'Nicht verfuegbar' fuer None-Werte an."""
+    """Zeigt 'Nicht gefunden' fuer fehlende Werte an."""
     if value is None or value == "":
-        return "Nicht verfügbar"
+        return "Nicht gefunden"
 
     return value
 
