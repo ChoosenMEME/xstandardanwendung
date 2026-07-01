@@ -30,6 +30,16 @@ DEBUG = os.getenv("DEBUG", "0") == "1"
 ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "").split()
 APP_PATH = os.getenv("APP_PATH", "")
 DEFAULT_SQLITE_PATH = BASE_DIR / "dev.db.sqlite3" if DEBUG else Path("/data/db.sqlite3")
+AI_ASSISTANT_ENABLED = os.getenv("AI_ASSISTANT_ENABLED", "false").lower() in [
+    "1",
+    "true",
+    "yes",
+    "on",
+]
+AI_ASSISTANT_PROVIDER = os.getenv("AI_ASSISTANT_PROVIDER", "disabled")
+AI_ASSISTANT_MODEL = os.getenv("AI_ASSISTANT_MODEL", "")
+AI_ASSISTANT_BASE_URL = os.getenv("AI_ASSISTANT_BASE_URL", "")
+AI_ASSISTANT_TIMEOUT_SECONDS = int(os.getenv("AI_ASSISTANT_TIMEOUT_SECONDS", "10"))
 
 
 # Application definition

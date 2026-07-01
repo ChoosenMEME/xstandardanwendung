@@ -24,6 +24,11 @@ from .services.bescheid import (
     prepare_download_sessions,
     process_uploaded_bescheid,
 )
+from .services.assistant import (
+    answer_assistant_question,
+    build_assistant_ui_context,
+)
+from .services.assistant_providers import AssistantProviderError
 from .services.export import (
     CSV_EXPORT_SESSION_KEY,
     ICS_EXPORT_SESSION_KEY,
@@ -171,6 +176,7 @@ def xgewerbesteuer_results(request):
 
     context = _build_result_context(session_data)
     prepare_download_sessions(request, context)
+    context.update(build_assistant_ui_context())
 
     return render(request, "xgewerbesteuer/results.html", context)
 
@@ -231,6 +237,28 @@ def _build_result_context(session_data):
         context["saved_upload_error"] = session_data["saved_upload_error"]
 
     return context
+
+
+def xgewerbesteuer_assistant(request):
+    if request.method != "POST":
+        return redirect("xgewerbesteuer_results")
+
+    session_data = request.session.get(RESULT_SESSION_KEY)
+
+    if not session_data:
+        return redirect("xgewerbesteuer_upload")
+
+    question = request.POST.get("assistant_question", "")
+    context = _build_result_context(session_data)
+    prepare_download_sessions(request, context)
+
+    try:
+        answer = answer_assistant_question(question, context)
+        context.update(build_assistant_ui_context(answer=answer, question=question))
+    except AssistantProviderError as exc:
+        context.update(build_assistant_ui_context(error=str(exc), question=question))
+
+    return render(request, "xgewerbesteuer/results.html", context)
 
 
 def xgewerbesteuer_load_saved(request):
