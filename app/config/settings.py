@@ -61,9 +61,15 @@ DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "webmaster@localhost")
 
 # Ohne echten Mailserver koennen Passwort-Reset-Mails nicht zugestellt werden,
 # daher bleibt Login/Registrierung ausserhalb von DEBUG deaktiviert, bis
-# EMAIL_HOST auf einen echten Host gesetzt wird.
+# EMAIL_HOST auf einen echten Host gesetzt wird. Die Heuristik laesst sich
+# per LOGIN_ENABLED-Env-Var explizit uebersteuern, z.B. fuer einen lokalen
+# SMTP-Relay im selben Container.
 EMAIL_SERVER_CONFIGURED = bool(EMAIL_HOST) and EMAIL_HOST != "localhost"
-LOGIN_ENABLED = DEBUG or EMAIL_SERVER_CONFIGURED
+_login_enabled_override = os.getenv("LOGIN_ENABLED")
+if _login_enabled_override is not None:
+    LOGIN_ENABLED = _login_enabled_override == "1"
+else:
+    LOGIN_ENABLED = DEBUG or EMAIL_SERVER_CONFIGURED
 
 
 def build_static_url(app_path):

@@ -18,9 +18,15 @@ class SignupForm(UserCreationForm):
         model = User
         fields = ("username", "email")
 
+    def clean_email(self):
+        email = self.cleaned_data["email"]
+        # NoUserInfoFragmentValidator prueft self.instance.email waehrend
+        # der Passwort-Validierung, die vor save() laeuft.
+        self.instance.email = email
+        return email
+
     def save(self, commit=True):
         user = super().save(commit=False)
-        user.email = self.cleaned_data["email"]
         if commit:
             user.save()
         return user

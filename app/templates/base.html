@@ -1,4 +1,6 @@
 {% load static i18n %}
+{% trans "Anzeigen" as label_show %}
+{% trans "Verbergen" as label_hide %}
 <!doctype html>
 <html lang="de">
 <head>
@@ -42,8 +44,8 @@
                 var showing = input.type === 'text';
                 input.type = showing ? 'password' : 'text';
                 button.textContent = showing
-                    ? '{% trans "Anzeigen" %}'
-                    : '{% trans "Verbergen" %}';
+                    ? '{{ label_show|escapejs }}'
+                    : '{{ label_hide|escapejs }}';
                 button.setAttribute('aria-pressed', String(!showing));
             });
         });
