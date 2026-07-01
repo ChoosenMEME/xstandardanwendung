@@ -94,7 +94,7 @@ def find_first_text_by_tag_names(root, tag_names):
             if value:
                 return value
 
-    return "Nicht gefunden"
+    return None
 
 
 def extract_municipality(root):
@@ -228,7 +228,7 @@ def extract_advance_payment_period(payment_element):
         if tag_name in ["bezugsjahr", "steuerjahr", "jahr"]:
             return value
 
-    return "Nicht gefunden"
+    return None
 
 
 def extract_advance_payments(root):
@@ -275,9 +275,9 @@ def extract_advance_payments(root):
     return sorted(
         advance_payments,
         key=lambda item: (
-            item["period"],
-            item["due_date"],
-            item["amount"],
+            item["period"] or "",
+            item["due_date"] or "",
+            item["amount"] or "",
         ),
     )
 
@@ -305,4 +305,4 @@ def extract_due_dates(root):
     if due_dates:
         return ", ".join(due_dates)
 
-    return "Nicht gefunden"
+    return None

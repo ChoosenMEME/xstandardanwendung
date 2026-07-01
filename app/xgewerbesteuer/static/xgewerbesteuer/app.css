@@ -896,6 +896,38 @@ body {
     margin-right: 0.5rem;
 }
 
+/* ===== PRIVACY MODE ===== */
+
+.privacy-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.9rem 1.25rem;
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-neutral-bg);
+}
+
+.privacy-banner--active {
+    border-color: var(--color-info-border);
+    background: var(--color-info-bg);
+    color: var(--color-info-text);
+}
+
+.privacy-banner__title {
+    margin: 0 0 0.2rem 0;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.privacy-banner__text {
+    margin: 0;
+    font-size: 0.85rem;
+    line-height: 1.45;
+}
+
 /* ===== SECTION DIVIDER ===== */
 
 .section-divider {
@@ -1477,6 +1509,63 @@ body {
 .mb-2 { margin-bottom: 1rem; }
 .mb-3 { margin-bottom: 1.5rem; }
 
+/* ===== KI-ASSISTENT ===== */
+
+.assistant-card {
+    border-left: 4px solid var(--color-info);
+}
+
+.assistant-meta {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin: 1rem 0;
+}
+
+.assistant-meta div {
+    padding: 0.75rem;
+    background: var(--color-neutral-bg);
+    border: 1px solid var(--color-neutral-border);
+    border-radius: var(--radius-sm);
+}
+
+.assistant-meta dt {
+    margin: 0 0 0.25rem;
+    color: var(--color-text-muted);
+    font-size: 0.8125rem;
+    font-weight: 600;
+}
+
+.assistant-meta dd {
+    margin: 0;
+    color: var(--color-text);
+    font-weight: 600;
+}
+
+.assistant-form textarea {
+    width: 100%;
+    min-height: 7rem;
+    resize: vertical;
+}
+
+.assistant-answer {
+    margin-top: 1rem;
+    padding: 1rem;
+    border: 1px solid var(--color-info-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-info-bg);
+}
+
+.assistant-answer__label {
+    margin: 0 0 0.5rem;
+    color: var(--color-info-text);
+    font-weight: 700;
+}
+
+.assistant-answer p:last-child {
+    margin-bottom: 0;
+}
+
 /* ===== RESPONSIVE ===== */
 
 @media (max-width: 768px) {
@@ -1564,6 +1653,10 @@ body {
     .download-bar .btn {
         width: 100%;
         justify-content: center;
+    }
+
+    .assistant-meta {
+        grid-template-columns: 1fr;
     }
 
     .card {

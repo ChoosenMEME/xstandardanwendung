@@ -324,7 +324,7 @@ def build_liquidity_payment_item(amount, due_date, payment_type, reference_date)
         "amount_display": (
             format_euro_value(parsed_amount)
             if parsed_amount is not None
-            else "Nicht gefunden"
+            else None
         ),
         "due_date": parsed_due_date,
         "due_date_display": format_german_date(parsed_due_date),
@@ -343,7 +343,7 @@ def build_liquidity_payment_items(current_bescheid, reference_date):
     payment_classification = current_bescheid.get("payment_classification", {})
     payment_type = payment_classification.get("type", "Zahlung")
 
-    if amount_due and amount_due != "Nicht gefunden":
+    if not is_missing_value(amount_due):
         if due_dates:
             for due_date in due_dates:
                 items.append(
@@ -443,7 +443,7 @@ def build_calendar_entry(amount, due_date, payment_type):
         notes.append("Fälligkeitstermin nicht verwertbar")
         return {
             "date": None,
-            "display_date": "Nicht gefunden",
+            "display_date": None,
             "amount": format_euro_value(amount),
             "payment_type": payment_type or "Zahlungsart nicht eindeutig bestimmbar",
             "label": "Fälligkeit ohne verwertbares Datum",
@@ -649,7 +649,7 @@ def build_missing_value_notices(current_bescheid):
 def build_payment_notices(current_bescheid):
     payment_classification = current_bescheid.get("payment_classification", {})
     payment_type = payment_classification.get("type")
-    amount_due = current_bescheid.get("amount_due", "Nicht gefunden")
+    amount_due = current_bescheid.get("amount_due")
 
     if payment_type == "Nachzahlung":
         return [
@@ -859,7 +859,7 @@ def build_status_indicator(current_bescheid, notice_items=None, change_compariso
 
     payment_classification = current_bescheid.get("payment_classification", {})
     payment_type = payment_classification.get("type")
-    due_dates = current_bescheid.get("due_dates", "Nicht gefunden")
+    due_dates = current_bescheid.get("due_dates")
 
     if has_missing_core_data or payment_type == "Nicht eindeutig bestimmbar":
         status_candidates.append("incomplete")
@@ -945,20 +945,24 @@ def build_saved_upload_payload(bescheid, context_data):
         "status_indicator",
     ]
 
+    def db_text_value(value):
+        normalized_value = normalize_comparison_value(value)
+        return normalized_value or ""
+
     return {
         "file_name": bescheid.get("file_name", ""),
         "file_size": bescheid.get("file_size") or 0,
-        "municipality": normalize_comparison_value(bescheid.get("municipality")),
-        "tax_period": normalize_comparison_value(bescheid.get("tax_period")),
-        "amount_due": normalize_comparison_value(bescheid.get("amount_due")),
-        "payment_type": normalize_comparison_value(
+        "municipality": db_text_value(bescheid.get("municipality")),
+        "tax_period": db_text_value(bescheid.get("tax_period")),
+        "amount_due": db_text_value(bescheid.get("amount_due")),
+        "payment_type": db_text_value(
             bescheid.get("payment_classification", {}).get("type")
         ),
-        "trade_tax_assessment_amount": normalize_comparison_value(
+        "trade_tax_assessment_amount": db_text_value(
             bescheid.get("trade_tax_assessment_amount")
         ),
-        "assessment_rate": normalize_comparison_value(bescheid.get("assessment_rate")),
-        "due_dates": normalize_comparison_value(bescheid.get("due_dates")),
+        "assessment_rate": db_text_value(bescheid.get("assessment_rate")),
+        "due_dates": db_text_value(bescheid.get("due_dates")),
         "advance_payments": bescheid.get("advance_payments", []),
         "summary_items": context_data.get("summary_items", []),
         "result_data": {
@@ -984,23 +988,23 @@ def build_context_from_saved_upload(saved_upload):
     current_bescheid = context.get("current_bescheid") or {
         "file_name": saved_upload.file_name,
         "file_size": saved_upload.file_size,
-        "message_type": "Nicht gefunden",
-        "message_type_label": "Nicht gefunden",
+        "message_type": None,
+        "message_type_label": None,
         "message_type_category": "unknown",
         "message_type_summary": "",
         "supports_comparison": False,
-        "municipality": saved_upload.municipality or "Nicht gefunden",
-        "tax_period": saved_upload.tax_period or "Nicht gefunden",
-        "amount_due": saved_upload.amount_due or "Nicht gefunden",
+        "municipality": saved_upload.municipality or None,
+        "tax_period": saved_upload.tax_period or None,
+        "amount_due": saved_upload.amount_due or None,
         "trade_tax_assessment_amount": (
-            saved_upload.trade_tax_assessment_amount or "Nicht gefunden"
+            saved_upload.trade_tax_assessment_amount or None
         ),
-        "assessment_rate": saved_upload.assessment_rate or "Nicht gefunden",
-        "due_dates": saved_upload.due_dates or "Nicht gefunden",
+        "assessment_rate": saved_upload.assessment_rate or None,
+        "due_dates": saved_upload.due_dates or None,
         "advance_payments": saved_upload.advance_payments,
         "summary_items": saved_upload.summary_items,
         "payment_classification": {
-            "type": saved_upload.payment_type or "Nicht gefunden",
+            "type": saved_upload.payment_type or None,
             "message": "",
         },
     }

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load xgewerbesteuer_filters %}
 
 {% block title %}
 Gewerbesteuerbescheid-Assistent
@@ -282,7 +283,7 @@ Gewerbesteuerbescheid-Assistent
                 {% if plausibility_check.items %}
                     <ul class="plausibility-detail-list">
                         {% for item in plausibility_check.items %}
-                            <li>{{ item.label }}: {{ item.value }}</li>
+                            <li>{{ item.label }}: {{ item.value|default_display }}</li>
                         {% endfor %}
                     </ul>
                 {% endif %}
@@ -530,7 +531,7 @@ Gewerbesteuerbescheid-Assistent
                 </p>
 
                 <p>
-                    Bezugsdatum: <strong>{{ liquidity_impact.reference_date }}</strong>
+                    Bezugsdatum: <strong>{{ liquidity_impact.reference_date|default_display }}</strong>
                 </p>
 
                 <p>
@@ -551,9 +552,9 @@ Gewerbesteuerbescheid-Assistent
                                 <ul class="liquidity-item-list">
                                     {% for item in group.items %}
                                         <li class="liquidity-impact--{{ item.impact }}">
-                                            {{ item.payment_type }}:
-                                            {{ item.amount_display }},
-                                            Fälligkeit: {{ item.due_date_display }},
+                                            {{ item.payment_type|default_display }}:
+                                            {{ item.amount_display|default_display }},
+                                            Fälligkeit: {{ item.due_date_display|default_display }},
                                             Einordnung: {{ item.period_label }}
                                             {% if item.notice %}
                                                 <br>

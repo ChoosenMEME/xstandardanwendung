@@ -1,3 +1,5 @@
+{% load xgewerbesteuer_filters %}
+
 <div class="responsive-table-wrapper">
   <table class="responsive-table">
     <thead>
@@ -10,7 +12,7 @@
       {% for item in summary_items %}
         <tr>
           <th scope="row">{{ item.label }}</th>
-          <td><strong>{{ item.value }}</strong></td>
+          <td><strong>{{ item.value|default_display }}</strong></td>
         </tr>
       {% endfor %}
     </tbody>

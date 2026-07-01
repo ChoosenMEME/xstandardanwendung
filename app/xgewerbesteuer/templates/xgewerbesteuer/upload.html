@@ -71,6 +71,18 @@
     </div>
 {% endif %}
 
+<section class="card demo-entry" aria-labelledby="demo-entry-heading">
+    <h2 class="card__title" id="demo-entry-heading">{% trans "Demo-Beispielfall" %}</h2>
+    <p class="card__subtitle">
+        {% trans "Laden Sie fiktive, anonymisierte Testdaten, um die Auswertung ohne eigene XML-Datei auszuprobieren." %}
+    </p>
+    <div class="form-actions">
+        <a class="btn btn--secondary" href="{% url 'xgewerbesteuer_demo' %}">
+            {% trans "Demo-Beispielfall laden" %}
+        </a>
+    </div>
+</section>
+
 <div class="card">
     <form method="post" enctype="multipart/form-data">
         {% csrf_token %}

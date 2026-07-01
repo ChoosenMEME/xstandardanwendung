@@ -19,6 +19,20 @@ services:
       LANGUAGE_CODE: ${LANGUAGE_CODE:-de-de}
       TZ: ${TZ:-Europe/Berlin}
       SQLITE_PATH: ${SQLITE_PATH:-/app/dev.db.sqlite3}
+      AI_ASSISTANT_ENABLED: ${AI_ASSISTANT_ENABLED:-false}
+      AI_ASSISTANT_PROVIDER: ${AI_ASSISTANT_PROVIDER:-disabled}
+      AI_ASSISTANT_MODEL: ${AI_ASSISTANT_MODEL:-}
+      AI_ASSISTANT_BASE_URL: ${AI_ASSISTANT_BASE_URL:-}
+      AI_ASSISTANT_TIMEOUT_SECONDS: ${AI_ASSISTANT_TIMEOUT_SECONDS:-10}
     volumes:
       # Quellcode live in Container spiegeln (inkl. Dev-DB + Tests).
       - ./app:/app
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          python -c "import os, urllib.request; p=os.environ.get('WEB_PORT','8000'); a=os.environ.get('APP_PATH','').strip('/'); h=f'/{a}/healthz/' if a else '/healthz/'; urllib.request.urlopen(f'http://127.0.0.1:{p}{h}', timeout=5)"
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 60s

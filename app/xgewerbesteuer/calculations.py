@@ -10,11 +10,11 @@ PLAUSIBILITY_TOLERANCE = Decimal("0.02")
 
 
 def parse_decimal_value(value):
-    if not value or value == "Nicht gefunden":
+    if value is None or value == "":
         return None
 
     cleaned_value = (
-        value.replace("EUR", "")
+        str(value).replace("EUR", "")
         .replace("€", "")
         .replace("%", "")
         .replace(" ", "")
@@ -41,7 +41,7 @@ def parse_date_value(value):
     if isinstance(value, date):
         return value
 
-    if not value or value == "Nicht gefunden":
+    if value is None or value == "":
         return None
 
     cleaned_value = str(value).strip()
@@ -59,13 +59,13 @@ def format_german_date(value):
     parsed_date = parse_date_value(value)
 
     if parsed_date is None:
-        return "Nicht gefunden"
+        return None
 
     return parsed_date.strftime("%d.%m.%Y")
 
 
 def format_euro_value(value):
-    parsed_value = value if isinstance(value, Decimal) else parse_decimal_value(str(value))
+    parsed_value = value if isinstance(value, Decimal) else parse_decimal_value(value)
 
     if parsed_value is None:
         return "Betrag nicht gefunden"
@@ -78,7 +78,7 @@ def format_euro_value(value):
 
 
 def split_due_dates(due_dates):
-    if not due_dates or due_dates == "Nicht gefunden":
+    if due_dates is None or due_dates == "":
         return []
 
     return [
@@ -93,12 +93,12 @@ def split_due_date_values(due_dates):
 
 
 def is_missing_value(value):
-    return not value or value == "Nicht gefunden"
+    return value is None or value == ""
 
 
 def normalize_comparison_value(value):
     if is_missing_value(value):
-        return "Nicht gefunden"
+        return None
 
     return value
 
@@ -212,7 +212,7 @@ def build_plausibility_check(current_bescheid):
     missing_labels = [
         item["label"]
         for item in items
-        if item["value"] == "Nicht gefunden"
+        if is_missing_value(item["value"])
     ]
 
     if missing_labels:
