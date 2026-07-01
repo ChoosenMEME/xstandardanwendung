@@ -5,7 +5,6 @@ from pathlib import Path
 from django.contrib import messages
 from django.contrib.auth import login as auth_login
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.forms import UserCreationForm
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import DatabaseError
 from django.http import HttpResponse
@@ -20,6 +19,7 @@ from .comparisons import (
     build_period_comparison_notice,
     extract_sort_year,
 )
+from .forms import SignupForm
 from .services.bescheid import (
     build_due_date_calendar,
     build_liquidity_impact,
@@ -464,7 +464,7 @@ def xgewerbesteuer_signup(request):
         return redirect("xgewerbesteuer_dashboard")
 
     if request.method == "POST":
-        form = UserCreationForm(request.POST)
+        form = SignupForm(request.POST)
 
         if form.is_valid():
             user = form.save()
@@ -475,7 +475,7 @@ def xgewerbesteuer_signup(request):
             )
             return redirect("xgewerbesteuer_dashboard")
     else:
-        form = UserCreationForm()
+        form = SignupForm()
 
     return render(request, "registration/signup.html", {"form": form})
 

@@ -2,7 +2,7 @@
 
 from django.contrib.auth.models import User
 from django.core import mail
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 
@@ -78,6 +78,7 @@ class SignupTests(TestCase):
             reverse("xgewerbesteuer_signup"),
             data={
                 "username": "neue-nutzerin",
+                "email": "neue-nutzerin@example.com",
                 "password1": "Sicheres-Passwort-42",
                 "password2": "Sicheres-Passwort-42",
             },
@@ -85,7 +86,9 @@ class SignupTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertTrue(User.objects.filter(username="neue-nutzerin").exists())
+        user = User.objects.filter(username="neue-nutzerin").first()
+        self.assertIsNotNone(user)
+        self.assertEqual(user.email, "neue-nutzerin@example.com")
         self.assertTrue(self.client.session.get("_auth_user_id"))
 
     def test_signup_with_mismatched_passwords_shows_error_and_creates_no_user(self):
@@ -93,8 +96,22 @@ class SignupTests(TestCase):
             reverse("xgewerbesteuer_signup"),
             data={
                 "username": "neue-nutzerin",
+                "email": "neue-nutzerin@example.com",
                 "password1": "Sicheres-Passwort-42",
                 "password2": "anderes-passwort",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(User.objects.filter(username="neue-nutzerin").exists())
+
+    def test_signup_without_email_shows_error_and_creates_no_user(self):
+        response = self.client.post(
+            reverse("xgewerbesteuer_signup"),
+            data={
+                "username": "neue-nutzerin",
+                "password1": "Sicheres-Passwort-42",
+                "password2": "Sicheres-Passwort-42",
             },
         )
 
@@ -180,3 +197,46 @@ class PublicPagesRemainAccessibleWithoutLoginTests(TestCase):
         response = self.client.get(reverse("xgewerbesteuer_dashboard"))
 
         self.assertEqual(response.status_code, 200)
+
+
+@override_settings(LOGIN_ENABLED=False)
+class LoginDisabledWithoutEmailServerTests(TestCase):
+    """Ohne konfigurierten Mailserver ist Login/Registrierung gesperrt."""
+
+    def test_login_page_returns_not_found(self):
+        response = self.client.get(reverse("login"))
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_signup_page_returns_not_found(self):
+        response = self.client.get(reverse("xgewerbesteuer_signup"))
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_password_reset_page_returns_not_found(self):
+        response = self.client.get(reverse("password_reset"))
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_load_saved_returns_not_found(self):
+        response = self.client.post(
+            reverse("xgewerbesteuer_load_saved"),
+            data={"saved_upload_id": "1"},
+        )
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_delete_saved_returns_not_found(self):
+        response = self.client.post(
+            reverse("xgewerbesteuer_delete_saved"),
+            data={"saved_upload_id": "1"},
+        )
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_dashboard_hides_login_and_signup_links(self):
+        response = self.client.get(reverse("xgewerbesteuer_dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, reverse("login"))
+        self.assertNotContains(response, reverse("xgewerbesteuer_signup"))

@@ -62,7 +62,14 @@
         {% trans "Gespeicherte Auswertungen sind nur in Ihrem Benutzerkonto sichtbar. Es werden keine Original-XML-Dateien gespeichert." %}
     </p>
 
-    {% if not user.is_authenticated %}
+    {% if not LOGIN_ENABLED %}
+        <div class="empty-state mt-2">
+            <p class="empty-state__title">{% trans "Aktuell nicht verfügbar" %}</p>
+            <p class="empty-state__text">
+                {% trans "Das Speichern von Auswertungen im Benutzerkonto ist derzeit nicht verfügbar." %}
+            </p>
+        </div>
+    {% elif not user.is_authenticated %}
         <div class="empty-state mt-2">
             <p class="empty-state__title">{% trans "Anmeldung erforderlich" %}</p>
             <p class="empty-state__text">

@@ -47,11 +47,10 @@ LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "xgewerbesteuer_dashboard"
 LOGOUT_REDIRECT_URL = "xgewerbesteuer_dashboard"
 
-EMAIL_BACKEND = os.getenv(
-    "EMAIL_BACKEND",
+EMAIL_BACKEND = (
     "django.core.mail.backends.console.EmailBackend"
     if DEBUG
-    else "django.core.mail.backends.smtp.EmailBackend",
+    else "django.core.mail.backends.smtp.EmailBackend"
 )
 EMAIL_HOST = os.getenv("EMAIL_HOST", "localhost")
 EMAIL_PORT = int(os.getenv("EMAIL_PORT", "25"))
@@ -59,6 +58,12 @@ EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
 EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "0") == "1"
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "webmaster@localhost")
+
+# Ohne echten Mailserver koennen Passwort-Reset-Mails nicht zugestellt werden,
+# daher bleibt Login/Registrierung ausserhalb von DEBUG deaktiviert, bis
+# EMAIL_HOST auf einen echten Host gesetzt wird.
+EMAIL_SERVER_CONFIGURED = bool(EMAIL_HOST) and EMAIL_HOST != "localhost"
+LOGIN_ENABLED = DEBUG or EMAIL_SERVER_CONFIGURED
 
 
 def build_static_url(app_path):
@@ -100,6 +105,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'xgewerbesteuer.context_processors.login_enabled',
             ],
         },
     },

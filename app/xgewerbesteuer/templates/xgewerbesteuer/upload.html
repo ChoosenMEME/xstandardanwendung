@@ -114,7 +114,7 @@
             <p class="form-section-hint">
                 {% trans "Die Dateien werden nur für diese Anfrage verarbeitet. Es werden keine Original-XML-Dateien gespeichert, sondern nur die strukturierten Auswertungsdaten." %}
             </p>
-        {% else %}
+        {% elif LOGIN_ENABLED %}
             <p class="form-section-hint">
                 {% blocktrans %}Um eine Auswertung dauerhaft zu speichern, melden Sie sich bitte an oder registrieren Sie sich.{% endblocktrans %}
                 <a href="{% url 'login' %}?next={{ request.path }}">{% trans "Anmelden" %}</a>
