@@ -34,7 +34,11 @@ from ..extractors import (
     is_supported_message_type,
 )
 from ..models import SavedBescheidUpload
-from ..validators import get_upload_error, validate_xml_against_xsd
+from ..validators import (
+    build_validation_issue,
+    get_upload_issue,
+    validate_xml_against_xsd,
+)
 
 
 def classify_payment_type(amount_due, advance_payments):
@@ -171,15 +175,22 @@ def build_bescheid_data(uploaded_file, root, schema_name):
     }
 
 
-def process_uploaded_bescheid(uploaded_file):
-    upload_error = get_upload_error(uploaded_file)
+def build_invalid_upload_result(issue, error_type="upload"):
+    """Erzeugt eine einheitliche Fehlerantwort ohne sensible Detaildaten."""
 
-    if upload_error:
-        return {
-            "is_valid": False,
-            "error_type": "upload",
-            "message": upload_error,
-        }
+    return {
+        "is_valid": False,
+        "error_type": error_type,
+        "message": issue.message,
+        "details": [issue.as_dict()],
+    }
+
+
+def process_uploaded_bescheid(uploaded_file):
+    upload_issue = get_upload_issue(uploaded_file)
+
+    if upload_issue:
+        return build_invalid_upload_result(upload_issue)
 
     try:
         xml_data = uploaded_file.read()
@@ -188,51 +199,37 @@ def process_uploaded_bescheid(uploaded_file):
         is_valid, schema_name, schema_error = validate_xml_against_xsd(xml_data)
 
         if not is_valid:
-            return {
-                "is_valid": False,
-                "error_type": "validation",
-                "message": (
-                    "Die Datei konnte nicht vollständig validiert werden. "
-                    "Bitte prüfen Sie, ob es sich um einen gültigen "
-                    "XGewerbesteuer-Bescheid handelt."
-                ),
-            }
+            issue = build_validation_issue(
+                "xsd_validation_error",
+                detail=schema_error or "",
+            )
+            return build_invalid_upload_result(issue, error_type="validation")
 
         message_type = detect_message_type(root)
 
         if not is_supported_message_type(message_type):
-            return {
-                "is_valid": False,
-                "error_type": "unsupported_message_type",
-                "message": (
-                    "Der Nachrichtentyp der XML-Datei wird derzeit nicht unterstuetzt."
-                ),
-            }
+            issue = build_validation_issue("unsupported_message_type")
+            return build_invalid_upload_result(
+                issue,
+                error_type="unsupported_message_type",
+            )
 
         return {
             "is_valid": True,
             "bescheid": build_bescheid_data(uploaded_file, root, schema_name),
         }
 
-    except (ParseError, DefusedXmlException):
-        return {
-            "is_valid": False,
-            "error_type": "upload",
-            "message": (
-                "Die Datei ist nicht XML-konform oder enthält unsichere XML-Inhalte "
-                "und konnte nicht verarbeitet werden."
-            ),
-        }
+    except DefusedXmlException:
+        issue = build_validation_issue("unsafe_xml")
+        return build_invalid_upload_result(issue)
+
+    except ParseError:
+        issue = build_validation_issue("malformed_xml")
+        return build_invalid_upload_result(issue)
 
     except Exception:
-        return {
-            "is_valid": False,
-            "error_type": "upload",
-            "message": (
-                "Die Datei konnte nicht verarbeitet werden. "
-                "Bitte prüfen Sie die Datei und versuchen Sie es erneut."
-            ),
-        }
+        issue = build_validation_issue("read_error")
+        return build_invalid_upload_result(issue)
 
 
 # --- Liquiditaets-Funktionen ---
@@ -916,7 +913,6 @@ def build_saved_upload_payload(bescheid, context_data):
         "payment_classification",
         "due_date_calendar",
         "plausibility_check",
-        "validation_success",
         "notice_items",
         "status_indicator",
     ]
