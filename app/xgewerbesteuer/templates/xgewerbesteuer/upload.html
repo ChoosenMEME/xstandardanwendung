@@ -38,6 +38,11 @@
                                         {% if detail.detail %}
                                             <p class="validation-details__technical">{{ detail.detail }}</p>
                                         {% endif %}
+                                        {% if detail.error_id %}
+                                            <p class="validation-details__technical">
+                                                {% trans "Fehler-ID" %}: {{ detail.error_id }}
+                                            </p>
+                                        {% endif %}
                                         <p class="validation-details__next">
                                             <strong>{% trans "Nächster Schritt" %}:</strong>
                                             {{ detail.next_action }}

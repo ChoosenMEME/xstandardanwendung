@@ -39,6 +39,7 @@ from ..validators import (
     get_upload_issue,
     validate_xml_against_xsd,
 )
+from .support_errors import generate_error_id, log_upload_issue
 
 
 def classify_payment_type(amount_due, advance_payments):
@@ -175,14 +176,26 @@ def build_bescheid_data(uploaded_file, root, schema_name):
     }
 
 
-def build_invalid_upload_result(issue, error_type="upload"):
+def build_invalid_upload_result(
+    issue,
+    error_type="upload",
+    log_level=None,
+    exception=None,
+):
     """Erzeugt eine einheitliche Fehlerantwort ohne sensible Detaildaten."""
+    error_id = generate_error_id()
+    detail = issue.as_dict()
+    detail["error_id"] = error_id
+
+    if log_level:
+        log_upload_issue(error_id, issue.code, level=log_level, exception=exception)
 
     return {
         "is_valid": False,
         "error_type": error_type,
         "message": issue.message,
-        "details": [issue.as_dict()],
+        "error_id": error_id,
+        "details": [detail],
     }
 
 
@@ -227,9 +240,24 @@ def process_uploaded_bescheid(uploaded_file):
         issue = build_validation_issue("malformed_xml")
         return build_invalid_upload_result(issue)
 
-    except Exception:
+    except Exception as error:
         issue = build_validation_issue("read_error")
-        return build_invalid_upload_result(issue)
+        return build_invalid_upload_result(
+            issue,
+            error_type="read_error",
+            log_level="error",
+            exception=error,
+        )
+
+
+def build_unexpected_import_error_result(exception):
+    issue = build_validation_issue("unexpected_import_error")
+    return build_invalid_upload_result(
+        issue,
+        error_type="unexpected_import_error",
+        log_level="error",
+        exception=exception,
+    )
 
 
 # --- Liquiditaets-Funktionen ---
