@@ -2111,6 +2111,55 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'type="file"')
         self.assertContains(response, 'type="submit"')
+        self.assertContains(response, reverse("xgewerbesteuer_demo"))
+        self.assertContains(response, "Demo-Beispielfall")
+
+    def test_demo_entry_loads_fixture_result_with_demo_notice(self):
+        response = self.client.get(reverse("xgewerbesteuer_demo"), follow=True)
+
+        summary_items = {
+            item["label"]: item["value"] for item in response.context["summary_items"]
+        }
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "xgewerbesteuer/results.html")
+        self.assertTrue(response.context["is_demo"])
+        self.assertIn("Demo-Beispielfall", response.context["demo_notice"])
+        self.assertEqual(summary_items["Gemeinde / Kommune"], "Stadt Musterhausen")
+        self.assertEqual(summary_items["Steuerjahr / Erhebungszeitraum"], "2023")
+        self.assertEqual(summary_items["Zahlbetrag"], "630.00")
+        self.assertIn("previous_bescheid", response.context)
+        self.assertContains(response, "Demo-Beispielfall")
+        self.assertContains(response, "fiktiven")
+        self.assertContains(response, "keine echten Bescheiddaten")
+        self.assertContains(response, "Zusammenfassung")
+
+    def test_demo_entry_uses_fictional_fixture_files(self):
+        response = self.client.get(reverse("xgewerbesteuer_demo"), follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["is_demo"])
+        self.assertEqual(response.context["all_bescheide_count"], 2)
+        self.assertTrue(
+            response.context["uploaded_file_name"].startswith("GEWST-0010-12345678")
+        )
+        self.assertIn("1234567890000", response.context["uploaded_file_name"])
+
+    def test_demo_entry_shows_understandable_error_when_fixture_processing_fails(self):
+        with patch(
+            "xgewerbesteuer.views.process_uploaded_bescheid",
+            return_value={
+                "is_valid": False,
+                "message": "Die Demo-Datei konnte nicht verarbeitet werden.",
+                "details": [],
+            },
+        ):
+            response = self.client.get(reverse("xgewerbesteuer_demo"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "xgewerbesteuer/upload.html")
+        self.assertContains(response, "Demo-Beispielfall konnte nicht geladen werden")
+        self.assertContains(response, 'name="bescheide"')
 
     def test_post_without_file_shows_missing_file_error(self):
         response = self.client.post(reverse("xgewerbesteuer_upload"), data={})

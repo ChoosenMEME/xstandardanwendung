@@ -1,6 +1,9 @@
 """View-Funktionen fuer die XGewerbesteuer-App."""
 
+from pathlib import Path
+
 from django.contrib import messages
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import DatabaseError
 from django.http import HttpResponse
 from django.shortcuts import redirect, render
@@ -35,6 +38,17 @@ from .services.export import (
 from .services.privacy import anonymize_result_context
 
 RESULT_SESSION_KEY = "xgewerbesteuer_result"
+DEMO_FIXTURE_DIR = Path(__file__).resolve().parent / "tests" / "fixtures"
+DEMO_FIXTURE_FILES = [
+    (
+        "GEWST-0010-12345678-1234567890000-2022-01-15_"
+        "00000000-0000-0000-0000-000000000102.xml"
+    ),
+    (
+        "GEWST-0010-12345678-1234567890000-2023-01-15_"
+        "00000000-0000-0000-0000-000000000103.xml"
+    ),
+]
 
 
 def xgewerbesteuer_dashboard(request):
@@ -62,6 +76,55 @@ def _sort_bescheide_chronologically(bescheide):
         bescheide,
         key=sort_key,
     )
+
+
+def _build_result_session_data(results, upload_errors=None, is_demo=False, demo_notice=None):
+    sorted_bescheide = _sort_bescheide_chronologically(results)
+    current_bescheid = sorted_bescheide[-1]
+
+    session_data = {
+        "current_bescheid": current_bescheid,
+        "all_bescheide_count": len(sorted_bescheide),
+        "previous_bescheid": None,
+        "period_comparison_notice": None,
+        "change_comparison_items": None,
+        "comparison_errors": upload_errors or [],
+        "multi_bescheid_comparison": None,
+        "historical_development": None,
+        "saved_upload_success": None,
+        "saved_upload_error": None,
+        "is_demo": is_demo,
+        "demo_notice": demo_notice,
+    }
+
+    if len(sorted_bescheide) >= 2:
+        previous_bescheid = sorted_bescheide[-2]
+        session_data["previous_bescheid"] = previous_bescheid
+        message_type_comparison_notice = build_message_type_comparison_notice(
+            current_bescheid,
+            previous_bescheid,
+        )
+        period_comparison_notice = build_period_comparison_notice(
+            current_bescheid["tax_period"],
+            previous_bescheid["tax_period"],
+        )
+        session_data["period_comparison_notice"] = (
+            message_type_comparison_notice or period_comparison_notice
+        )
+        session_data["change_comparison_items"] = build_change_comparison(
+            current_bescheid,
+            previous_bescheid,
+        )
+
+        multi_bescheid_comparison = build_multi_bescheid_comparison(sorted_bescheide)
+
+        if multi_bescheid_comparison:
+            session_data["multi_bescheid_comparison"] = multi_bescheid_comparison
+            session_data["historical_development"] = build_historical_development(
+                multi_bescheid_comparison["records"]
+            )
+
+    return session_data
 
 
 def xgewerbesteuer_upload(request):
@@ -103,48 +166,8 @@ def xgewerbesteuer_upload(request):
             "upload_errors": upload_errors,
         })
 
-    sorted_bescheide = _sort_bescheide_chronologically(results)
-    current_bescheid = sorted_bescheide[-1]
-
-    session_data = {
-        "current_bescheid": current_bescheid,
-        "all_bescheide_count": len(sorted_bescheide),
-        "previous_bescheid": None,
-        "period_comparison_notice": None,
-        "change_comparison_items": None,
-        "comparison_errors": upload_errors,
-        "multi_bescheid_comparison": None,
-        "historical_development": None,
-        "saved_upload_success": None,
-        "saved_upload_error": None,
-    }
-
-    if len(sorted_bescheide) >= 2:
-        previous_bescheid = sorted_bescheide[-2]
-        session_data["previous_bescheid"] = previous_bescheid
-        message_type_comparison_notice = build_message_type_comparison_notice(
-            current_bescheid,
-            previous_bescheid,
-        )
-        period_comparison_notice = build_period_comparison_notice(
-            current_bescheid["tax_period"],
-            previous_bescheid["tax_period"],
-        )
-        session_data["period_comparison_notice"] = (
-            message_type_comparison_notice or period_comparison_notice
-        )
-        session_data["change_comparison_items"] = build_change_comparison(
-            current_bescheid,
-            previous_bescheid,
-        )
-
-        multi_bescheid_comparison = build_multi_bescheid_comparison(sorted_bescheide)
-
-        if multi_bescheid_comparison:
-            session_data["multi_bescheid_comparison"] = multi_bescheid_comparison
-            session_data["historical_development"] = build_historical_development(
-                multi_bescheid_comparison["records"]
-            )
+    session_data = _build_result_session_data(results, upload_errors)
+    current_bescheid = session_data["current_bescheid"]
 
     if should_save_upload:
         context_for_save = _build_result_context(session_data)
@@ -161,6 +184,50 @@ def xgewerbesteuer_upload(request):
             )
 
     request.session[RESULT_SESSION_KEY] = session_data
+    return redirect("xgewerbesteuer_results")
+
+
+def xgewerbesteuer_demo(request):
+    results = []
+    upload_errors = []
+
+    for fixture_name in DEMO_FIXTURE_FILES:
+        fixture_path = DEMO_FIXTURE_DIR / fixture_name
+        uploaded_file = SimpleUploadedFile(
+            fixture_name,
+            fixture_path.read_bytes(),
+            content_type="application/xml",
+        )
+        result = process_uploaded_bescheid(uploaded_file)
+
+        if result["is_valid"]:
+            results.append(result["bescheid"])
+        else:
+            upload_errors.append({
+                "file_name": fixture_name,
+                "message": result["message"],
+                "details": result.get("details", []),
+            })
+
+    if not results:
+        return render(request, "xgewerbesteuer/upload.html", {
+            "upload_error": (
+                "Demo-Beispielfall konnte nicht geladen werden. "
+                "Bitte versuchen Sie es später erneut oder laden Sie eine eigene XML-Datei hoch."
+            ),
+            "upload_errors": upload_errors,
+        })
+
+    request.session[RESULT_SESSION_KEY] = _build_result_session_data(
+        results,
+        upload_errors,
+        is_demo=True,
+        demo_notice=(
+            "Demo-Beispielfall mit fiktiven, anonymisierten Testdaten. "
+            "Es wurden keine echten Bescheiddaten verarbeitet."
+        ),
+    )
+
     return redirect("xgewerbesteuer_results")
 
 
@@ -203,6 +270,8 @@ def _build_result_context(session_data):
         "due_date_calendar": build_due_date_calendar(current_bescheid),
         "plausibility_check": build_plausibility_check(current_bescheid),
         "liquidity_impact": build_liquidity_impact(current_bescheid),
+        "is_demo": session_data.get("is_demo", False),
+        "demo_notice": session_data.get("demo_notice"),
         "privacy_mode_enabled": session_data.get("privacy_mode_enabled", False),
     }
 
