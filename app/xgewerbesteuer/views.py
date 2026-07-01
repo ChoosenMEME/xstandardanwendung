@@ -265,24 +265,24 @@ def xgewerbesteuer_load_saved(request):
         "file_name": saved_upload.file_name,
         "file_size": saved_upload.file_size,
         "schema_name": "",
-        "message_type": "Nicht gefunden",
-        "message_type_label": "Nicht gefunden",
+        "message_type": None,
+        "message_type_label": None,
         "message_type_category": "unknown",
         "message_type_summary": "",
         "supports_comparison": False,
-        "municipality": saved_upload.municipality or "Nicht gefunden",
-        "tax_period": saved_upload.tax_period or "Nicht gefunden",
-        "amount_due": saved_upload.amount_due or "Nicht gefunden",
+        "municipality": saved_upload.municipality or None,
+        "tax_period": saved_upload.tax_period or None,
+        "amount_due": saved_upload.amount_due or None,
         "trade_tax_assessment_amount": (
-            saved_upload.trade_tax_assessment_amount or "Nicht gefunden"
+            saved_upload.trade_tax_assessment_amount or None
         ),
-        "assessment_rate": saved_upload.assessment_rate or "Nicht gefunden",
-        "due_dates": saved_upload.due_dates or "Nicht gefunden",
+        "assessment_rate": saved_upload.assessment_rate or None,
+        "due_dates": saved_upload.due_dates or None,
         "advance_payments": saved_upload.advance_payments or [],
         "summary_items": saved_upload.summary_items or [],
         "calculation_explanation": saved_upload.result_data.get("calculation_explanation", {}),
         "payment_classification": {
-            "type": saved_upload.payment_type or "Nicht gefunden",
+            "type": saved_upload.payment_type or None,
             "message": "",
         },
     }

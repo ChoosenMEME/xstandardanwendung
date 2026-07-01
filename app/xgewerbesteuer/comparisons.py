@@ -14,7 +14,7 @@ from .calculations import (
 
 
 def build_period_comparison_notice(current_tax_period, previous_tax_period):
-    if current_tax_period == "Nicht gefunden" or previous_tax_period == "Nicht gefunden":
+    if is_missing_value(current_tax_period) or is_missing_value(previous_tax_period):
         return (
             "Die Steuerjahre konnten nicht vollständig verglichen werden. "
             "Bitte prüfen Sie die Bescheide manuell."
@@ -35,8 +35,8 @@ def build_period_comparison_notice(current_tax_period, previous_tax_period):
 def build_message_type_comparison_notice(current_bescheid, previous_bescheid):
     current_type = current_bescheid.get("message_type")
     previous_type = previous_bescheid.get("message_type")
-    current_label = current_bescheid.get("message_type_label", "Nicht gefunden")
-    previous_label = previous_bescheid.get("message_type_label", "Nicht gefunden")
+    current_label = current_bescheid.get("message_type_label")
+    previous_label = previous_bescheid.get("message_type_label")
 
     if current_type or previous_type:
         if current_type != previous_type:
@@ -89,7 +89,7 @@ def compare_decimal_values(current_value, previous_value):
 
 
 def compare_text_values(current_value, previous_value):
-    if current_value == "Nicht gefunden" or previous_value == "Nicht gefunden":
+    if is_missing_value(current_value) or is_missing_value(previous_value):
         return {
             "difference": "Nicht vergleichbar",
             "percentage": "Nicht vergleichbar",
@@ -174,8 +174,8 @@ def build_change_comparison(current_bescheid, previous_bescheid):
     comparison_items = []
 
     for field in comparison_fields:
-        current_value = current_bescheid.get(field["key"], "Nicht gefunden")
-        previous_value = previous_bescheid.get(field["key"], "Nicht gefunden")
+        current_value = current_bescheid.get(field["key"])
+        previous_value = previous_bescheid.get(field["key"])
 
         if field["type"] == "decimal":
             comparison_result = compare_decimal_values(current_value, previous_value)
@@ -202,7 +202,7 @@ def build_change_comparison(current_bescheid, previous_bescheid):
 
 
 def extract_sort_year(tax_period):
-    if not tax_period or tax_period == "Nicht gefunden":
+    if is_missing_value(tax_period):
         return 9999
 
     match = re.search(r"\b(19|20)\d{2}\b", str(tax_period))
@@ -215,7 +215,7 @@ def extract_sort_year(tax_period):
 
 def format_advance_payments_for_comparison(advance_payments):
     if not advance_payments:
-        return "Nicht gefunden"
+        return None
 
     formatted_payments = []
 
@@ -283,8 +283,8 @@ def sort_bescheid_records_chronologically(records):
         records,
         key=lambda record: (
             extract_sort_year(record.get("tax_period")),
-            record.get("tax_period", ""),
-            record.get("file_name", ""),
+            record.get("tax_period") or "",
+            record.get("file_name") or "",
         ),
     )
 
@@ -293,7 +293,7 @@ def group_bescheide_by_tax_period(records):
     groups = {}
 
     for record in records:
-        tax_period = record.get("tax_period") or "Nicht gefunden"
+        tax_period = record.get("tax_period")
         groups.setdefault(tax_period, []).append(record)
 
     return groups
@@ -313,7 +313,7 @@ def build_multi_bescheid_comparison(bescheide):
     duplicate_tax_periods = sorted(
         tax_period
         for tax_period, period_records in grouped_records.items()
-        if len(period_records) > 1
+        if not is_missing_value(tax_period) and len(period_records) > 1
     )
 
     for record in records:
@@ -341,7 +341,7 @@ def build_multi_bescheid_comparison(bescheide):
     message_types = {
         record["message_type"]
         for record in records
-        if record.get("message_type") != "Nicht gefunden"
+        if not is_missing_value(record.get("message_type"))
     }
 
     if len(message_types) > 1:
@@ -394,7 +394,7 @@ def get_main_due_date(due_dates):
     parsed_due_dates = split_due_dates(due_dates)
 
     if not parsed_due_dates:
-        return "Nicht gefunden"
+        return None
 
     return parsed_due_dates[0]
 
@@ -422,19 +422,18 @@ def build_historical_development_row(record, previous_record=None):
 
     main_due_date = get_main_due_date(record.get("due_dates"))
 
-    if main_due_date == "Nicht gefunden":
+    if is_missing_value(main_due_date):
         notes.append("Wichtigste Fälligkeit nicht gefunden.")
 
     return {
-        "tax_period": record.get("tax_period", "Nicht gefunden"),
-        "amount_due": record.get("amount_due", "Nicht gefunden"),
+        "tax_period": record.get("tax_period"),
+        "amount_due": record.get("amount_due"),
         "amount_due_change": amount_due_change,
         "trade_tax_assessment_amount": record.get(
             "trade_tax_assessment_amount",
-            "Nicht gefunden",
         ),
         "trade_tax_assessment_amount_change": trade_tax_assessment_amount_change,
-        "assessment_rate": record.get("assessment_rate", "Nicht gefunden"),
+        "assessment_rate": record.get("assessment_rate"),
         "assessment_rate_change": assessment_rate_change,
         "main_due_date": main_due_date,
         "notes": notes,
@@ -508,13 +507,13 @@ def build_multi_metric_chart_data(rows):
     for index, row in enumerate(rows):
         chart_rows.append({
             "tax_period": row.get("tax_period", ""),
-            "amount_due": row.get("amount_due", "Nicht gefunden"),
+            "amount_due": row.get("amount_due"),
             "amount_due_width": amount_widths[index],
             "trade_tax_assessment_amount": row.get(
-                "trade_tax_assessment_amount", "Nicht gefunden",
+                "trade_tax_assessment_amount",
             ),
             "messbetrag_width": messbetrag_widths[index],
-            "assessment_rate": row.get("assessment_rate", "Nicht gefunden"),
+            "assessment_rate": row.get("assessment_rate"),
             "rate_width": rate_widths[index],
         })
 

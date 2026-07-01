@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load i18n %}
+{% load xgewerbesteuer_filters %}
 
 {% block title %}{% trans "Auswertung" %} - {% trans "Gewerbesteuer-Assistent" %}{% endblock %}
 
@@ -11,10 +12,10 @@
     <h1 class="page-header__title">{% trans "Auswertung" %}{% if all_bescheide_count > 1 %} ({{ all_bescheide_count }} {% trans "Bescheide" %}){% endif %}</h1>
     <p class="page-header__description">
         {% if all_bescheide_count > 1 and previous_bescheid %}
-            {% trans "Aktuellster Bescheid" %}: {{ uploaded_file_name }}
-            &middot; {% trans "Zeitraum" %}: {{ previous_bescheid.tax_period }} &ndash; {{ current_bescheid.tax_period }}
+            {% trans "Aktuellster Bescheid" %}: {{ uploaded_file_name|default_display }}
+            &middot; {% trans "Zeitraum" %}: {{ previous_bescheid.tax_period|default_display }} &ndash; {{ current_bescheid.tax_period|default_display }}
         {% else %}
-            {{ uploaded_file_name }} ({{ uploaded_file_size }} Byte)
+            {{ uploaded_file_name|default_display }} ({{ uploaded_file_size }} Byte)
         {% endif %}
     </p>
 </div>
@@ -76,7 +77,7 @@
                     <div class="delta-card__content">
                         <p class="delta-card__label">{{ item.label }}</p>
                         <p class="delta-card__values">
-                            {{ item.previous_value }} <span>&rarr;</span> {{ item.current_value }}
+                            {{ item.previous_value|default_display }} <span>&rarr;</span> {{ item.current_value|default_display }}
                         </p>
                         <p class="delta-card__change">
                             {% if item.change_type == "Erhöhung" or item.change_type == "Senkung" %}
@@ -99,7 +100,7 @@
             {% if item.label == "Zahlbetrag" or item.label == "Gemeinde / Kommune" or item.label == "Steuerjahr / Erhebungszeitraum" or item.label == "Gewerbesteuermessbetrag" %}
                 <div class="metric-card">
                     <p class="metric-card__label">{{ item.label }}</p>
-                    <p class="metric-card__value">{{ item.value }}</p>
+                    <p class="metric-card__value">{{ item.value|default_display }}</p>
                 </div>
             {% endif %}
         {% endfor %}
@@ -158,7 +159,7 @@
                     {% for item in summary_items %}
                         <tr>
                             <th scope="row">{{ item.label }}</th>
-                            <td><strong>{{ item.value }}</strong></td>
+                            <td><strong>{{ item.value|default_display }}</strong></td>
                         </tr>
                     {% endfor %}
                 </tbody>
@@ -236,7 +237,7 @@
         {% if plausibility_check.items %}
             <ul class="text-sm text-secondary mt-1">
                 {% for item in plausibility_check.items %}
-                    <li>{{ item.label }}: {{ item.value }}</li>
+                        <li>{{ item.label }}: {{ item.value|default_display }}</li>
                 {% endfor %}
             </ul>
         {% endif %}
@@ -250,7 +251,7 @@
 
         <p class="mt-1">
             {% trans "Zahlungsart" %}:
-            <strong>{{ payment_classification.type }}</strong>
+            <strong>{{ payment_classification.type|default_display }}</strong>
         </p>
         <p class="text-secondary">{{ payment_classification.message }}</p>
 
@@ -299,11 +300,11 @@
                         <ul class="calendar-entry-list">
                             {% for entry in month.entries %}
                                 <li class="calendar-entry">
-                                    <p class="calendar-entry__date">{{ entry.display_date }}</p>
-                                    <p class="calendar-entry__label">{{ entry.label }}</p>
+                                    <p class="calendar-entry__date">{{ entry.display_date|default_display }}</p>
+                                    <p class="calendar-entry__label">{{ entry.label|default_display }}</p>
                                     <p class="calendar-entry__meta">
-                                        {% trans "Betrag" %}: {{ entry.amount }} &middot;
-                                        {% trans "Zahlungsart" %}: {{ entry.payment_type }}
+                                        {% trans "Betrag" %}: {{ entry.amount|default_display }} &middot;
+                                        {% trans "Zahlungsart" %}: {{ entry.payment_type|default_display }}
                                     </p>
                                     {% if entry.notes %}
                                         <ul class="text-xs text-muted mt-1">
@@ -327,7 +328,7 @@
             <ul class="text-sm text-secondary">
                 {% for item in due_date_calendar.undated_items %}
                     <li>
-                        {{ item.payment_type }}: {{ item.amount }}
+                        {{ item.payment_type|default_display }}: {{ item.amount|default_display }}
                         {% if item.notes %}
                             <ul class="text-xs text-muted">
                                 {% for note in item.notes %}
@@ -366,9 +367,9 @@
                             <ul class="liquidity-item-list">
                                 {% for item in group.items %}
                                     <li class="liquidity-item liquidity-item--{{ item.impact }}">
-                                        {{ item.payment_type }}:
-                                        {{ item.amount_display }},
-                                        {% trans "Fälligkeit" %}: {{ item.due_date_display }}
+                                        {{ item.payment_type|default_display }}:
+                                        {{ item.amount_display|default_display }},
+                                        {% trans "Fälligkeit" %}: {{ item.due_date_display|default_display }}
                                         {% if item.notice %}
                                             <span class="liquidity-item__notice">{{ item.notice }}</span>
                                         {% endif %}
@@ -412,10 +413,10 @@
                 <tbody>
                     {% for payment in advance_payments %}
                         <tr>
-                            <td><strong>{{ payment.amount }}</strong></td>
-                            <td>{{ payment.due_date }}</td>
-                            <td>{{ payment.period }}</td>
-                            <td>{{ payment.type }}</td>
+                            <td><strong>{{ payment.amount|default_display }}</strong></td>
+                            <td>{{ payment.due_date|default_display }}</td>
+                            <td>{{ payment.period|default_display }}</td>
+                            <td>{{ payment.type|default_display }}</td>
                         </tr>
                     {% endfor %}
                 </tbody>
@@ -448,13 +449,13 @@
                 <tbody>
                     <tr>
                         <th scope="row">{% trans "Aktueller Bescheid" %}</th>
-                        <td><strong>{{ current_bescheid.message_type_label }}</strong></td>
-                        <td><strong>{{ current_bescheid.tax_period }}</strong></td>
+                        <td><strong>{{ current_bescheid.message_type_label|default_display }}</strong></td>
+                        <td><strong>{{ current_bescheid.tax_period|default_display }}</strong></td>
                     </tr>
                     <tr>
                         <th scope="row">{% trans "Vorbescheid" %}</th>
-                        <td><strong>{{ previous_bescheid.message_type_label }}</strong></td>
-                        <td><strong>{{ previous_bescheid.tax_period }}</strong></td>
+                        <td><strong>{{ previous_bescheid.message_type_label|default_display }}</strong></td>
+                        <td><strong>{{ previous_bescheid.tax_period|default_display }}</strong></td>
                     </tr>
                 </tbody>
             </table>
@@ -485,8 +486,8 @@
                         {% for item in change_comparison_items %}
                             <tr class="{% if item.importance == 'important' %}row--highlight-warning{% elif item.importance == 'notice' %}row--highlight-notice{% endif %}">
                                 <th scope="row">{{ item.label }}</th>
-                                <td><strong>{{ item.current_value }}</strong></td>
-                                <td>{{ item.previous_value }}</td>
+                                <td><strong>{{ item.current_value|default_display }}</strong></td>
+                                <td>{{ item.previous_value|default_display }}</td>
                                 <td>
                                     <span class="change-badge {% if item.change_type == 'Erhöhung' %}change-badge--up{% elif item.change_type == 'Senkung' %}change-badge--down{% elif item.change_type == 'Unverändert' %}change-badge--neutral{% else %}change-badge--incomparable{% endif %}">
                                         {% if item.change_type == "Erhöhung" %}&#9650;{% elif item.change_type == "Senkung" %}&#9660;{% elif item.change_type == "Unverändert" %}&ndash;{% endif %}
@@ -546,16 +547,16 @@
                 <tbody>
                     {% for record in multi_bescheid_comparison.records %}
                         <tr class="{{ record.css_class }}">
-                            <th scope="row">{{ record.tax_period }}</th>
-                            <td>{{ record.message_type_label }}</td>
-                            <td>{{ record.file_name }}</td>
-                            <td>{{ record.municipality }}</td>
-                            <td>{{ record.amount_due }}</td>
-                            <td>{{ record.payment_type }}</td>
-                            <td>{{ record.trade_tax_assessment_amount }}</td>
-                            <td>{{ record.assessment_rate }}</td>
-                            <td>{{ record.due_dates }}</td>
-                            <td>{{ record.advance_payments }}</td>
+                            <th scope="row">{{ record.tax_period|default_display }}</th>
+                            <td>{{ record.message_type_label|default_display }}</td>
+                            <td>{{ record.file_name|default_display }}</td>
+                            <td>{{ record.municipality|default_display }}</td>
+                            <td>{{ record.amount_due|default_display }}</td>
+                            <td>{{ record.payment_type|default_display }}</td>
+                            <td>{{ record.trade_tax_assessment_amount|default_display }}</td>
+                            <td>{{ record.assessment_rate|default_display }}</td>
+                            <td>{{ record.due_dates|default_display }}</td>
+                            <td>{{ record.advance_payments|default_display }}</td>
                             <td>
                                 {% if record.notes %}
                                     <ul class="mb-0">
@@ -604,21 +605,21 @@
 
                 {% for item in historical_development.multi_metric_chart %}
                     <div class="multi-metric-chart__year">
-                        <div class="multi-metric-chart__year-label">{{ item.tax_period }}</div>
+                        <div class="multi-metric-chart__year-label">{{ item.tax_period|default_display }}</div>
                         <div class="multi-metric-chart__bars">
                             {% if item.amount_due_width %}
                                 <div class="multi-metric-chart__bar multi-metric-chart__bar--primary" style="width: {{ item.amount_due_width }}%;">
-                                    {{ item.amount_due }}
+                                    {{ item.amount_due|default_display }}
                                 </div>
                             {% endif %}
                             {% if item.messbetrag_width %}
                                 <div class="multi-metric-chart__bar multi-metric-chart__bar--secondary" style="width: {{ item.messbetrag_width }}%;">
-                                    {{ item.trade_tax_assessment_amount }}
+                                    {{ item.trade_tax_assessment_amount|default_display }}
                                 </div>
                             {% endif %}
                             {% if item.rate_width %}
                                 <div class="multi-metric-chart__bar multi-metric-chart__bar--tertiary" style="width: {{ item.rate_width }}%;">
-                                    {{ item.assessment_rate }}
+                                    {{ item.assessment_rate|default_display }}
                                 </div>
                             {% endif %}
                         </div>
@@ -629,9 +630,9 @@
             <div class="historical-chart mt-3" aria-label="{% trans 'Darstellung der Zahlbeträge' %}">
                 {% for item in historical_development.chart_data %}
                     <div class="historical-chart__row">
-                        <span class="historical-chart__label">{{ item.tax_period }}</span>
+                        <span class="historical-chart__label">{{ item.tax_period|default_display }}</span>
                         <span class="historical-chart__bar" style="width: {{ item.width_percent }}%;">
-                            {{ item.amount_due }}
+                            {{ item.amount_due|default_display }}
                         </span>
                     </div>
                 {% endfor %}
@@ -656,14 +657,14 @@
                 <tbody>
                     {% for row in historical_development.rows %}
                         <tr>
-                            <th scope="row">{{ row.tax_period }}</th>
-                            <td>{{ row.amount_due }}</td>
+                            <th scope="row">{{ row.tax_period|default_display }}</th>
+                            <td>{{ row.amount_due|default_display }}</td>
                             <td>{{ row.amount_due_change }}</td>
-                            <td>{{ row.trade_tax_assessment_amount }}</td>
+                            <td>{{ row.trade_tax_assessment_amount|default_display }}</td>
                             <td>{{ row.trade_tax_assessment_amount_change }}</td>
-                            <td>{{ row.assessment_rate }}</td>
+                            <td>{{ row.assessment_rate|default_display }}</td>
                             <td>{{ row.assessment_rate_change }}</td>
-                            <td>{{ row.main_due_date }}</td>
+                            <td>{{ row.main_due_date|default_display }}</td>
                             <td>
                                 {% if row.notes %}
                                     <ul class="mb-0">
