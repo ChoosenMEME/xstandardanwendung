@@ -39,6 +39,18 @@
                         {% trans "Hilfe" %}
                     </a>
                 </li>
+                <li role="none">
+                    <button
+                        class="nav-link nav-link--button"
+                        type="button"
+                        id="assistant-toggle"
+                        aria-expanded="false"
+                        aria-controls="assistant-panel"
+                        role="menuitem"
+                    >
+                        {% trans "KI-Assistent" %}
+                    </button>
+                </li>
                 {% if LOGIN_ENABLED %}
                     {% if user.is_authenticated %}
                         <li class="nav-account-placeholder" role="none">
