@@ -32,6 +32,7 @@ from .services.export import (
     create_ics_export,
     create_pdf_report,
 )
+from .services.privacy import anonymize_result_context
 
 RESULT_SESSION_KEY = "xgewerbesteuer_result"
 
@@ -169,7 +170,15 @@ def xgewerbesteuer_results(request):
     if not session_data:
         return redirect("xgewerbesteuer_upload")
 
+    if "privacy" in request.GET:
+        session_data["privacy_mode_enabled"] = request.GET.get("privacy") == "1"
+        request.session[RESULT_SESSION_KEY] = session_data
+
     context = _build_result_context(session_data)
+
+    if session_data.get("privacy_mode_enabled"):
+        context = anonymize_result_context(context)
+
     prepare_download_sessions(request, context)
 
     return render(request, "xgewerbesteuer/results.html", context)
@@ -194,6 +203,7 @@ def _build_result_context(session_data):
         "due_date_calendar": build_due_date_calendar(current_bescheid),
         "plausibility_check": build_plausibility_check(current_bescheid),
         "liquidity_impact": build_liquidity_impact(current_bescheid),
+        "privacy_mode_enabled": session_data.get("privacy_mode_enabled", False),
     }
 
     if session_data.get("previous_bescheid"):
