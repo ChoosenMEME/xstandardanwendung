@@ -87,6 +87,15 @@ def build_validation_issue(code, detail=""):
             "next_action": "Bitte prüfen Sie die Datei und versuchen Sie es erneut.",
         },
     }
+    issue_definitions["unexpected_import_error"] = {
+        "group": "Unerwarteter Importfehler",
+        "message": "Die Datei konnte nicht kontrolliert verarbeitet werden.",
+        "next_action": (
+            "Bitte pruefen Sie die Datei und versuchen Sie es erneut. "
+            "Falls der Fehler erneut auftritt, kontaktieren Sie den Support "
+            "mit der angegebenen Fehler-ID."
+        ),
+    }
     definition = issue_definitions[code]
 
     return UploadValidationIssue(

@@ -66,6 +66,7 @@ from xgewerbesteuer.services.bescheid import (
     group_calendar_entries_by_month,
     process_uploaded_bescheid,
 )
+from xgewerbesteuer.services.support_errors import generate_error_id
 from xgewerbesteuer.services.export import (
     CSV_EXPORT_COLUMNS,
     CSV_EXPORT_SESSION_KEY,
@@ -1757,6 +1758,19 @@ class XGewerbesteuerPrivacyModeTests(SimpleTestCase):
 
 
 class XGewerbesteuerXsdValidationTests(SimpleTestCase):
+    def test_generate_error_id_uses_short_neutral_format(self):
+        error_id = generate_error_id()
+
+        self.assertRegex(error_id, r"^XGST-[A-Z0-9]{8}$")
+        self.assertNotIn("1234567890000", error_id)
+        self.assertNotIn("bescheid", error_id.lower())
+        self.assertNotIn("<", error_id)
+
+    def test_generate_error_id_creates_distinguishable_values(self):
+        error_ids = {generate_error_id() for _ in range(20)}
+
+        self.assertGreater(len(error_ids), 1)
+
     def test_upload_issue_for_wrong_file_extension_is_structured(self):
         issue = get_upload_issue(uploaded_xml("bescheid.pdf", b"<nachricht/>"))
 
@@ -2240,6 +2254,23 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertContains(response, "Nächster Schritt")
         self.assertNotIn("uploaded_file_name", response.context)
 
+    def test_known_upload_error_keeps_concrete_message_and_adds_error_id(self):
+        response = self.client.post(
+            reverse("xgewerbesteuer_upload"),
+            data={"bescheide": uploaded_xml("bescheid.txt", b"<nachricht/>")},
+        )
+
+        detail = response.context["upload_errors"][0]["details"][0]
+
+        self.assertEqual(detail["code"], "invalid_file_type")
+        self.assertEqual(
+            detail["message"],
+            "Die hochgeladene Datei muss eine XML-Datei sein.",
+        )
+        self.assertRegex(detail["error_id"], r"^XGST-[A-Z0-9]{8}$")
+        self.assertContains(response, "Die hochgeladene Datei muss eine XML-Datei sein.")
+        self.assertContains(response, detail["error_id"])
+
     def test_post_rejects_oversized_xml_before_parsing(self):
         response = self.client.post(
             reverse("xgewerbesteuer_upload"),
@@ -2364,6 +2395,53 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertContains(response, 'type="submit"')
         self.assertNotContains(response, "Traceback")
         self.assertNotContains(response, "<nachricht>")
+
+    def test_unexpected_upload_error_shows_support_id_without_raw_data(self):
+        raw_xml = b"<nachricht><steuernummer>1234567890000</steuernummer></nachricht>"
+
+        with patch(
+            "xgewerbesteuer.views.process_uploaded_bescheid",
+            side_effect=RuntimeError("Parser failed with C:\\temp\\bescheid.xml"),
+        ):
+            response = self.client.post(
+                reverse("xgewerbesteuer_upload"),
+                data={"bescheide": uploaded_xml("bescheid.xml", raw_xml)},
+            )
+
+        detail = response.context["upload_errors"][0]["details"][0]
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(detail["code"], "unexpected_import_error")
+        self.assertRegex(detail["error_id"], r"^XGST-[A-Z0-9]{8}$")
+        self.assertContains(response, detail["error_id"])
+        self.assertContains(response, "Support")
+        self.assertNotContains(response, "<steuernummer>")
+        self.assertNotContains(response, "1234567890000")
+        self.assertNotContains(response, "C:\\temp\\bescheid.xml")
+        self.assertNotContains(response, "Traceback")
+
+    def test_unexpected_upload_error_logs_support_id_without_sensitive_values(self):
+        raw_xml = b"<nachricht><steuernummer>1234567890000</steuernummer></nachricht>"
+
+        with patch(
+            "xgewerbesteuer.views.process_uploaded_bescheid",
+            side_effect=RuntimeError("Parser failed with C:\\temp\\bescheid.xml"),
+        ):
+            with self.assertLogs("xgewerbesteuer.services.support_errors", level="ERROR") as logs:
+                response = self.client.post(
+                    reverse("xgewerbesteuer_upload"),
+                    data={"bescheide": uploaded_xml("bescheid.xml", raw_xml)},
+                )
+
+        detail = response.context["upload_errors"][0]["details"][0]
+        log_output = "\n".join(logs.output)
+
+        self.assertIn(detail["error_id"], log_output)
+        self.assertIn("unexpected_import_error", log_output)
+        self.assertNotIn("<steuernummer>", log_output)
+        self.assertNotIn("1234567890000", log_output)
+        self.assertNotIn("C:\\temp\\bescheid.xml", log_output)
+        self.assertNotIn("Traceback", log_output)
 
     def test_post_valid_fixture_displays_summary_with_core_values(self):
         content = VALID_BESCHEID_FIXTURE.read_bytes()

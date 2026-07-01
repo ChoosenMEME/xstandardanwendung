@@ -22,6 +22,7 @@ from .services.bescheid import (
     build_liquidity_impact,
     build_notice_area,
     build_status_indicator,
+    build_unexpected_import_error_result,
     create_saved_upload,
     get_saved_uploads_for_request,
     prepare_download_sessions,
@@ -155,13 +156,18 @@ def xgewerbesteuer_upload(request):
     upload_errors = []
 
     for uploaded_file in uploaded_files:
-        result = process_uploaded_bescheid(uploaded_file)
+        try:
+            result = process_uploaded_bescheid(uploaded_file)
+        except Exception as error:
+            result = build_unexpected_import_error_result(error)
+
         if result["is_valid"]:
             results.append(result["bescheid"])
         else:
             upload_errors.append({
                 "file_name": uploaded_file.name,
                 "message": result["message"],
+                "error_id": result.get("error_id"),
                 "details": result.get("details", []),
             })
 
