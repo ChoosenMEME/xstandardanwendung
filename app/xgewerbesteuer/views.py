@@ -363,12 +363,17 @@ def xgewerbesteuer_assistant(request):
                 result_context=result_context,
             )
         )
-    except AssistantProviderError as exc:
+    except AssistantProviderError as _exc:
+        user_error_message = (
+            "Der Assistent ist aktuell nicht verfügbar. "
+            "Bitte versuchen Sie es später erneut."
+        )
+
         if wants_json:
             return JsonResponse({
                 "ok": False,
                 "answer": "",
-                "error": str(exc),
+                "error": user_error_message,
                 "mode": mode,
                 "mode_label": mode_label,
             })
@@ -376,7 +381,7 @@ def xgewerbesteuer_assistant(request):
         context = result_context or {}
         context.update(
             build_assistant_ui_context(
-                error=str(exc),
+                error=user_error_message,
                 question=question,
                 result_context=result_context,
             )
