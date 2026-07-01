@@ -14,15 +14,45 @@
 </div>
 
 {% if upload_errors %}
-    {% for error in upload_errors %}
-        <div class="alert alert--error" role="alert">
-            <span class="alert__icon">!</span>
-            <div class="alert__content">
-                <p class="alert__title">{{ error.file_name }}</p>
-                <p class="alert__text">{{ error.message }}</p>
-            </div>
+    <section class="alert alert--error validation-details"
+             role="alert"
+             aria-labelledby="validation-details-heading">
+        <span class="alert__icon">!</span>
+        <div class="alert__content">
+            <h2 class="alert__title" id="validation-details-heading">
+                {% trans "Validierungsdetails" %}
+            </h2>
+            <p class="alert__text">
+                {% trans "Mindestens eine Datei konnte nicht verarbeitet werden." %}
+            </p>
+            <ul class="validation-details__list">
+                {% for error in upload_errors %}
+                    <li class="validation-details__item">
+                        <p class="validation-details__file">{{ error.file_name }}</p>
+                        {% if error.details %}
+                            <ul class="validation-details__issues">
+                                {% for detail in error.details %}
+                                    <li>
+                                        <strong>{{ detail.group }}</strong>
+                                        <p>{{ detail.message }}</p>
+                                        {% if detail.detail %}
+                                            <p class="validation-details__technical">{{ detail.detail }}</p>
+                                        {% endif %}
+                                        <p class="validation-details__next">
+                                            <strong>{% trans "Nächster Schritt" %}:</strong>
+                                            {{ detail.next_action }}
+                                        </p>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            <p>{{ error.message }}</p>
+                        {% endif %}
+                    </li>
+                {% endfor %}
+            </ul>
         </div>
-    {% endfor %}
+    </section>
 {% endif %}
 
 {% if upload_error %}

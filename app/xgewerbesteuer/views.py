@@ -93,6 +93,7 @@ def xgewerbesteuer_upload(request):
             upload_errors.append({
                 "file_name": uploaded_file.name,
                 "message": result["message"],
+                "details": result.get("details", []),
             })
 
     if not results:
@@ -193,10 +194,6 @@ def _build_result_context(session_data):
         "due_date_calendar": build_due_date_calendar(current_bescheid),
         "plausibility_check": build_plausibility_check(current_bescheid),
         "liquidity_impact": build_liquidity_impact(current_bescheid),
-        "validation_success": (
-            "Die Datei wurde erfolgreich geprüft und entspricht dem erwarteten "
-            f"XGewerbesteuer-Schema. Verwendetes Schema: {current_bescheid['schema_name']}"
-        ),
     }
 
     if session_data.get("previous_bescheid"):

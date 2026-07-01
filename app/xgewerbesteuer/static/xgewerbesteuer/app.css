@@ -778,6 +778,52 @@ body {
     color: var(--color-neutral-text);
 }
 
+.validation-details {
+    align-items: flex-start;
+}
+
+.validation-details__list,
+.validation-details__issues {
+    list-style: none;
+    padding: 0;
+    margin: 0.75rem 0 0 0;
+}
+
+.validation-details__item {
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--color-error-border);
+}
+
+.validation-details__item:first-child {
+    padding-top: 0;
+    border-top: none;
+}
+
+.validation-details__file {
+    font-weight: 600;
+    margin: 0 0 0.35rem 0;
+    word-break: break-word;
+}
+
+.validation-details__issues {
+    display: grid;
+    gap: 0.5rem;
+}
+
+.validation-details__issues p {
+    margin: 0.2rem 0 0 0;
+}
+
+.validation-details__technical {
+    font-size: 0.82rem;
+    opacity: 0.9;
+    word-break: break-word;
+}
+
+.validation-details__next {
+    font-size: 0.85rem;
+}
+
 /* ===== NOTICE CARD (for notice area items) ===== */
 
 .notice-list {

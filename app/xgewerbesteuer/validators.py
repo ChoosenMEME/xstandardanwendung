@@ -1,5 +1,6 @@
 """Datei-, XML- und XSD-Validierung fuer XGewerbesteuer-Bescheide."""
 
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from lxml import etree
@@ -13,6 +14,101 @@ XSD_SCHEMA_FILES = [
 ]
 
 MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024
+
+
+@dataclass(frozen=True)
+class UploadValidationIssue:
+    """Strukturierter, nutzersicherer Validierungsfehler fuer Uploads."""
+
+    code: str
+    group: str
+    message: str
+    next_action: str
+    detail: str = ""
+
+    def as_dict(self):
+        return asdict(self)
+
+
+def build_validation_issue(code, detail=""):
+    issue_definitions = {
+        "invalid_file_type": {
+            "group": "Falscher Dateityp",
+            "message": "Die hochgeladene Datei muss eine XML-Datei sein.",
+            "next_action": "Bitte wählen Sie eine XML-Datei mit der Endung .xml aus.",
+        },
+        "file_too_large": {
+            "group": "Datei zu groß",
+            "message": "Die hochgeladene Datei ist zu groß.",
+            "next_action": (
+                "Bitte laden Sie eine kleinere XML-Datei hoch oder exportieren "
+                "Sie den Bescheid erneut ohne Anhänge."
+            ),
+        },
+        "malformed_xml": {
+            "group": "Nicht wohlgeformtes XML",
+            "message": "Die XML-Datei ist nicht wohlgeformt.",
+            "next_action": (
+                "Bitte exportieren Sie die Datei erneut aus dem Fachverfahren "
+                "oder prüfen Sie, ob die Datei vollständig übertragen wurde."
+            ),
+        },
+        "unsafe_xml": {
+            "group": "Unsichere XML-Inhalte",
+            "message": (
+                "Die XML-Datei enthält aus Sicherheitsgründen nicht erlaubte "
+                "XML-Inhalte."
+            ),
+            "next_action": (
+                "Bitte verwenden Sie eine XGewerbesteuer-Datei ohne DOCTYPE- "
+                "oder Entity-Deklarationen."
+            ),
+        },
+        "xsd_validation_error": {
+            "group": "XSD-Validierungsfehler",
+            "message": (
+                "Die Datei entspricht nicht dem erwarteten XGewerbesteuer-1.4-Schema."
+            ),
+            "next_action": (
+                "Bitte prüfen Sie, ob es sich um eine XGewerbesteuer-1.4-Datei "
+                "handelt, oder exportieren Sie den Bescheid erneut."
+            ),
+        },
+        "unsupported_message_type": {
+            "group": "Nicht unterstützter Nachrichtentyp",
+            "message": "Der Nachrichtentyp der XML-Datei wird derzeit nicht unterstuetzt.",
+            "next_action": (
+                "Bitte laden Sie einen unterstützten XGewerbesteuer-Bescheid hoch."
+            ),
+        },
+        "read_error": {
+            "group": "Unerwarteter Lesefehler",
+            "message": "Die Datei konnte nicht verarbeitet werden.",
+            "next_action": "Bitte prüfen Sie die Datei und versuchen Sie es erneut.",
+        },
+    }
+    definition = issue_definitions[code]
+
+    return UploadValidationIssue(
+        code=code,
+        group=definition["group"],
+        message=definition["message"],
+        next_action=definition["next_action"],
+        detail=detail,
+    )
+
+
+def get_upload_issue(uploaded_file):
+    if not uploaded_file.name.lower().endswith(".xml"):
+        return build_validation_issue("invalid_file_type")
+
+    if uploaded_file.size > MAX_UPLOAD_SIZE_BYTES:
+        return build_validation_issue(
+            "file_too_large",
+            detail=f"Maximal erlaubt sind {MAX_UPLOAD_SIZE_BYTES // 1024 // 1024} MB.",
+        )
+
+    return None
 
 
 def validate_xml_against_xsd(xml_data):
@@ -66,10 +162,6 @@ def validate_xml_against_xsd(xml_data):
 
 
 def get_upload_error(uploaded_file):
-    if not uploaded_file.name.lower().endswith(".xml"):
-        return "Die hochgeladene Datei muss eine XML-Datei sein."
+    issue = get_upload_issue(uploaded_file)
 
-    if uploaded_file.size > MAX_UPLOAD_SIZE_BYTES:
-        return "Die hochgeladene Datei ist zu groß."
-
-    return None
+    return issue.message if issue else None

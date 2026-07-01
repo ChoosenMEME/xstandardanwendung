@@ -76,6 +76,8 @@ from xgewerbesteuer.services.export import (
 )
 from xgewerbesteuer.validators import (
     MAX_UPLOAD_SIZE_BYTES,
+    UploadValidationIssue,
+    get_upload_issue,
     validate_xml_against_xsd,
 )
 
@@ -1664,6 +1666,26 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
 
 
 class XGewerbesteuerXsdValidationTests(SimpleTestCase):
+    def test_upload_issue_for_wrong_file_extension_is_structured(self):
+        issue = get_upload_issue(uploaded_xml("bescheid.pdf", b"<nachricht/>"))
+
+        self.assertIsInstance(issue, UploadValidationIssue)
+        self.assertEqual(issue.code, "invalid_file_type")
+        self.assertEqual(issue.group, "Falscher Dateityp")
+        self.assertIn("XML-Datei", issue.message)
+        self.assertIn("XML-Datei", issue.next_action)
+
+    def test_upload_issue_for_oversized_file_is_structured(self):
+        issue = get_upload_issue(
+            uploaded_xml("bescheid.xml", b"x" * (MAX_UPLOAD_SIZE_BYTES + 1))
+        )
+
+        self.assertIsInstance(issue, UploadValidationIssue)
+        self.assertEqual(issue.code, "file_too_large")
+        self.assertIn("Datei zu", issue.group)
+        self.assertIn("5 MB", issue.detail)
+        self.assertIn("kleinere XML-Datei", issue.next_action)
+
     def test_valid_fixture_matches_an_xgewerbesteuer_schema(self):
         is_valid, schema_name, schema_error = validate_xml_against_xsd(
             VALID_BESCHEID_FIXTURE.read_bytes()
@@ -1689,6 +1711,9 @@ class XGewerbesteuerXsdValidationTests(SimpleTestCase):
         self.assertFalse(is_valid)
         self.assertIsNone(schema_name)
         self.assertIn("gewerbesteuer.xsd", schema_error)
+        self.assertNotIn("<nachricht", schema_error)
+        self.assertNotIn(str(FIXTURES_DIR), schema_error)
+        self.assertNotIn("Traceback", schema_error)
 
 
 class SavedBescheidUploadTests(TestCase):
@@ -2067,6 +2092,12 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
             response.context["upload_errors"][0]["message"],
             "Die hochgeladene Datei muss eine XML-Datei sein.",
         )
+        self.assertEqual(
+            response.context["upload_errors"][0]["details"][0]["code"],
+            "invalid_file_type",
+        )
+        self.assertContains(response, "Falscher Dateityp")
+        self.assertContains(response, "Nächster Schritt")
         self.assertNotIn("uploaded_file_name", response.context)
 
     def test_post_rejects_oversized_xml_before_parsing(self):
@@ -2087,6 +2118,12 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
             response.context["upload_errors"][0]["message"],
             "Die hochgeladene Datei ist zu groß.",
         )
+        self.assertEqual(
+            response.context["upload_errors"][0]["details"][0]["code"],
+            "file_too_large",
+        )
+        self.assertContains(response, "Datei zu groß")
+        self.assertContains(response, "kleinere XML-Datei")
         self.assertNotIn("uploaded_file_name", response.context)
 
     def test_post_rejects_malformed_xml_with_user_safe_message(self):
@@ -2100,9 +2137,14 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertEqual(len(response.context["upload_errors"]), 1)
         self.assertEqual(
             response.context["upload_errors"][0]["message"],
-            "Die Datei ist nicht XML-konform oder enthält unsichere XML-Inhalte "
-            "und konnte nicht verarbeitet werden.",
+            "Die XML-Datei ist nicht wohlgeformt.",
         )
+        self.assertEqual(
+            response.context["upload_errors"][0]["details"][0]["code"],
+            "malformed_xml",
+        )
+        self.assertContains(response, "Nicht wohlgeformtes XML")
+        self.assertContains(response, "erneut aus dem Fachverfahren")
         self.assertNotIn("uploaded_file_name", response.context)
 
     def test_post_schema_invalid_xml_shows_validation_error_not_success(self):
@@ -2124,6 +2166,15 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertNotIn("validation_success", response.context)
         self.assertIn("upload_error", response.context)
         self.assertIn("upload_errors", response.context)
+        self.assertEqual(
+            response.context["upload_errors"][0]["details"][0]["code"],
+            "xsd_validation_error",
+        )
+        self.assertContains(response, "XSD-Validierungsfehler")
+        self.assertContains(response, "XGewerbesteuer-1.4-Datei")
+        self.assertNotContains(response, "<nachricht")
+        self.assertNotContains(response, "Traceback")
+        self.assertNotContains(response, str(FIXTURES_DIR))
         self.assertNotIn(PDF_REPORT_SESSION_KEY, self.client.session)
         self.assertNotIn(CSV_EXPORT_SESSION_KEY, self.client.session)
         self.assertNotIn(ICS_EXPORT_SESSION_KEY, self.client.session)
@@ -2148,9 +2199,31 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertEqual(len(response.context["upload_errors"]), 1)
         self.assertEqual(
             response.context["upload_errors"][0]["message"],
-            "Die Datei ist nicht XML-konform oder enthält unsichere XML-Inhalte "
-            "und konnte nicht verarbeitet werden.",
+            "Die XML-Datei enthält aus Sicherheitsgründen nicht erlaubte XML-Inhalte.",
         )
+        self.assertEqual(
+            response.context["upload_errors"][0]["details"][0]["code"],
+            "unsafe_xml",
+        )
+        self.assertContains(response, "Unsichere XML-Inhalte")
+        self.assertContains(response, "ohne DOCTYPE")
+        self.assertNotContains(response, "file:///etc/passwd")
+        self.assertNotContains(response, "ENTITY xxe")
+
+    def test_invalid_upload_details_are_semantically_findable_and_form_remains_usable(self):
+        response = self.client.post(
+            reverse("xgewerbesteuer_upload"),
+            data={"bescheide": uploaded_xml("bescheid.xml", b"<nachricht>")},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'role="alert"')
+        self.assertContains(response, 'aria-labelledby="validation-details-heading"')
+        self.assertContains(response, 'id="validation-details-heading"')
+        self.assertContains(response, 'name="bescheide"')
+        self.assertContains(response, 'type="submit"')
+        self.assertNotContains(response, "Traceback")
+        self.assertNotContains(response, "<nachricht>")
 
     def test_post_valid_fixture_displays_summary_with_core_values(self):
         content = VALID_BESCHEID_FIXTURE.read_bytes()
@@ -2177,7 +2250,10 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertEqual(summary_items["Zahlungsart"], "Nachzahlung")
         self.assertEqual(summary_items["Gewerbesteuermessbetrag"], "150.00")
         self.assertEqual(summary_items["Hebesatz"], "420")
-        self.assertIn("validation_success", response.context)
+        self.assertNotIn("validation_success", response.context)
+        self.assertNotContains(response, "Validierungsdetails")
+        self.assertNotContains(response, "XSD-Validierungsfehler")
+        self.assertNotContains(response, "Die Datei wurde erfolgreich geprüft")
         self.assertEqual(response.context["message_type_label"], "Generische Gewerbesteuernachricht")
         self.assertContains(response, "Zusammenfassung")
         self.assertContains(response, "Nachrichtentyp")
