@@ -26,7 +26,7 @@ WORKDIR /app
 
 EXPOSE ${WEB_PORT}
 
-HEALTHCHECK --interval=10s --timeout=5s --retries=5 --start-period=10s CMD python -c "import os, urllib.request; p=os.environ['WEB_PORT']; a=os.environ.get('APP_PATH','').strip('/'); h=f'/{a}/healthz/' if a else '/healthz/'; urllib.request.urlopen(f'http://127.0.0.1:{p}{h}', timeout=5)" || exit 1
+HEALTHCHECK --interval=10s --timeout=5s --retries=12 --start-period=30s CMD python -c "import os, urllib.request; p=os.environ.get('WEB_PORT','8000'); a=os.environ.get('APP_PATH','').strip('/'); h=f'/{a}/healthz/' if a else '/healthz/'; urllib.request.urlopen(f'http://127.0.0.1:{p}{h}', timeout=5)" || exit 1
 
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
