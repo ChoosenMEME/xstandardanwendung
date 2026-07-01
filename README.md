@@ -31,20 +31,45 @@ Digitale Gewerbesteuerbescheide werden zunehmend im strukturierten XÖV-Format
 Interoperabilität – für die Empfänger:innen, häufig Inhaber:innen kleiner Unternehmen,
 bleibt der Inhalt jedoch oft schwer verständlich.
 
-Der **GewSt-Bescheidassistent** ist eine Django-Webanwendung, die einen digitalen
-Gewerbesteuerbescheid einliest und die wichtigsten Informationen – Zahlbetrag,
+Der **GewSt-Bescheidassistent** ist eine Django-Webanwendung, die digitale
+Gewerbesteuerbescheide einliest und die wichtigsten Informationen – Zahlbetrag,
 Fälligkeiten, Berechnungsgrundlagen und Veränderungen zum Vorjahr – verständlich
 aufbereitet.
 
+### Funktionen im Überblick
+
+- Upload einer oder mehrerer XGewerbesteuer-XML-Dateien (Bescheid, Zins-, Vorauszahlungs-
+  oder Berechnungsnachricht) mit Validierung gegen die offiziellen XSD-Schemas
+- Verständliche Zusammenfassung, Berechnungserklärung (Messbetrag × Hebesatz) und
+  Plausibilitätsprüfung
+- Automatischer Vorjahres- und Mehrjahresvergleich inkl. historischer Entwicklung, sobald
+  mehrere Bescheide vorliegen
+- Fälligkeitskalender und Liquiditätswirkung anstehender Zahlungen
+- Demo-Beispielfall (`/demo/`) mit fiktiven Testdaten zum Ausprobieren ohne eigenen Upload
+- Export der Auswertung als PDF-Bericht, CSV-Datei oder ICS-Kalenderdatei
+- Optionales Nutzerkonto (Registrierung/Login), um Auswertungen zu speichern und später
+  wieder zu öffnen
+- Optionaler, lokal konfigurierbarer KI-Assistent für allgemeine Bedienhilfe und Fragen zur
+  aktuellen Auswertung
+- Optionaler Datenschutz-/Anonymisierungsmodus für Anzeige und Export
+
+Details zur technischen Umsetzung stehen in [`docs/architektur.md`](docs/architektur.md).
+
 ## Technologie-Stack
 
-- **[Django](https://www.djangoproject.com/)** als Webframework (Python)
+- **[Django](https://www.djangoproject.com/)** als Webframework (Python), inkl.
+  `django.contrib.auth` für Login, Registrierung und Passwort-Reset
 - **SQLite** als Datenbank
 - **Docker** / **Docker Compose** für Build, Betrieb und lokale Entwicklung
 - **[KERN UX](https://www.kern-ux.de/)** als UI-/Designsystem für Verwaltungsanwendungen
   (eingebunden über `base.html`)
 - **[XGewerbesteuer 1.4](https://www.xrepository.de/details/urn:xoev-de:xunternehmen:standard:gewerbesteuer_1.4#version)**
   als zu verarbeitender XÖV-Datenstandard (Details: [`docs/datenstandard.md`](docs/datenstandard.md))
+- **[lxml](https://lxml.de/)** / **[defusedxml](https://github.com/tiran/defusedxml)** für
+  sicheres XML-Parsing und XSD-Validierung
+- **[reportlab](https://www.reportlab.com/)** für den PDF-Export
+- **[Ollama](https://ollama.com/)** (optional, extern) als lokaler Provider für den
+  KI-Assistenten – ohne Konfiguration bleibt der Assistent deaktiviert
 
 ## Projektstruktur
 
@@ -62,6 +87,8 @@ aufbereitet.
 │   └── settings.json           # Workspace-Einstellungen (Formatierung, Django-HTML, Suche)
 ├── data/                       # lokale Runtime-Daten der produktiven Compose (ignoriert)
 ├── docs/
+│   ├── architektur.md          # Architektur, Module, Services, Sicherheit, Tests
+│   ├── design.md                # Verbindliche UI-/Designrichtlinie (KERN-UX)
 │   ├── design-thinking.md      # Dokumentation des Design-Thinking-Prozesses
 │   ├── datenstandard.md        # Erläuterung des XGewerbesteuer-Datenstandards
 │   └── testdaten.md            # Übersicht der XGewerbesteuer-Beispieldateien (Tests)
@@ -82,25 +109,47 @@ aufbereitet.
     ├── static/                 # eigene statische Dateien
     ├── staticfiles/            # Ergebnis von collectstatic (generiert)
     ├── templates/
-    │   └── base.html           # Basistemplate inkl. KERN-UX-Einbindung
+    │   ├── base.html           # Basistemplate inkl. KERN-UX-Einbindung
+    │   ├── partials/           # projektweite Partials (Header, Footer, Meldungen, Cards, ...)
+    │   └── registration/       # Login, Registrierung, Passwort-Reset-Flow
     └── xgewerbesteuer/         # Fachliche App
-        ├── models.py
+        ├── models.py           # SavedBescheidUpload
         ├── views.py
         ├── urls.py
         ├── admin.py
         ├── apps.py
+        ├── forms.py            # Upload- und Registrierungsformular
+        ├── extractors.py       # Nachrichtentyp-Erkennung und XML-Datenextraktion
+        ├── validators.py       # Datei-, XML- und XSD-Validierung
+        ├── calculations.py     # Formatierung, Formelerklärung, Plausibilitätsprüfung
+        ├── comparisons.py      # Vorjahres-/Mehrjahresvergleich, historische Entwicklung
+        ├── password_validators.py   # Eigene Passwort-Komplexitätsregeln
+        ├── context_processors.py    # Globale Template-Kontexte (Login-Status, KI-Assistent)
+        ├── services/
+        │   ├── bescheid.py     # Upload-Orchestrierung, Notices, gespeicherte Auswertungen
+        │   ├── export.py       # PDF-, CSV- und ICS-Export
+        │   ├── privacy.py      # Anonymisierungsmodus
+        │   ├── assistant.py    # Kontextaufbereitung für den KI-Assistenten
+        │   ├── assistant_providers.py  # Austauschbare KI-Provider (Ollama, deaktiviert)
+        │   └── support_errors.py       # Supportfreundliche Fehler-IDs ohne sensible Daten
+        ├── templatetags/       # Template-Filter (Währung, Datum, Prozent, Platzhalter)
         ├── migrations/
         ├── schemas/            # XGewerbesteuer-XSD-Dateien fuer XML-Validierung
-        ├── templates/
+        ├── templates/xgewerbesteuer/  # dashboard.html, upload.html, results.html, help.html, ...
         └── tests/
-            ├── test_views.py   # Routing- und View-Tests
-            ├── test_imports.py # Struktur-Tests fuer XGewerbesteuer-Beispieldateien
+            ├── test_views.py       # Routing- und View-Tests
+            ├── test_xml_uploads.py # Extraktions-, Validierungs- und Upload-Tests
+            ├── test_fixtures.py    # Schema-/Smoke-Tests der Beispieldateien
+            ├── test_models.py      # Model-Tests
+            ├── test_auth.py        # Login, Registrierung, Passwort-Reset, Zugriffsschutz
+            ├── test_assistant.py   # KI-Assistent: Kontext, Provider, Fehlerfälle
             └── fixtures/       # XGewerbesteuer-1.4-Beispieldateien (siehe docs/testdaten.md)
 ```
 
-Die XSD-Dateien fuer XGewerbesteuer liegen unter `app/xgewerbesteuer/schemas/`
-(`gewerbesteuer.xsd` sowie die eingebundenen Basis-, Adress-, Code- und
-Datentyp-Schemas).
+Ausführliche Modul- und Service-Beschreibungen stehen in
+[`docs/architektur.md`](docs/architektur.md). Die XSD-Dateien fuer XGewerbesteuer liegen
+unter `app/xgewerbesteuer/schemas/` (`gewerbesteuer.xsd` sowie die eingebundenen Basis-,
+Adress-, Code- und Datentyp-Schemas).
 
 ## Voraussetzungen
 
@@ -197,6 +246,19 @@ Defaults; `SECRET_KEY` muss gesetzt werden. Die echte `.env`-Datei wird
 | `LANGUAGE_CODE` | Django-Sprachcode | `de-de` |
 | `TZ` | Zeitzone des Containers | `Europe/Berlin` |
 | `PUID` / `PGID` | UID/GID, unter der der Container-Prozess läuft | `1000` |
+| `LOGIN_ENABLED` | Erzwingt Login/Registrierung/Passwort-Reset an (`1`) oder aus (`0`); ohne Wert gilt `DEBUG or EMAIL_SERVER_CONFIGURED` | – (Heuristik) |
+| `EMAIL_HOST` | SMTP-Host für Passwort-Reset-Mails; ein Wert ≠ `localhost` schaltet Login automatisch frei | `localhost` |
+| `EMAIL_PORT` / `EMAIL_HOST_USER` / `EMAIL_HOST_PASSWORD` / `EMAIL_USE_TLS` | SMTP-Zugangsdaten | `25` / – / – / `0` |
+| `DEFAULT_FROM_EMAIL` | Absenderadresse für Passwort-Reset-Mails | `webmaster@localhost` |
+| `AI_ASSISTANT_ENABLED` | Aktiviert den optionalen KI-Assistenten (`true`/`false`) | `false` |
+| `AI_ASSISTANT_PROVIDER` | KI-Provider; aktuell unterstützt: `ollama` | `disabled` |
+| `AI_ASSISTANT_MODEL` / `AI_ASSISTANT_BASE_URL` | Modellname und Basis-URL des Ollama-Servers | – |
+| `AI_ASSISTANT_TIMEOUT_SECONDS` | Timeout für Anfragen an den KI-Provider | `10` |
+
+Im DEBUG-Modus (Bare-Metal- und Docker-Dev-Setup) werden E-Mails standardmäßig auf der
+Konsole ausgegeben (`EmailBackend` = console) – Registrierungs- und
+Passwort-Reset-Links landen also in den Logs (`docker compose -f compose.dev.yaml logs -f`)
+statt in einem echten Postfach.
 
 ### Lokale Datenbanken
 
@@ -208,23 +270,45 @@ Journal-Dateien werden nicht versioniert.
 Nach dem Start stehen folgende Routen zur Verfügung (jeweils relativ zu einem optionalen
 `APP_PATH`-Präfix):
 
-- `/` – Startseite der `xgewerbesteuer`-App
-- `/healthz/` – Health-Check-Endpunkt (liefert `{"status": "ok"}`), wird auch vom
-  Docker-`HEALTHCHECK` verwendet
+| Route | Funktion |
+| --- | --- |
+| `/` | Dashboard: Einstieg, Kurzerklärung, gespeicherte Auswertungen (falls eingeloggt) |
+| `/upload/` | Ein oder mehrere XGewerbesteuer-Bescheide hochladen |
+| `/demo/` | Demo-Beispielfall mit fiktiven Testdaten laden |
+| `/ergebnis/` | Auswertung, Vergleich und Historie der aktuellen Session |
+| `/ki-assistent/` | Fragen an den optionalen KI-Assistenten stellen |
+| `/hilfe/` | Hilfe- und Glossarseite |
+| `/pdf-bericht/`, `/csv-export/`, `/fristdatei.ics` | Export der aktuellen Auswertung |
+| `/gespeichert/laden/`, `/gespeichert/loeschen/` | Gespeicherte Auswertung öffnen/löschen (Login erforderlich) |
+| `/login/`, `/logout/`, `/registrieren/`, `/passwort-vergessen/` | Benutzerkonto (siehe unten) |
+| `/admin/` | Django Admin |
+| `/healthz/` | Health-Check-Endpunkt (liefert `{"status": "ok"}`), wird auch vom Docker-`HEALTHCHECK` verwendet |
 
-Die Bescheid-Upload- und Auswertungsfunktionen befinden sich in Entwicklung, siehe
-[Status & Roadmap](#status--roadmap).
+Login, Registrierung und Passwort-Reset sind nur erreichbar, wenn `LOGIN_ENABLED` aktiv
+ist (siehe [Konfiguration](#konfiguration)); ohne echten Mailserver bleiben sie außerhalb
+von `DEBUG` automatisch deaktiviert, da Passwort-Reset-Mails sonst nicht zugestellt werden
+könnten. Alle übrigen Funktionen (Upload, Demo, Auswertung, Exporte, KI-Assistent) sind
+immer ohne Login nutzbar. Details zu Ablauf und Zugriffsschutz stehen in
+[`docs/architektur.md`](docs/architektur.md).
 
 ## Status & Roadmap
 
-Der aktuelle Stand des Repositories umfasst das technische Grundgerüst (Django-Projekt,
-Docker-Setup, KERN-UX-Anbindung, Health-Check, konfigurierbarer App-Pfad). Die fachlichen
-Funktionen werden entlang der Story Map aus dem Design-Thinking-Prozess umgesetzt.
+Das technische Grundgerüst (Django-Projekt, Docker-Setup, KERN-UX-Anbindung,
+konfigurierbarer App-Pfad) sowie die zentralen fachlichen Funktionen aus der Story Map des
+Design-Thinking-Prozesses sind umgesetzt: Upload und Validierung mehrerer
+XGewerbesteuer-Nachrichtenarten, Berechnungserklärung und Plausibilitätsprüfung,
+Fälligkeitsübersicht, Vorjahres- und Mehrjahresvergleich, PDF-/CSV-/ICS-Export sowie ein
+Demo-Beispielfall. Ergänzend wurden ein optionales Nutzerkonto zum Speichern von
+Auswertungen und ein optionaler, lokal konfigurierbarer KI-Assistent hinzugefügt.
+
+Offene Punkte (siehe [`docs/architektur.md`](docs/architektur.md#11-bekannte-technische-schulden--ausblick)):
+optionale OIDC-Anbindung (Stufe 3), Registrierung von `SavedBescheidUpload` im
+Django-Admin, Entfernen des unbenutzten Legacy-Templates `xgewerbesteuer_default.html`.
 
 Der laufende Fortschritt wird im
-[GitHub Project](https://github.com/users/ChoosenMEME/projects/1) getrackt. Die geplanten
-Funktionsschritte (Story Map) sind in [`docs/design-thinking.md`](docs/design-thinking.md)
-dokumentiert.
+[GitHub Project](https://github.com/users/ChoosenMEME/projects/1) getrackt. Die
+ursprüngliche Story Map aus dem Design-Thinking-Prozess ist in
+[`docs/design-thinking.md`](docs/design-thinking.md) dokumentiert.
 
 ## Lizenz
 
@@ -233,3 +317,27 @@ mitgelieferten bzw. genutzten Drittanbieter-Komponenten (Python, Django, KERN UX
 XGewerbesteuer u. a.) sind in [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md) dokumentiert.
 
 ## Mitwirkende & Einsatz von KI-Tools
+
+> **Hinweis:** Die folgenden Tabellen sind aus der Git-Historie abgeleitet (Autor:innen,
+> Commit-Themen). Bitte vor der Abgabe prüfen und ergänzen – insbesondere echte Namen,
+> Rollen in eigenen Worten und der tatsächliche Einsatz von KI-Tools je Person/Aufgabe
+> (siehe Prüfungshinweise, Dimension „Transparenz").
+
+### Mitwirkende
+
+| Person (GitHub) | Schwerpunkt laut Commit-Historie |
+| --- | --- |
+| `ChoosenMEME` / `ChoosenMeme` | Projekt-Setup (Django/Docker), CI/CD (GitHub Actions, Docker-Hub-Publish), Konfiguration (`APP_PATH`, Healthcheck), KERN-UX-Einbindung, laufende Pflege von README/AGENTS.md |
+| Alexander Bahlmann | Kernfunktionen: Upload/Extraktion, Nachrichtentyp-Unterscheidung, Vorjahres- und Mehrjahresvergleich, Plausibilitätsprüfung, PDF-/CSV-/ICS-Export, KI-Assistent, responsives KERN-UX-Layout |
+| Sören Schulzke | Demo-Beispielfall, Datenschutz-/Anonymisierungsmodus, supportfreundliche Fehler-IDs, Healthcheck-/Static-URL-Stabilisierung, Validierungsdetails |
+
+### Einsatz von KI-Tools
+
+| Tool | Zweck | Status |
+| --- | --- | --- |
+| Claude Code (Anthropic) | Unterstützung bei Implementierung, Refactoring und Dokumentationspflege | im Projekt genutzt (u. a. `.claude` bewusst in `.gitignore`) |
+| ChatGPT / Codex (OpenAI) | Unterstützung bei Implementierung | Hinweise im Projekt vorhanden (`openai.chatgpt`-Erweiterung in `.vscode/extensions.json`, Agent-Namenskonvention „codex" in `AGENTS.md`) – **bitte konkretisieren, wofür genau** |
+
+KI-Tools wurden gemäß Aufgabenstellung ausschließlich unterstützend eingesetzt; die
+fachliche Konzeption (Design-Thinking-Prozess, siehe [`docs/design-thinking.md`](docs/design-thinking.md))
+sowie die Abnahme aller Beiträge liegen bei den Gruppenmitgliedern.

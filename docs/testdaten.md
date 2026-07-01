@@ -5,36 +5,58 @@ GewSt-Bescheidassistenten verwendet werden (siehe auch [README.md](../README.md)
 [CONTRIBUTING.md](../CONTRIBUTING.md)).
 
 Im Verzeichnis [`app/xgewerbesteuer/tests/fixtures/`](../app/xgewerbesteuer/tests/fixtures/)
-liegen anonymisierte XGewerbesteuer-1.4-Beispieldateien (Musterdaten) für Berechnungen
-(`berechnung.gewerbesteuer.0021`) und Bescheide (`bescheide.gewerbesteuer.generisch.0010`).
-Sie decken denselben Steuerfall jeweils über mehrere Jahre ab und eignen sich daher für
-Tests rund um Upload, Import, Berechnungserklärung und Vorjahresvergleich:
+liegen 15 rein fiktive XGewerbesteuer-1.4-Beispieldateien: 5 Nachrichtenarten mit je 3
+Dateien für die Bezugsjahre 2021, 2022 und 2023. Alle Dateien beziehen sich auf denselben
+fiktiven Steuerfall (Musterbetrieb, Stadt Musterhausen) und eignen sich dadurch für Tests
+rund um Upload, Import, Berechnungserklärung sowie Vorjahres- und Mehrjahresvergleich:
 
-| Datei | Typ | Unternehmen / Fall | Bezugsjahr(e) | Besonderheit |
+| Nachrichtenart | Dateipräfix | Abgabeart | Bezugsjahre | Besonderheit |
 | --- | --- | --- | --- | --- |
-| `GEWST-BR-12345678-...-2019-10-11_...0000.xml` | Berechnung | Maxi Mustermann (Musterhausen) | 2017 | Insolvenzverfahren (eröffnet 2019-07-01), Verspätungszuschlag |
-| `GEWST-BR-12345678-...-2017-08-18_...0010.xml` | Berechnung | Maxi Mustermann (Musterhausen) | 2016 | Vorjahr, ohne Insolvenz |
-| `GEWST-BR-12345678-...-2016-08-10_...0013.xml` | Berechnung | Maxi Mustermann (Musterhausen) | 2015 | Vorvorjahr, ohne Insolvenz, niedrigerer Hebesatz |
-| `GEWST-BR-23456789-...-2020-07-14_...0000.xml` | Berechnung | Musterbetrieb & Co. KG (Musterhausen) | 2011–2013 | Änderungsbescheide & Zinsen infolge Insolvenz (eröffnet 2017-11-01) |
-| `GEWST-BR-23456789-...-2011-09-05_...0011.xml` | Berechnung | Musterbetrieb & Co. KG (Musterhausen) | 2010 | Vorjahr, ohne Insolvenz |
-| `GEWST-BR-23456789-...-2010-09-12_...0014.xml` | Berechnung | Musterbetrieb & Co. KG (Musterhausen) | 2009 | Vorvorjahr, ohne Insolvenz, niedrigerer Hebesatz |
-| `GEWST-BS-09162000-...-2020-09-07_...0000.xml` | Bescheid | Muster AG (München) | 2018, Vorauszahlungen 2020/2021 | – |
-| `GEWST-BS-09162000-...-2021-09-06_...0012.xml` | Bescheid | Muster AG (München) | 2019, Vorauszahlungen 2021/2022 | Folgejahr / Änderungsbescheid |
-| `GEWST-BS-09162000-...-2022-09-05_...0015.xml` | Bescheid | Muster AG (München) | 2020, Vorauszahlungen 2022/2023 | Folgejahr / Änderungsbescheid, knüpft an Festsetzung 2019 an |
+| `bescheide.gewerbesteuer.0001` | `GEWST-0001-...` | GV (Gewerbesteuer-Veranlagung) | 2021–2023 | Regulärer Gewerbesteuerbescheid |
+| `bescheide.zinsen.0002` | `GEWST-0002-...` | ZS (Zinsen) | 2021–2023 | Zinsbescheid |
+| `bescheide.vorauszahlung.0003` | `GEWST-0003-...` | VZ (Vorauszahlung) | 2021–2023 | Vorauszahlungsbescheid |
+| `bescheide.gewerbesteuer.generisch.0010` | `GEWST-0010-...` | GV (Gewerbesteuer-Veranlagung) | 2021–2023 | Generischer Bescheid; die Jahre 2022 und 2023 werden als **Demo-Beispielfall** (`/demo/`) geladen |
+| `berechnung.gewerbesteuer.0021` | `GEWST-0021-...` | GV (Gewerbesteuer-Veranlagung) | 2021–2023 | Berechnungsnachricht (kein Bescheid) mit Insolvenzeröffnung in allen drei Jahren |
 
-Die Dateien werden in
-[`app/xgewerbesteuer/tests/test_imports.py`](../app/xgewerbesteuer/tests/test_imports.py)
-als Struktur- und Smoke-Tests genutzt und dienen als Ausgangspunkt für künftige
-Import-/Parser-Tests des Bescheid-Uploads.
+Alle Dateien verwenden dieselben fiktiven Stammdaten: Kommune „Stadt Musterhausen"
+(Gemeindeschlüssel `12345678`), Steuernummer Bund `1234567890000` und Adressat
+„Musterbetrieb". Dadurch bilden je drei Dateien pro Nachrichtenart einen durchgehenden
+Drei-Jahres-Verlauf desselben fiktiven Falls ab, wie ihn `test_fixtures.py` erwartet.
+
+## Namensschema
+
+Dateinamen folgen dem Muster
+`GEWST-<Nachrichtenartcode>-<Gemeindeschlüssel>-<SteuernummerBund>-<Datum>_<nachrichtenID>.xml`,
+zum Beispiel:
+
+```text
+GEWST-0010-12345678-1234567890000-2022-01-15_00000000-0000-0000-0000-000000000102.xml
+```
+
+Der `<Nachrichtenartcode>` (`0001`, `0002`, `0003`, `0010`, `0021`) entspricht dabei dem
+Suffix der jeweiligen Nachrichtenart aus dem XGewerbesteuer-Standard (siehe Tabelle oben).
+
+## Verwendung in Tests und Anwendung
+
+Die Dateien werden verwendet in:
+
+- [`app/xgewerbesteuer/tests/test_fixtures.py`](../app/xgewerbesteuer/tests/test_fixtures.py) –
+  prüft, dass alle 5 Nachrichtenarten mit je 3 Dateien vorhanden, wohlgeformt, XSD-valide
+  und rechnerisch konsistent (Messbetrag × Hebesatz / 100) sind.
+- [`app/xgewerbesteuer/tests/test_xml_uploads.py`](../app/xgewerbesteuer/tests/test_xml_uploads.py) –
+  Extraktions-, Validierungs- und Upload-Tests auf Basis einzelner Fixtures.
+- [`app/xgewerbesteuer/views.py`](../app/xgewerbesteuer/views.py) (`xgewerbesteuer_demo`) –
+  lädt die Dateien `GEWST-0010-...-2022-...` und `GEWST-0010-...-2023-...` als
+  Demo-Beispielfall, um die Anwendung inklusive Vorjahresvergleich ohne eigenen Upload
+  vorzuführen.
 
 ## Herkunft der Daten
 
-Die Beispieldateien stammen aus den offiziellen Referenzbeispielen des
-XGewerbesteuer-Standards im
+Alle Beispieldateien sind vollständig KI-generiert auf Basis der Struktur- und
+Fachvorgaben des XGewerbesteuer-Standards im
 [XRepository](https://www.xrepository.de/details/urn:xoev-de:xunternehmen:standard:gewerbesteuer_1.4#version).
-Die darüber hinausgehenden, zusätzlichen Beispieldateien (weitere Jahre und Fallvarianten
-desselben Steuerfalls) wurden KI-generiert. Alle Daten sind rein fiktiv (Musterdaten) und
-enthalten keine echten Bescheid- oder Personendaten.
+Die Daten sind rein fiktiv (Musterdaten) und enthalten keine echten Bescheid- oder
+Personendaten.
 
 Konventionen für neue Fixtures (rein fiktive Daten, unbenutzte `nachrichtenID` usw.) sind in
 [AGENTS.md](../AGENTS.md) beschrieben.

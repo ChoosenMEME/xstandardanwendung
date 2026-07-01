@@ -69,12 +69,18 @@ Aktuelle Struktur:
     ├── staticfiles/
     ├── templates/
     │   ├── base.html
-    │   └── partials/
-    │       ├── messages.html
-    │       ├── card_metric.html
-    │       ├── alert.html
-    │       ├── upload_form.html
-    │       └── table_summary.html
+    │   ├── partials/
+    │   │   ├── header.html
+    │   │   ├── footer.html
+    │   │   ├── messages.html
+    │   │   ├── card_metric.html
+    │   │   ├── alert.html
+    │   │   ├── upload_form.html
+    │   │   └── table_summary.html
+    │   └── registration/
+    │       ├── login.html
+    │       ├── signup.html
+    │       └── password_reset_*.html
     └── xgewerbesteuer/
         ├── models.py
         ├── views.py
@@ -85,22 +91,40 @@ Aktuelle Struktur:
         ├── validators.py
         ├── calculations.py
         ├── comparisons.py
+        ├── password_validators.py
+        ├── context_processors.py
         ├── services/
         │   ├── __init__.py
         │   ├── bescheid.py
-        │   └── export.py
+        │   ├── export.py
+        │   ├── privacy.py
+        │   ├── assistant.py
+        │   ├── assistant_providers.py
+        │   └── support_errors.py
         ├── templatetags/
         │   ├── __init__.py
         │   └── xgewerbesteuer_filters.py
         ├── migrations/
         ├── schemas/
-        ├── templates/
+        ├── templates/xgewerbesteuer/
+        │   ├── dashboard.html
+        │   ├── upload.html
+        │   ├── results.html
+        │   ├── help.html
+        │   └── partials/assistant.html
         └── tests/
             ├── test_views.py
-            ├── test_fixtures.py
             ├── test_xml_uploads.py
+            ├── test_fixtures.py
+            ├── test_models.py
+            ├── test_auth.py
+            ├── test_assistant.py
             └── fixtures/
 ```
+
+Die Datei `app/xgewerbesteuer/templates/xgewerbesteuer_default.html` ist eine unbenutzte
+Altlast aus der Zeit vor der Modulaufteilung (siehe `docs/architektur.md`, Abschnitt
+„Bekannte technische Schulden").
 
 Falls sich die Struktur aendert, soll sich der Agent an der tatsaechlich vorhandenen Struktur im Repository orientieren.
 
@@ -254,6 +278,8 @@ Wichtige Begriffe:
 * Aenderungsbescheid
 * Vorbescheid
 * Vorjahr-Vergleich
+* Nachrichtenart (Gewerbesteuerbescheid, Zinsbescheid, Vorauszahlungsbescheid,
+  generischer Bescheid, Berechnung – siehe `extractors.py: detect_message_type()`)
 
 Fachliche Berechnungen muessen transparent und nachvollziehbar bleiben.
 
@@ -311,7 +337,25 @@ TZ=Europe/Berlin
 PUID=1000
 PGID=1000
 SQLITE_PATH=/app/dev.db.sqlite3
+LOGIN_ENABLED=1
+EMAIL_HOST=localhost
+EMAIL_PORT=25
+EMAIL_HOST_USER=
+EMAIL_HOST_PASSWORD=
+EMAIL_USE_TLS=0
+DEFAULT_FROM_EMAIL=webmaster@localhost
+AI_ASSISTANT_ENABLED=false
+AI_ASSISTANT_PROVIDER=disabled
+AI_ASSISTANT_MODEL=
+AI_ASSISTANT_BASE_URL=
+AI_ASSISTANT_TIMEOUT_SECONDS=10
 ```
+
+`LOGIN_ENABLED` steuert, ob Login/Registrierung/Passwort-Reset erreichbar sind (siehe
+`docs/architektur.md`, Abschnitt „Authentifizierung und Zugriffsschutz"); ohne gesetzten
+Wert greift die Heuristik `DEBUG or EMAIL_SERVER_CONFIGURED`. Die `AI_ASSISTANT_*`- und
+`EMAIL_*`-Variablen sind optional; ohne Konfiguration bleiben KI-Assistent bzw.
+Login/Registrierung inaktiv, die uebrige Anwendung funktioniert uneingeschraenkt.
 
 Fuer die produktive `compose.yaml` ist der Standard fuer `SQLITE_PATH` `/data/db.sqlite3`;
 die lokale Datei liegt dann unter `data/db.sqlite3`.
@@ -346,22 +390,27 @@ Tests liegen in `app/xgewerbesteuer/tests/` als Testpaket:
 app/xgewerbesteuer/tests/
 ├── __init__.py
 ├── test_views.py
-├── test_fixtures.py
 ├── test_xml_uploads.py
+├── test_fixtures.py
+├── test_models.py
+├── test_auth.py
+├── test_assistant.py
 └── fixtures/
 ```
 
-Bei Bedarf koennen weitere Module wie `test_models.py` oder `test_services.py` ergaenzt werden.
+Bei Bedarf koennen weitere Module wie `test_services.py` ergaenzt werden.
 
 ### XGewerbesteuer-Beispieldateien (Fixtures)
 
-`app/xgewerbesteuer/tests/fixtures/` enthaelt anonymisierte XGewerbesteuer-1.4-Beispieldateien
-(Berechnungen `berechnung.gewerbesteuer.0021` und Bescheide `bescheide.gewerbesteuer.generisch.0010`)
-mit fiktiven Daten. Mehrere Dateien bilden denselben Steuerfall ueber verschiedene Jahre ab
-(mit und ohne Insolvenzverfahren) und werden in `test_fixtures.py` fuer Struktur- und
-Smoke-Tests verwendet.
+`app/xgewerbesteuer/tests/fixtures/` enthaelt 15 rein fiktive XGewerbesteuer-1.4-Beispieldateien:
+5 Nachrichtenarten (`bescheide.gewerbesteuer.0001`, `bescheide.zinsen.0002`,
+`bescheide.vorauszahlung.0003`, `bescheide.gewerbesteuer.generisch.0010`,
+`berechnung.gewerbesteuer.0021`) mit je 3 Dateien fuer die Bezugsjahre 2021-2023. Alle
+Dateien beziehen sich auf denselben fiktiven Fall (Kommune „Stadt Musterhausen",
+Adressat „Musterbetrieb") und werden in `test_fixtures.py` fuer Schema- und Smoke-Tests
+verwendet. Details je Nachrichtenart stehen in [`docs/testdaten.md`](docs/testdaten.md).
 
-* Dateinamen folgen dem Muster `GEWST-<ART>-<Gemeindeschluessel>-<SteuernummerBund>-<Datum>_<nachrichtenID>.xml`.
+* Dateinamen folgen dem Muster `GEWST-<Nachrichtenartcode>-<Gemeindeschluessel>-<SteuernummerBund>-<Datum>_<nachrichtenID>.xml`.
 * Neue Fixtures sollen ebenfalls rein fiktive Daten (`Muster...`, Steuernummern wie `1234567890000`) verwenden.
 * Fuer neue Fixtures eine bisher unbenutzte `nachrichtenID` (z. B. `00000000-0000-0000-0000-0000000000XX`) waehlen.
 * Vorhandene Fixtures nicht ohne Grund veraendern, da sich Tests in `test_fixtures.py` auf konkrete Werte beziehen.
