@@ -77,6 +77,11 @@ from xgewerbesteuer.services.export import (
     escape_ics_text,
     format_ics_date,
 )
+from xgewerbesteuer.services.privacy import (
+    anonymize_result_context,
+    anonymize_value,
+    is_sensitive_label,
+)
 from xgewerbesteuer.validators import (
     MAX_UPLOAD_SIZE_BYTES,
     UploadValidationIssue,
@@ -1699,6 +1704,58 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
         self.assertIn("Warnung / Auffälligkeit", csv_content)
 
 
+class XGewerbesteuerPrivacyModeTests(SimpleTestCase):
+    def test_anonymize_value_keeps_empty_and_missing_values_readable(self):
+        self.assertEqual(anonymize_value(""), "")
+        self.assertEqual(anonymize_value(None), None)
+        self.assertEqual(anonymize_value("Nicht gefunden"), "Nicht gefunden")
+
+    def test_anonymize_value_handles_short_and_already_masked_values(self):
+        self.assertEqual(anonymize_value("AB"), "••")
+        self.assertEqual(anonymize_value("••••1234"), "••••1234")
+
+    def test_anonymize_value_keeps_last_four_characters_for_long_values(self):
+        self.assertEqual(anonymize_value("1234567890000"), "••••0000")
+        self.assertEqual(anonymize_value("Stadt Musterhausen"), "••••usen")
+
+    def test_sensitive_labels_are_defined_centrally(self):
+        self.assertTrue(is_sensitive_label("Gemeinde / Kommune"))
+        self.assertTrue(is_sensitive_label("Steuernummer"))
+        self.assertTrue(is_sensitive_label("Nachrichten-ID"))
+        self.assertFalse(is_sensitive_label("Zahlbetrag"))
+        self.assertFalse(is_sensitive_label("Hebesatz"))
+
+    def test_anonymize_result_context_masks_display_values_without_changing_source(self):
+        context = {
+            "uploaded_file_name": "GEWST-0010-12345678-1234567890000.xml",
+            "current_bescheid": {
+                "file_name": "GEWST-0010-12345678-1234567890000.xml",
+                "municipality": "Stadt Musterhausen",
+                "tax_period": "2025",
+                "amount_due": "630.00",
+            },
+            "summary_items": [
+                {"label": "Gemeinde / Kommune", "value": "Stadt Musterhausen"},
+                {"label": "Steuerjahr / Erhebungszeitraum", "value": "2025"},
+                {"label": "Zahlbetrag", "value": "630.00"},
+            ],
+        }
+
+        anonymized = anonymize_result_context(context)
+
+        self.assertEqual(
+            context["current_bescheid"]["municipality"],
+            "Stadt Musterhausen",
+        )
+        self.assertEqual(
+            anonymized["current_bescheid"]["municipality"],
+            "••••usen",
+        )
+        self.assertEqual(anonymized["summary_items"][1]["value"], "2025")
+        self.assertEqual(anonymized["summary_items"][2]["value"], "630.00")
+        self.assertTrue(anonymized["privacy_mode_enabled"])
+
+
 class XGewerbesteuerXsdValidationTests(SimpleTestCase):
     def test_upload_issue_for_wrong_file_extension_is_structured(self):
         issue = get_upload_issue(uploaded_xml("bescheid.pdf", b"<nachricht/>"))
@@ -2088,6 +2145,55 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'type="file"')
         self.assertContains(response, 'type="submit"')
+        self.assertContains(response, reverse("xgewerbesteuer_demo"))
+        self.assertContains(response, "Demo-Beispielfall")
+
+    def test_demo_entry_loads_fixture_result_with_demo_notice(self):
+        response = self.client.get(reverse("xgewerbesteuer_demo"), follow=True)
+
+        summary_items = {
+            item["label"]: item["value"] for item in response.context["summary_items"]
+        }
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "xgewerbesteuer/results.html")
+        self.assertTrue(response.context["is_demo"])
+        self.assertIn("Demo-Beispielfall", response.context["demo_notice"])
+        self.assertEqual(summary_items["Gemeinde / Kommune"], "Stadt Musterhausen")
+        self.assertEqual(summary_items["Steuerjahr / Erhebungszeitraum"], "2023")
+        self.assertEqual(summary_items["Zahlbetrag"], "630.00")
+        self.assertIn("previous_bescheid", response.context)
+        self.assertContains(response, "Demo-Beispielfall")
+        self.assertContains(response, "fiktiven")
+        self.assertContains(response, "keine echten Bescheiddaten")
+        self.assertContains(response, "Zusammenfassung")
+
+    def test_demo_entry_uses_fictional_fixture_files(self):
+        response = self.client.get(reverse("xgewerbesteuer_demo"), follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["is_demo"])
+        self.assertEqual(response.context["all_bescheide_count"], 2)
+        self.assertTrue(
+            response.context["uploaded_file_name"].startswith("GEWST-0010-12345678")
+        )
+        self.assertIn("1234567890000", response.context["uploaded_file_name"])
+
+    def test_demo_entry_shows_understandable_error_when_fixture_processing_fails(self):
+        with patch(
+            "xgewerbesteuer.views.process_uploaded_bescheid",
+            return_value={
+                "is_valid": False,
+                "message": "Die Demo-Datei konnte nicht verarbeitet werden.",
+                "details": [],
+            },
+        ):
+            response = self.client.get(reverse("xgewerbesteuer_demo"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "xgewerbesteuer/upload.html")
+        self.assertContains(response, "Demo-Beispielfall konnte nicht geladen werden")
+        self.assertContains(response, 'name="bescheide"')
 
     def test_post_without_file_shows_missing_file_error(self):
         response = self.client.post(reverse("xgewerbesteuer_upload"), data={})
@@ -2309,6 +2415,86 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertContains(response, "PDF-Bericht")
         self.assertIn(CSV_EXPORT_SESSION_KEY, self.client.session)
         self.assertContains(response, "CSV-Export")
+
+    def test_privacy_mode_masks_sensitive_values_in_html_and_keeps_core_values(self):
+        content = VALID_BESCHEID_FIXTURE.read_bytes()
+
+        self.client.post(
+            reverse("xgewerbesteuer_upload"),
+            data={"bescheide": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
+            follow=True,
+        )
+        response = self.client.get(reverse("xgewerbesteuer_results") + "?privacy=1")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["privacy_mode_enabled"])
+        self.assertContains(response, "Datenschutzmodus aktiv")
+        self.assertContains(response, "••••")
+        self.assertContains(response, "630.00")
+        self.assertContains(response, "420")
+        self.assertContains(response, "2023")
+        self.assertNotContains(response, "Stadt Musterhausen")
+        self.assertNotContains(response, VALID_BESCHEID_FIXTURE.name)
+
+    def test_privacy_mode_masks_sensitive_values_in_csv_and_pdf_export_data(self):
+        content = VALID_BESCHEID_FIXTURE.read_bytes()
+
+        self.client.post(
+            reverse("xgewerbesteuer_upload"),
+            data={"bescheide": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
+            follow=True,
+        )
+        self.client.get(reverse("xgewerbesteuer_results") + "?privacy=1")
+
+        csv_response = self.client.get(reverse("xgewerbesteuer_csv_export"))
+        csv_content = csv_response.content.decode("utf-8")
+        pdf_report_data = self.client.session[PDF_REPORT_SESSION_KEY]
+
+        self.assertEqual(csv_response.status_code, 200)
+        self.assertIn("••••usen", csv_content)
+        self.assertIn("630.00", csv_content)
+        self.assertNotIn("Stadt Musterhausen", csv_content)
+        self.assertNotIn(VALID_BESCHEID_FIXTURE.name, csv_content)
+        self.assertEqual(pdf_report_data["uploaded_file_name"][-4:], ".xml")
+        self.assertNotEqual(
+            pdf_report_data["uploaded_file_name"],
+            VALID_BESCHEID_FIXTURE.name,
+        )
+        self.assertNotIn(
+            "Stadt Musterhausen",
+            str(pdf_report_data.get("summary_items")),
+        )
+
+    def test_privacy_mode_does_not_change_plausibility_or_comparison_results(self):
+        upload_response = self.client.post(
+            reverse("xgewerbesteuer_upload"),
+            data={
+                "bescheide": [
+                    uploaded_xml(
+                        PREVIOUS_BESCHEID_FIXTURE.name,
+                        PREVIOUS_BESCHEID_FIXTURE.read_bytes(),
+                    ),
+                    uploaded_xml(
+                        VALID_BESCHEID_FIXTURE.name,
+                        VALID_BESCHEID_FIXTURE.read_bytes(),
+                    ),
+                ],
+            },
+            follow=True,
+        )
+        original_plausibility = upload_response.context["plausibility_check"]
+        original_changes = upload_response.context["change_comparison_items"]
+
+        privacy_response = self.client.get(reverse("xgewerbesteuer_results") + "?privacy=1")
+
+        self.assertEqual(
+            privacy_response.context["plausibility_check"],
+            original_plausibility,
+        )
+        self.assertEqual(
+            privacy_response.context["change_comparison_items"],
+            original_changes,
+        )
 
     def test_valid_upload_uses_responsive_result_layout(self):
         content = VALID_BESCHEID_FIXTURE.read_bytes()

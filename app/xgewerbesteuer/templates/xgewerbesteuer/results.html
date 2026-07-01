@@ -20,6 +20,34 @@
     </p>
 </div>
 
+<div class="privacy-banner {% if privacy_mode_enabled %}privacy-banner--active{% endif %}" role="status">
+    <div>
+        <p class="privacy-banner__title">
+            {% if privacy_mode_enabled %}
+                {% trans "Datenschutzmodus aktiv" %}
+            {% else %}
+                {% trans "Datenschutzmodus inaktiv" %}
+            {% endif %}
+        </p>
+        <p class="privacy-banner__text">
+            {% if privacy_mode_enabled %}
+                {% trans "Sensible Angaben werden in Ansicht und Exporten maskiert." %}
+            {% else %}
+                {% trans "Die Ansicht zeigt die ausgelesenen Daten unverändert." %}
+            {% endif %}
+        </p>
+    </div>
+    {% if privacy_mode_enabled %}
+        <a class="btn btn--secondary btn--sm" href="?privacy=0">
+            {% trans "Klartext anzeigen" %}
+        </a>
+    {% else %}
+        <a class="btn btn--secondary btn--sm" href="?privacy=1">
+            {% trans "Daten maskieren" %}
+        </a>
+    {% endif %}
+</div>
+
 {% if saved_upload_success %}
     <div class="alert alert--success" role="status">
         <span class="alert__icon">&#10003;</span>
@@ -34,6 +62,16 @@
         <span class="alert__icon">!</span>
         <div class="alert__content">
             <p class="alert__text">{{ saved_upload_error }}</p>
+        </div>
+    </div>
+{% endif %}
+
+{% if is_demo and demo_notice %}
+    <div class="alert alert--info" role="status">
+        <span class="alert__icon">i</span>
+        <div class="alert__content">
+            <p class="alert__title">{% trans "Demo-Beispielfall" %}</p>
+            <p class="alert__text">{{ demo_notice }}</p>
         </div>
     </div>
 {% endif %}
