@@ -270,12 +270,9 @@ def _build_result_context(session_data):
         "due_date_calendar": build_due_date_calendar(current_bescheid),
         "plausibility_check": build_plausibility_check(current_bescheid),
         "liquidity_impact": build_liquidity_impact(current_bescheid),
-      Demo-Beispielfall-laden
         "is_demo": session_data.get("is_demo", False),
         "demo_notice": session_data.get("demo_notice"),
-
-        "privacy_mode_enabled": session_data.get("privacy_mode_enabled", False),  
-       main
+        "privacy_mode_enabled": session_data.get("privacy_mode_enabled", False),
     }
 
     if session_data.get("previous_bescheid"):
