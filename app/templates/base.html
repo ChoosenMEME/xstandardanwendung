@@ -26,11 +26,26 @@
     (function() {
         var toggle = document.querySelector('.nav-toggle');
         var menu = document.querySelector('.nav-menu');
-        if (!toggle || !menu) return;
-        toggle.addEventListener('click', function() {
-            var expanded = toggle.getAttribute('aria-expanded') === 'true';
-            toggle.setAttribute('aria-expanded', String(!expanded));
-            menu.classList.toggle('nav-menu--open');
+        if (toggle && menu) {
+            toggle.addEventListener('click', function() {
+                var expanded = toggle.getAttribute('aria-expanded') === 'true';
+                toggle.setAttribute('aria-expanded', String(!expanded));
+                menu.classList.toggle('nav-menu--open');
+            });
+        }
+
+        document.querySelectorAll('[data-password-toggle]').forEach(function(button) {
+            button.addEventListener('click', function() {
+                var wrapper = button.closest('.form-password-wrapper');
+                var input = wrapper ? wrapper.querySelector('[data-password-input]') : null;
+                if (!input) return;
+                var showing = input.type === 'text';
+                input.type = showing ? 'password' : 'text';
+                button.textContent = showing
+                    ? '{% trans "Anzeigen" %}'
+                    : '{% trans "Verbergen" %}';
+                button.setAttribute('aria-pressed', String(!showing));
+            });
         });
     })();
     </script>

@@ -26,22 +26,91 @@
 {% endif %}
 
 <div class="card">
-    <form method="post">
+    <form method="post" id="signup-form">
         {% csrf_token %}
 
-        {% for field in form %}
-            <div class="form-group">
-                <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
-                <input type="{{ field.field.widget.input_type }}" class="form-input"
-                       id="{{ field.id_for_label }}" name="{{ field.html_name }}" required>
-                {% if field.help_text %}
-                    <span class="form-hint">{{ field.help_text }}</span>
-                {% endif %}
-                {% for error in field.errors %}
-                    <span class="form-hint">{{ error }}</span>
-                {% endfor %}
+        <div class="form-group">
+            <label class="form-label" for="{{ form.username.id_for_label }}">{{ form.username.label }}</label>
+            <input type="text" class="form-input{% if form.username.errors %} form-input--error{% endif %}"
+                   id="{{ form.username.id_for_label }}" name="{{ form.username.html_name }}"
+                   value="{{ form.username.value|default_if_none:'' }}" required>
+            {% if form.username.help_text %}
+                <span class="form-hint">{{ form.username.help_text }}</span>
+            {% endif %}
+            {% for error in form.username.errors %}
+                <span class="form-hint form-hint--error">{{ error }}</span>
+            {% endfor %}
+        </div>
+
+        <div class="form-group">
+            <label class="form-label" for="{{ form.email.id_for_label }}">{{ form.email.label }}</label>
+            <input type="email" class="form-input{% if form.email.errors %} form-input--error{% endif %}"
+                   id="{{ form.email.id_for_label }}" name="{{ form.email.html_name }}"
+                   value="{{ form.email.value|default_if_none:'' }}" required>
+            {% if form.email.help_text %}
+                <span class="form-hint">{{ form.email.help_text }}</span>
+            {% endif %}
+            {% for error in form.email.errors %}
+                <span class="form-hint form-hint--error">{{ error }}</span>
+            {% endfor %}
+        </div>
+
+        <div class="form-group">
+            <label class="form-label" for="{{ form.password1.id_for_label }}">{{ form.password1.label }}</label>
+            <div class="form-password-wrapper">
+                <input type="password"
+                       class="form-input{% if form.password1.errors %} form-input--error{% endif %}"
+                       id="{{ form.password1.id_for_label }}" name="{{ form.password1.html_name }}"
+                       autocomplete="new-password" required data-password-input>
+                <button type="button" class="form-password-toggle" data-password-toggle aria-pressed="false">
+                    {% trans "Anzeigen" %}
+                </button>
             </div>
-        {% endfor %}
+            {% for error in form.password1.errors %}
+                <span class="form-hint form-hint--error">{{ error }}</span>
+            {% endfor %}
+            <ul class="password-requirements" id="password-requirements">
+                <li class="password-requirements__item" data-requirement="length">
+                    {% trans "Mindestens 8 Zeichen" %}
+                </li>
+                <li class="password-requirements__item" data-requirement="uppercase">
+                    {% trans "Mindestens ein Großbuchstabe" %}
+                </li>
+                <li class="password-requirements__item" data-requirement="lowercase">
+                    {% trans "Mindestens ein Kleinbuchstabe" %}
+                </li>
+                <li class="password-requirements__item" data-requirement="digit">
+                    {% trans "Mindestens eine Zahl" %}
+                </li>
+                <li class="password-requirements__item" data-requirement="special-character">
+                    {% trans "Mindestens ein Sonderzeichen" %}
+                </li>
+                <li class="password-requirements__item" data-requirement="not-similar">
+                    {% trans "Kein Teil des Benutzernamens oder der E-Mail-Adresse" %}
+                </li>
+            </ul>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label" for="{{ form.password2.id_for_label }}">{{ form.password2.label }}</label>
+            <div class="form-password-wrapper">
+                <input type="password"
+                       class="form-input{% if form.password2.errors %} form-input--error{% endif %}"
+                       id="{{ form.password2.id_for_label }}" name="{{ form.password2.html_name }}"
+                       autocomplete="new-password" required data-password-input>
+                <button type="button" class="form-password-toggle" data-password-toggle aria-pressed="false">
+                    {% trans "Anzeigen" %}
+                </button>
+            </div>
+            {% for error in form.password2.errors %}
+                <span class="form-hint form-hint--error">{{ error }}</span>
+            {% endfor %}
+            <ul class="password-requirements">
+                <li class="password-requirements__item" data-requirement="match">
+                    {% trans "Stimmt mit dem Passwort überein" %}
+                </li>
+            </ul>
+        </div>
 
         <div class="form-actions">
             <button type="submit" class="btn btn--primary btn--lg">
@@ -55,4 +124,75 @@
     {% trans "Sie haben bereits ein Konto?" %}
     <a href="{% url 'login' %}">{% trans "Jetzt anmelden" %}</a>
 </p>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    var form = document.getElementById('signup-form');
+    if (!form) return;
+
+    var SPECIAL_CHARACTERS = '!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~';
+    var MIN_USER_INFO_FRAGMENT_LENGTH = 3;
+
+    var usernameInput = document.getElementById('{{ form.username.id_for_label }}');
+    var emailInput = document.getElementById('{{ form.email.id_for_label }}');
+    var password1Input = document.getElementById('{{ form.password1.id_for_label }}');
+    var password2Input = document.getElementById('{{ form.password2.id_for_label }}');
+
+    function fragmentsOf(value) {
+        return (value || '')
+            .toLowerCase()
+            .split(/[^a-zäöü0-9]+/)
+            .filter(function(fragment) { return fragment.length >= MIN_USER_INFO_FRAGMENT_LENGTH; });
+    }
+
+    function containsUserInfoFragment(password, username, email) {
+        var passwordLower = password.toLowerCase();
+        var fragments = fragmentsOf(username)
+            .concat(fragmentsOf(email))
+            .concat(fragmentsOf((email || '').split('@')[0]));
+
+        return fragments.some(function(fragment) {
+            return passwordLower.indexOf(fragment) !== -1;
+        });
+    }
+
+    function hasSpecialCharacter(password) {
+        for (var i = 0; i < password.length; i++) {
+            if (SPECIAL_CHARACTERS.indexOf(password[i]) !== -1) return true;
+        }
+        return false;
+    }
+
+    function setRequirement(name, met) {
+        var item = form.querySelector('[data-requirement="' + name + '"]');
+        if (!item) return;
+        item.classList.toggle('password-requirements__item--met', met);
+        item.classList.toggle('password-requirements__item--unmet', !met);
+    }
+
+    function updateRequirements() {
+        var password = password1Input.value;
+        var username = usernameInput ? usernameInput.value : '';
+        var email = emailInput ? emailInput.value : '';
+
+        setRequirement('length', password.length >= 8);
+        setRequirement('uppercase', /[A-ZÄÖÜ]/.test(password));
+        setRequirement('lowercase', /[a-zäöü]/.test(password));
+        setRequirement('digit', /[0-9]/.test(password));
+        setRequirement('special-character', hasSpecialCharacter(password));
+        setRequirement(
+            'not-similar',
+            password.length > 0 && !containsUserInfoFragment(password, username, email)
+        );
+        setRequirement('match', password2Input.value.length > 0 && password2Input.value === password);
+    }
+
+    [usernameInput, emailInput, password1Input, password2Input].forEach(function(input) {
+        if (input) input.addEventListener('input', updateRequirements);
+    });
+    updateRequirements();
+})();
+</script>
 {% endblock %}

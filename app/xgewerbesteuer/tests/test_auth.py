@@ -118,6 +118,90 @@ class SignupTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertFalse(User.objects.filter(username="neue-nutzerin").exists())
 
+    def test_signup_password_without_uppercase_letter_is_rejected(self):
+        response = self.client.post(
+            reverse("xgewerbesteuer_signup"),
+            data={
+                "username": "komplexitaet-nutzerin",
+                "email": "komplexitaet@example.com",
+                "password1": "kein-grossbuchstabe1",
+                "password2": "kein-grossbuchstabe1",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(User.objects.filter(username="komplexitaet-nutzerin").exists())
+
+    def test_signup_password_without_lowercase_letter_is_rejected(self):
+        response = self.client.post(
+            reverse("xgewerbesteuer_signup"),
+            data={
+                "username": "komplexitaet-nutzerin",
+                "email": "komplexitaet@example.com",
+                "password1": "KEIN-KLEINBUCHSTABE1",
+                "password2": "KEIN-KLEINBUCHSTABE1",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(User.objects.filter(username="komplexitaet-nutzerin").exists())
+
+    def test_signup_password_without_digit_is_rejected(self):
+        response = self.client.post(
+            reverse("xgewerbesteuer_signup"),
+            data={
+                "username": "komplexitaet-nutzerin",
+                "email": "komplexitaet@example.com",
+                "password1": "Keine-Zahl-Enthalten",
+                "password2": "Keine-Zahl-Enthalten",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(User.objects.filter(username="komplexitaet-nutzerin").exists())
+
+    def test_signup_password_without_special_character_is_rejected(self):
+        response = self.client.post(
+            reverse("xgewerbesteuer_signup"),
+            data={
+                "username": "komplexitaet-nutzerin",
+                "email": "komplexitaet@example.com",
+                "password1": "KeinSonderzeichen1",
+                "password2": "KeinSonderzeichen1",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(User.objects.filter(username="komplexitaet-nutzerin").exists())
+
+    def test_signup_password_containing_username_is_rejected(self):
+        response = self.client.post(
+            reverse("xgewerbesteuer_signup"),
+            data={
+                "username": "geheimnis",
+                "email": "andere-adresse@example.com",
+                "password1": "Geheimnis-Passwort1!",
+                "password2": "Geheimnis-Passwort1!",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(User.objects.filter(username="geheimnis").exists())
+
+    def test_signup_password_containing_email_is_rejected(self):
+        response = self.client.post(
+            reverse("xgewerbesteuer_signup"),
+            data={
+                "username": "andere-nutzerin",
+                "email": "vertraulich@example.com",
+                "password1": "Vertraulich-Passwort1!",
+                "password2": "Vertraulich-Passwort1!",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(User.objects.filter(username="andere-nutzerin").exists())
+
 
 class PasswordResetTests(TestCase):
     def test_password_reset_form_is_reachable(self):

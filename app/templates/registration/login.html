@@ -44,8 +44,13 @@
             <label class="form-label" for="{{ form.password.id_for_label }}">
                 {% trans "Passwort" %}
             </label>
-            <input type="password" class="form-input" id="{{ form.password.id_for_label }}"
-                   name="{{ form.password.html_name }}" required>
+            <div class="form-password-wrapper">
+                <input type="password" class="form-input" id="{{ form.password.id_for_label }}"
+                       name="{{ form.password.html_name }}" required data-password-input>
+                <button type="button" class="form-password-toggle" data-password-toggle aria-pressed="false">
+                    {% trans "Anzeigen" %}
+                </button>
+            </div>
             {% for error in form.password.errors %}
                 <span class="form-hint">{{ error }}</span>
             {% endfor %}

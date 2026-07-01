@@ -130,16 +130,25 @@ DATABASES = {
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
     },
     {
         'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+        'NAME': 'xgewerbesteuer.password_validators.UppercaseValidator',
+    },
+    {
+        'NAME': 'xgewerbesteuer.password_validators.LowercaseValidator',
+    },
+    {
+        'NAME': 'xgewerbesteuer.password_validators.DigitValidator',
+    },
+    {
+        'NAME': 'xgewerbesteuer.password_validators.SpecialCharacterValidator',
+    },
+    {
+        'NAME': 'xgewerbesteuer.password_validators.NoUserInfoFragmentValidator',
     },
 ]
 
