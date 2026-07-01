@@ -896,6 +896,38 @@ body {
     margin-right: 0.5rem;
 }
 
+/* ===== PRIVACY MODE ===== */
+
+.privacy-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.9rem 1.25rem;
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-neutral-bg);
+}
+
+.privacy-banner--active {
+    border-color: var(--color-info-border);
+    background: var(--color-info-bg);
+    color: var(--color-info-text);
+}
+
+.privacy-banner__title {
+    margin: 0 0 0.2rem 0;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.privacy-banner__text {
+    margin: 0;
+    font-size: 0.85rem;
+    line-height: 1.45;
+}
+
 /* ===== SECTION DIVIDER ===== */
 
 .section-divider {
