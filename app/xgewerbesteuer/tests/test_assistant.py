@@ -105,9 +105,22 @@ def assistant_result_context(**current_overrides):
 
 
 class AssistantServiceTests(SimpleTestCase):
+    def test_general_assistant_context_contains_no_bescheid_data(self):
+        context = build_assistant_context(None)
+
+        self.assertEqual(context["modus"], "Allgemeine Hilfe")
+        self.assertIn("unterstuetzte_themen", context)
+
+        serialized = str(context)
+        self.assertNotIn("zahlbetrag", serialized.lower())
+        self.assertNotIn("messbetrag", serialized.lower())
+        self.assertNotIn("original.xml", serialized)
+        self.assertNotIn("SECRET", serialized)
+
     def test_assistant_context_contains_only_allowed_structured_fields(self):
         context = build_assistant_context(assistant_result_context())
 
+        self.assertEqual(context["modus"], "Hilfe zur aktuellen Auswertung")
         self.assertEqual(context["nachrichtentyp"], "Generische Gewerbesteuernachricht")
         self.assertEqual(context["technischer_nachrichtentyp"], "bescheide.gewerbesteuer.generisch.0010")
         self.assertEqual(context["gemeinde_kommune"], "Stadt Musterhausen")
@@ -221,6 +234,46 @@ class AssistantViewTests(TestCase):
         self.assertContains(response, "PDF-Bericht")
         self.assertNotContains(response, "SECRET_TOKEN")
 
+    def test_assistant_button_is_visible_on_global_pages(self):
+        pages = [
+            reverse("xgewerbesteuer_dashboard"),
+            reverse("xgewerbesteuer_upload"),
+            reverse("xgewerbesteuer_help"),
+        ]
+
+        for url in pages:
+            with self.subTest(url=url):
+                response = self.client.get(url)
+
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(response, "KI-Assistent")
+                self.assertContains(response, "assistant-panel")
+                self.assertContains(response, "Allgemeine Hilfe")
+
+    def test_assistant_panel_is_global_and_not_duplicated_on_results(self):
+        response = self.upload_fixture(FIXTURES_BY_KIND["gewerbesteuerbescheid"])
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="assistant-panel"', count=1)
+        self.assertContains(response, "Hilfe zur aktuellen Auswertung")
+
+    def test_assistant_template_uses_temporary_session_storage(self):
+        response = self.client.get(reverse("xgewerbesteuer_dashboard"))
+
+        self.assertContains(response, "sessionStorage")
+        self.assertContains(response, "Verlauf loeschen")
+
+    def test_general_mode_rejects_concrete_bescheid_question_without_provider(self):
+        response = self.client.post(
+            reverse("xgewerbesteuer_assistant"),
+            data={"assistant_question": "Wie hoch ist mein Zahlbetrag?"},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/json")
+        self.assertIn("noch keine konkrete Auswertung", response.json()["answer"])
+
     def test_empty_question_is_rejected_with_understandable_message(self):
         self.upload_fixture(FIXTURES_BY_KIND["gewerbesteuerbescheid"])
 
@@ -243,6 +296,28 @@ class AssistantViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Die Frage ist zu lang")
 
+    def test_ajax_empty_question_is_rejected_as_json(self):
+        response = self.client.post(
+            reverse("xgewerbesteuer_assistant"),
+            data={"assistant_question": "   "},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["ok"], False)
+        self.assertIn("Bitte geben Sie eine Frage", response.json()["error"])
+
+    def test_ajax_too_long_question_is_rejected_as_json(self):
+        response = self.client.post(
+            reverse("xgewerbesteuer_assistant"),
+            data={"assistant_question": "x" * (MAX_ASSISTANT_QUESTION_LENGTH + 1)},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["ok"], False)
+        self.assertIn("Die Frage ist zu lang", response.json()["error"])
+
     def test_successful_provider_answer_is_displayed_with_required_notice(self):
         self.upload_fixture(FIXTURES_BY_KIND["gewerbesteuerbescheid"])
 
@@ -262,6 +337,28 @@ class AssistantViewTests(TestCase):
         self.assertContains(response, "ausgelesene Wert")
         self.assertContains(response, "ersetzt keine steuerliche Beratung")
 
+    def test_ajax_successful_provider_answer_is_returned_as_json(self):
+        self.upload_fixture(FIXTURES_BY_KIND["gewerbesteuerbescheid"])
+
+        with patch(
+            "xgewerbesteuer.services.assistant.get_assistant_provider",
+            return_value=FakeAssistantProvider(
+                answer="Der Zahlbetrag ist der ausgelesene Wert aus der Auswertung."
+            ),
+        ):
+            response = self.client.post(
+                reverse("xgewerbesteuer_assistant"),
+                data={"assistant_question": "Was bedeutet der Zahlbetrag?"},
+                HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            )
+
+        payload = response.json()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(payload["ok"], True)
+        self.assertEqual(payload["mode"], "result")
+        self.assertIn(ASSISTANT_LABEL, payload["answer"])
+        self.assertIn("ersetzt keine steuerliche Beratung", payload["answer"])
+
     def test_provider_error_is_displayed_without_secret_configuration(self):
         self.upload_fixture(FIXTURES_BY_KIND["gewerbesteuerbescheid"])
 
@@ -277,6 +374,26 @@ class AssistantViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "nicht erreichbar")
         self.assertNotContains(response, "SECRET_TOKEN")
+
+    def test_ajax_provider_error_is_returned_without_secret_configuration(self):
+        self.upload_fixture(FIXTURES_BY_KIND["gewerbesteuerbescheid"])
+
+        with patch(
+            "xgewerbesteuer.services.assistant.get_assistant_provider",
+            return_value=FakeAssistantProvider(
+                error="Der KI-Assistent hat nicht rechtzeitig geantwortet."
+            ),
+        ):
+            response = self.client.post(
+                reverse("xgewerbesteuer_assistant"),
+                data={"assistant_question": "Bitte erklaeren."},
+                HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            )
+
+        payload = response.json()
+        self.assertEqual(payload["ok"], False)
+        self.assertIn("nicht rechtzeitig geantwortet", payload["error"])
+        self.assertNotIn("SECRET_TOKEN", str(payload))
 
     def test_assistant_context_is_built_from_supported_fixture_uploads(self):
         for kind, fixture_path in FIXTURES_BY_KIND.items():

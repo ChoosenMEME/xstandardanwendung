@@ -20,6 +20,8 @@
         </div>
     </main>
 
+    {% include "xgewerbesteuer/partials/assistant.html" %}
+
     {% include "partials/footer.html" %}
 
     <script>
@@ -32,6 +34,148 @@
             toggle.setAttribute('aria-expanded', String(!expanded));
             menu.classList.toggle('nav-menu--open');
         });
+    })();
+    </script>
+    <script>
+    (function() {
+        var panel = document.getElementById('assistant-panel');
+        var toggle = document.getElementById('assistant-toggle');
+        var closeButton = document.getElementById('assistant-close');
+        var form = document.getElementById('assistant-form');
+        var question = document.getElementById('assistant-question');
+        var history = document.getElementById('assistant-history');
+        var clearButton = document.getElementById('assistant-clear-history');
+        var status = document.getElementById('assistant-status');
+        var storageKey = 'xgewerbesteuer.assistant.history';
+
+        if (!panel || !toggle || !form || !question || !history) return;
+
+        function setPanelOpen(open) {
+            panel.hidden = !open;
+            toggle.setAttribute('aria-expanded', String(open));
+            if (open) {
+                question.focus();
+            }
+        }
+
+        function escapeText(value) {
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function renderHistory(items) {
+            if (!items.length) {
+                history.innerHTML = '<p class="assistant-history__empty">Noch keine Fragen gestellt.</p>';
+                return;
+            }
+
+            history.innerHTML = items.map(function(item) {
+                return (
+                    '<article class="assistant-message">' +
+                    '<p class="assistant-message__label">Sie:</p>' +
+                    '<p>' + escapeText(item.question) + '</p>' +
+                    '<p class="assistant-message__label">KI-Assistent:</p>' +
+                    '<p>' + escapeText(item.answer || item.error).replace(/\n/g, '<br>') + '</p>' +
+                    '</article>'
+                );
+            }).join('');
+        }
+
+        function loadHistory() {
+            try {
+                return JSON.parse(sessionStorage.getItem(storageKey) || '[]');
+            } catch (error) {
+                return [];
+            }
+        }
+
+        function saveHistory(items) {
+            sessionStorage.setItem(storageKey, JSON.stringify(items));
+        }
+
+        toggle.addEventListener('click', function() {
+            setPanelOpen(panel.hidden);
+        });
+
+        if (closeButton) {
+            closeButton.addEventListener('click', function() {
+                setPanelOpen(false);
+            });
+        }
+
+        if (clearButton) {
+            clearButton.addEventListener('click', function() {
+                saveHistory([]);
+                renderHistory([]);
+                if (status) {
+                    status.textContent = 'Der Verlauf wurde geloescht.';
+                }
+            });
+        }
+
+        form.addEventListener('submit', function(event) {
+            event.preventDefault();
+            var formData = new FormData(form);
+            var questionText = String(formData.get('assistant_question') || '').trim();
+
+            if (!questionText) {
+                if (status) {
+                    status.textContent = 'Bitte geben Sie eine Frage ein.';
+                }
+                return;
+            }
+
+            if (questionText.length > 1000) {
+                if (status) {
+                    status.textContent = 'Die Frage ist zu lang. Bitte kuerzen Sie sie auf maximal 1000 Zeichen.';
+                }
+                return;
+            }
+
+            if (status) {
+                status.textContent = 'Der KI-Assistent verarbeitet Ihre Frage.';
+            }
+
+            fetch(form.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                },
+                credentials: 'same-origin'
+            })
+                .then(function(response) {
+                    return response.json();
+                })
+                .then(function(payload) {
+                    var items = loadHistory();
+                    items.push({
+                        question: questionText,
+                        answer: payload.answer,
+                        error: payload.error
+                    });
+                    saveHistory(items);
+                    renderHistory(items);
+                    question.value = '';
+                    if (status) {
+                        status.textContent = payload.ok
+                            ? 'Antwort wurde hinzugefuegt.'
+                            : payload.error;
+                    }
+                })
+                .catch(function() {
+                    if (status) {
+                        status.textContent = 'Der KI-Assistent ist aktuell nicht erreichbar.';
+                    }
+                });
+        });
+
+        renderHistory(loadHistory());
     })();
     </script>
     {% block extra_js %}{% endblock %}

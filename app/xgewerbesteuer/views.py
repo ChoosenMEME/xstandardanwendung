@@ -5,7 +5,7 @@ from pathlib import Path
 from django.contrib import messages
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import DatabaseError
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 
 from .calculations import build_plausibility_check
@@ -31,6 +31,8 @@ from .services.bescheid import (
 from .services.assistant import (
     answer_assistant_question,
     build_assistant_ui_context,
+    get_assistant_mode,
+    get_assistant_mode_label,
 )
 from .services.assistant_providers import AssistantProviderError
 from .services.export import (
@@ -258,7 +260,6 @@ def xgewerbesteuer_results(request):
         context = anonymize_result_context(context)
 
     prepare_download_sessions(request, context)
-    context.update(build_assistant_ui_context())
 
     return render(request, "xgewerbesteuer/results.html", context)
 
@@ -326,24 +327,65 @@ def _build_result_context(session_data):
 
 def xgewerbesteuer_assistant(request):
     if request.method != "POST":
-        return redirect("xgewerbesteuer_results")
+        return redirect("xgewerbesteuer_dashboard")
 
     session_data = request.session.get(RESULT_SESSION_KEY)
-
-    if not session_data:
-        return redirect("xgewerbesteuer_upload")
-
     question = request.POST.get("assistant_question", "")
-    context = _build_result_context(session_data)
-    prepare_download_sessions(request, context)
+    result_context = None
+    wants_json = (
+        request.headers.get("x-requested-with") == "XMLHttpRequest"
+        or "application/json" in request.headers.get("accept", "")
+    )
+
+    if session_data:
+        result_context = _build_result_context(session_data)
+        prepare_download_sessions(request, result_context)
+
+    mode = get_assistant_mode(result_context)
+    mode_label = get_assistant_mode_label(result_context)
 
     try:
-        answer = answer_assistant_question(question, context)
-        context.update(build_assistant_ui_context(answer=answer, question=question))
-    except AssistantProviderError as exc:
-        context.update(build_assistant_ui_context(error=str(exc), question=question))
+        answer = answer_assistant_question(question, result_context)
+        if wants_json:
+            return JsonResponse({
+                "ok": True,
+                "answer": answer,
+                "error": "",
+                "mode": mode,
+                "mode_label": mode_label,
+            })
 
-    return render(request, "xgewerbesteuer/results.html", context)
+        context = result_context or {}
+        context.update(
+            build_assistant_ui_context(
+                answer=answer,
+                question=question,
+                result_context=result_context,
+            )
+        )
+    except AssistantProviderError as exc:
+        if wants_json:
+            return JsonResponse({
+                "ok": False,
+                "answer": "",
+                "error": str(exc),
+                "mode": mode,
+                "mode_label": mode_label,
+            })
+
+        context = result_context or {}
+        context.update(
+            build_assistant_ui_context(
+                error=str(exc),
+                question=question,
+                result_context=result_context,
+            )
+        )
+
+    if result_context:
+        return render(request, "xgewerbesteuer/results.html", context)
+
+    return render(request, "xgewerbesteuer/dashboard.html", context)
 
 
 def xgewerbesteuer_load_saved(request):
