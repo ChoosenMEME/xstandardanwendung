@@ -237,6 +237,23 @@ der Server gestoppt. Für einen späteren Neustart genügt es, die venv zu aktiv
 `DEBUG=1`, `SECRET_KEY=dev-secret-key` sowie `SQLITE_PATH=dev.db.sqlite3` zu setzen und
 `python manage.py runserver` auszuführen.
 
+### Login und KI-Assistent lokal testen
+
+Beide Funktionen sind optional und in der lokalen Entwicklung (`DEBUG=1`) ohne weitere
+Konfiguration nutzbar:
+
+- **Login/Registrierung**: Mit `DEBUG=1` ist `LOGIN_ENABLED` automatisch aktiv (siehe
+  [`docs/architektur.md`](docs/architektur.md)). Passwort-Reset- und
+  Registrierungs-Mails werden im Debug-Modus nicht wirklich verschickt, sondern auf der
+  Konsole ausgegeben – bei Docker also in `docker compose -f compose.dev.yaml logs -f`,
+  bei Bare-Metal direkt im Terminal des laufenden `runserver`.
+- **KI-Assistent**: Standardmäßig deaktiviert (`AI_ASSISTANT_ENABLED=false`); die
+  restliche Anwendung funktioniert dann ohne Einschränkung. Zum Testen des
+  Assistenten-Panels `AI_ASSISTANT_ENABLED=true`, `AI_ASSISTANT_PROVIDER=ollama` sowie
+  `AI_ASSISTANT_BASE_URL` und `AI_ASSISTANT_MODEL` auf eine erreichbare
+  [Ollama](https://ollama.com/)-Instanz setzen (`.env` bzw. Umgebungsvariablen, siehe
+  `.env.example`).
+
 ---
 
 ## 3. Aufgabe wählen und Branch anlegen

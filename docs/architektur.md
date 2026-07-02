@@ -2,7 +2,8 @@
 
 ## 1. Ueberblick
 
-Die Anwendung liest digitale Gewerbesteuerbescheide im XGewerbesteuer-1.4-Format,
+Die Anwendung liest digitale Gewerbesteuerbescheide (und verwandte Nachrichtenarten wie
+Zins-, Vorauszahlungs- und Berechnungsnachrichten) im XGewerbesteuer-1.4-Format,
 extrahiert fachlich relevante Daten und stellt sie verstaendlich dar. Die Architektur
 ist auf Django aufgebaut und nutzt SQLite als Datenbank, KERN-UX als UI-Framework
 und Docker Compose fuer den Betrieb.
@@ -10,277 +11,263 @@ und Docker Compose fuer den Betrieb.
 ### Datenfluss
 
 ```text
-XML-Datei (Upload)
+XML-Datei(en) (Upload, Demo oder gespeicherte Auswertung)
   |
   v
 Validierung (Dateityp, Groesse, XML-Struktur, XSD)
   |
   v
-Extraktion (Gemeinde, Steuerjahr, Betraege, Faelligkeiten, Vorauszahlungen)
+Extraktion (Nachrichtentyp, Gemeinde, Steuerjahr, Betraege, Faelligkeiten, Vorauszahlungen)
   |
   v
 Berechnung (Formelerklaerung, Zahlungsklassifikation, Plausibilitaet)
   |
   v
-Vergleich (optional: Vorjahr, Mehrjahresvergleich)
+Vergleich (bei mehreren Bescheiden: Vorjahr, Mehrjahresvergleich, historische Entwicklung)
   |
   v
-Darstellung (HTML mit KERN-UX, optional PDF/CSV-Export)
+Darstellung (HTML mit KERN-UX, optionaler KI-Assistent, PDF-/CSV-/ICS-Export)
   |
   v
-Persistenz (optional: gespeicherte Auswertungen mit Zugriffsschutz)
+Persistenz (optional: gespeicherte Auswertungen mit Login-Zugriffsschutz)
 ```
 
 ---
 
-## 2. Ist-Zustand
+## 2. Modulstruktur
 
-### Modulstruktur
+Die Geschaeftslogik ist thematisch in eigene Module aufgeteilt; `views.py` orchestriert
+nur noch den Ablauf und delegiert an Extraktion, Validierung, Berechnung, Vergleich und
+Services.
 
-```text
-app/
-  config/
-    settings.py          # Django-Einstellungen
-    urls.py              # Root-URL-Konfiguration mit APP_PATH-Prefix
-    url_paths.py         # Hilfsfunktion fuer Routenprefix
-    wsgi.py / asgi.py    # Serveranbindung
-  templates/
-    base.html            # Basis-Template mit KERN-UX-CDN-Einbindung
-  static/                # Eigene statische Dateien (aktuell leer)
-  xgewerbesteuer/
-    views.py             # View + Extraktion + Validierung + Berechnung + Vergleich (~719 Zeilen)
-    urls.py              # Einzelne Route -> xgewerbesteuer_default
-    models.py            # Leer (Anwendung ist aktuell zustandslos)
-    admin.py             # Leer
-    apps.py              # App-Konfiguration
-    schemas/             # XSD-Dateien fuer Validierung
-    templates/
-      xgewerbesteuer_default.html  # Einziges Seiten-Template (~389 Zeilen)
-    tests/
-      test_views.py          # URL-/Routing-Tests
-      test_fixtures.py       # Fixture-Struktur- und Smoke-Tests
-      test_xml_uploads.py    # Extraktions-, Validierungs- und Upload-Tests
-      fixtures/              # 18 anonymisierte XGewerbesteuer-XML-Dateien
-```
-
-### Bekannte Schwaechen
-
-* `views.py` enthaelt ueber 25 Funktionen in einer einzigen Datei: Extraktion, Validierung,
-  Formatierung, Berechnung, Vergleich und View-Logik sind nicht getrennt (Issue #265).
-* Fehlende Werte verwenden den Sentinel-String `"Nicht gefunden"` statt `None` (Issue #263).
-* Kein Datenmodell: Bescheiddaten werden nur im Request verarbeitet, nicht gespeichert.
-* Ein einzelnes Template fuer alle Zustaende (Upload, Ergebnis, Fehler, Vergleich).
-* Keine wiederverwendbaren Template-Partials.
-* Keine eigenen Forms; Validierung geschieht direkt in der View.
-* Inline-Styles statt KERN-UX-Klassen in mehreren Template-Abschnitten (Issue #37).
-
----
-
-## 3. Zielarchitektur
-
-### 3.1 Modulaufteilung
-
-Die Geschaeftslogik wird aus `views.py` in thematisch getrennte Module aufgeteilt.
-Views orchestrieren nur noch den Ablauf und delegieren an spezialisierte Module.
+### 2.1 Verzeichnisbaum
 
 ```text
 app/xgewerbesteuer/
-  views.py              # View-Funktionen, Request-Handling, Orchestrierung
-  forms.py              # Django-Formulare fuer Upload und Eingaben
-  models.py             # Datenmodelle (Bescheid, Auswertung)
-  extractors.py         # XML-Datenextraktion
-  validators.py         # Datei-, XML- und XSD-Validierung
-  calculations.py       # Dezimalformatierung, Formeln, Plausibilitaet
-  comparisons.py        # Vorjahresvergleich, Mehrjahresvergleich
+  views.py                    # View-Funktionen, Request-Handling, Orchestrierung (~600 Zeilen)
+  forms.py                    # SignupForm, BescheidUploadForm
+  models.py                   # SavedBescheidUpload
+  admin.py                    # (noch keine Modelle registriert)
+  extractors.py                # Nachrichtentyp-Erkennung und XML-Datenextraktion
+  validators.py                 # Datei-, XML- und XSD-Validierung
+  calculations.py               # Formatierung, Formelerklaerung, Plausibilitaetspruefung
+  comparisons.py                 # Vorjahres-, Mehrjahresvergleich, historische Entwicklung
+  password_validators.py       # Eigene Passwort-Komplexitaetsregeln
+  context_processors.py        # Globale Template-Kontexte (Login-Status, KI-Assistent)
   services/
     __init__.py
-    bescheid.py         # Orchestrierung: Upload verarbeiten, Bescheiddaten aufbauen
-    export.py           # PDF- und CSV-Export
-    privacy.py          # Datenschutz-/Anonymisierungsmodus
+    bescheid.py                 # Orchestrierung: Upload verarbeiten, Notices, gespeicherte Auswertungen
+    export.py                   # PDF-, CSV- und ICS-Export
+    privacy.py                  # Anonymisierungsmodus
+    assistant.py                 # Kontext-/Prompt-Aufbereitung fuer den KI-Assistenten
+    assistant_providers.py       # Austauschbare KI-Assistant-Provider (Ollama, deaktiviert)
+    support_errors.py            # Supportfreundliche Fehler-IDs ohne sensible Daten im Log
   templatetags/
     __init__.py
-    xgewerbesteuer_filters.py  # Template-Filter (default-Werte, Formatierung)
+    xgewerbesteuer_filters.py    # Template-Filter (default_display, format_currency, ...)
   urls.py
-  admin.py
   apps.py
-  schemas/
+  schemas/                       # XSD-Dateien fuer Validierung
   templates/
+    xgewerbesteuer_default.html  # Altlast vor der Modulaufteilung, wird nicht mehr referenziert
+    xgewerbesteuer/
+      dashboard.html             # Startseite mit gespeicherten Auswertungen
+      upload.html                # Upload-Formular (mehrere Dateien, Demo-Einstieg)
+      results.html                # Auswertung, Vergleich, Historie, Exporte
+      help.html                   # Hilfe- und Glossarseite
+      partials/
+        assistant.html            # KI-Assistenten-Panel (global eingebunden)
   tests/
+    test_views.py                 # View-, URL- und Integrationstests
+    test_xml_uploads.py            # Extraktions-, Validierungs- und Upload-Tests
+    test_fixtures.py                # Fixture-Struktur- und Schema-Tests
+    test_models.py                  # Model-Tests (SavedBescheidUpload)
+    test_auth.py                     # Login, Registrierung, Passwort-Reset, Zugriffsschutz
+    test_assistant.py                 # KI-Assistent: Kontextaufbereitung, Provider, Fehlerfaelle
+    fixtures/                          # 15 fiktive XGewerbesteuer-XML-Dateien (siehe docs/testdaten.md)
 ```
 
-### 3.2 Verantwortlichkeiten
+Projektweite Templates (Basis-Layout, Partials, Registrierung/Login) liegen unter
+`app/templates/` (siehe [Abschnitt 5](#5-template-architektur)).
+
+### 2.2 Verantwortlichkeiten der Module
 
 | Modul | Aufgabe | Abhaengigkeiten |
 | --- | --- | --- |
-| `extractors.py` | XML-Elemente suchen, Rohwerte extrahieren, `None` bei fehlenden Werten | `lxml`, `defusedxml` |
-| `validators.py` | Dateityp, Groesse, XML-Parsing, XSD-Validierung | `lxml`, Schemas |
-| `calculations.py` | Dezimalwerte parsen/formatieren, Formelerklaerung, Plausibilitaetspruefung | `decimal` |
-| `comparisons.py` | Vorjahresvergleich, Mehrjahresvergleich, Aenderungstypen | `calculations` |
-| `services/bescheid.py` | Upload verarbeiten, Bescheiddaten zusammenfuehren, Ergebnis aufbauen | `extractors`, `validators`, `calculations`, `comparisons` |
-| `services/export.py` | PDF-/CSV-Erzeugung aus strukturierten Bescheiddaten | `services/bescheid` |
-| `services/privacy.py` | Sensible Felder maskieren, Modus verwalten | -- |
-| `forms.py` | Upload-Formular mit Validierungsregeln | Django Forms |
-| `models.py` | Bescheid-Persistenz, Nutzerzuordnung | Django ORM |
-| `views.py` | HTTP-Handling, Formularverarbeitung, Template-Rendering | `services`, `forms` |
+| `extractors.py` | Nachrichtentyp erkennen (`bescheide.gewerbesteuer.0001`, `bescheide.zinsen.0002`, `bescheide.vorauszahlung.0003`, `bescheide.gewerbesteuer.generisch.0010`, `berechnung.gewerbesteuer.0021`), Rohwerte extrahieren, `None` bei fehlenden Werten | `lxml`, `defusedxml` |
+| `validators.py` | Dateityp, Groesse (max. 5 MB), XML-Parsing, XSD-Validierung | `lxml`, Schemas |
+| `calculations.py` | Dezimal-/Datumswerte parsen und formatieren, Formelerklaerung (Messbetrag × Hebesatz), Plausibilitaetspruefung | `decimal` |
+| `comparisons.py` | Vorjahresvergleich, Nachrichtenart-Vergleichshinweis, Mehrjahresvergleich, historische Entwicklung inkl. Diagrammdaten | `calculations` |
+| `services/bescheid.py` | Upload-Orchestrierung, Zahlungsklassifikation, Liquiditaetswirkung, Faelligkeitskalender, Hinweis-/Statusbereich, gespeicherte Auswertungen | `extractors`, `validators`, `calculations`, `comparisons` |
+| `services/export.py` | PDF- (`reportlab`), CSV- und ICS-Erzeugung aus aufbereiteten Auswertungsdaten | `services/bescheid` |
+| `services/privacy.py` | Sensible Felder fuer Anzeige/Export maskieren | -- |
+| `services/assistant.py` | Erlaubte Auswertungsfelder in einen Assistant-Kontext uebernehmen, Fragen validieren, Antworten aufbereiten | `services/assistant_providers` |
+| `services/assistant_providers.py` | Austauschbare KI-Provider (aktuell Ollama), sicherer deaktivierter Standard | `urllib` |
+| `services/support_errors.py` | Neutrale Fehler-IDs erzeugen, Upload-Probleme ohne Falldaten loggen | `logging`, `uuid` |
+| `password_validators.py` | Gross-/Kleinbuchstabe, Ziffer, Sonderzeichen, kein Bezug zu Nutzerdaten | Django Auth |
+| `context_processors.py` | `LOGIN_ENABLED`-Status und KI-Assistent global in Templates verfuegbar machen | `services/assistant` |
+| `forms.py` | Upload-Formular (Dateityp/-groesse), Registrierungsformular | Django Forms |
+| `models.py` | Persistenz gespeicherter Auswertungen | Django ORM |
+| `views.py` | HTTP-Handling, Formularverarbeitung, Template-Rendering | `services`, `forms`, `comparisons` |
 | `templatetags/` | Anzeigelogik: fehlende Werte, Formatierung | -- |
 
-### 3.3 Datenfluss im Detail
+### 2.3 Datenfluss im Detail
 
 ```text
-Request (POST mit XML-Datei)
+Request (POST mit einer oder mehreren XML-Dateien, Feld "bescheide")
   |
   v
-views.py: xgewerbesteuer_default()
-  |-- forms.py: BescheidUploadForm.is_valid()
-  |     |-- Dateityp, Groesse pruefen
+views.py: xgewerbesteuer_upload()
+  |-- je Datei: validators.py + extractors.py ueber
+  |     services/bescheid.py: process_uploaded_bescheid()
+  |-- calculations.py: build_calculation_explanation(), build_plausibility_check()
+  |-- services/bescheid.py: classify_payment_type()
   |
   v
-services/bescheid.py: process_uploaded_bescheid()
-  |-- validators.py: validate_xml_against_xsd()
-  |-- extractors.py: extract_municipality(), extract_tax_period(), ...
-  |-- calculations.py: build_calculation_explanation(), classify_payment_type()
-  |-- calculations.py: check_plausibility()  [neu]
-  |-- comparisons.py: build_change_comparison()  [bei Vorjahresbescheid]
+views.py: _build_result_session_data()
+  |-- sortiert alle erfolgreich gelesenen Bescheide chronologisch
+  |-- letzter Bescheid = "aktuell", vorletzter = "Vorbescheid"
+  |-- comparisons.py: build_change_comparison() [ab 2 Bescheiden]
+  |-- comparisons.py: build_multi_bescheid_comparison(), build_historical_development() [ab 2 Bescheiden]
+  |-- optional: services/bescheid.py: create_saved_upload() [Checkbox + Login]
   |
   v
-services/bescheid.py: build_bescheid_data()
-  |-- Strukturiertes Dict mit allen Auswertungsdaten
+Session: request.session["xgewerbesteuer_result"]
   |
   v
-views.py: Template rendern mit Kontextdaten
+views.py: xgewerbesteuer_results() -> _build_result_context()
+  |-- services/bescheid.py: build_notice_area(), build_status_indicator(),
+  |     build_due_date_calendar(), build_liquidity_impact()
+  |-- services/export.py: PDF-/CSV-/ICS-Daten in Session vorbereiten
   |
   v
-Template: xgewerbesteuer_default.html
-  |-- templatetags: {{ value|default_display }}
-  |-- partials: {% include "partials/card_metric.html" %}
+Template: xgewerbesteuer/results.html (+ partials/assistant.html)
+  |-- templatetags: {{ value|default_display|format_currency }}
 ```
+
+Alternative Einstiege in denselben Ablauf:
+
+* **Demo** (`/demo/`): laedt zwei feste Beispieldateien (`GEWST-0010-...-2022-...` und
+  `-2023-...`) und zeigt dadurch direkt den Vorjahresvergleich.
+* **Gespeicherte Auswertung laden** (`/gespeichert/laden/`, Login erforderlich): stellt
+  eine einzelne zuvor gespeicherte Auswertung wieder in die Session ein (ohne erneuten
+  Mehrjahresvergleich, da nur die gespeicherten Ergebnisdaten vorliegen).
 
 ---
 
-## 4. Datenmodell
+## 3. Datenmodell
 
-### 4.1 Aktuell
-
-Die Anwendung ist zustandslos. Bescheiddaten existieren nur waehrend der
-Request-Verarbeitung als Python-Dicts.
-
-### 4.2 Zielmodell
-
-Fuer gespeicherte Uploads (Issue #46), historische Entwicklung (Issue #43) und
-Mehrfachvergleich (Issue #42) wird ein Datenmodell eingefuehrt.
+Die Anwendung speichert bewusst keine normalisierten Bescheid-Tabellen, sondern die
+bereits aufbereiteten Auswertungsdaten optional als JSON:
 
 ```text
-Bescheid
-  id                    AutoField
-  user                  ForeignKey(User, null=True)  # Optional, erst mit Login
-  upload_date           DateTimeField
-  file_name             CharField
-  file_hash             CharField                    # Duplikaterkennung
-  schema_name           CharField(null=True)         # Verwendetes XSD-Schema
-  municipality          CharField(null=True)         # Gemeinde/Kommune
-  tax_period            CharField(null=True)         # Steuerjahr/Erhebungszeitraum
-  amount_due            DecimalField(null=True)      # Zahlbetrag
-  assessment_amount     DecimalField(null=True)      # Gewerbesteuermessbetrag
-  assessment_rate       DecimalField(null=True)      # Hebesatz
-  payment_type          CharField(null=True)         # Nachzahlung/Erstattung/...
-  due_dates             JSONField(default=list)      # Faelligkeiten
-  advance_payments      JSONField(default=list)      # Vorauszahlungen
-  raw_xml_stored        BooleanField(default=False)  # Ob Original-XML gespeichert ist
-  is_demo               BooleanField(default=False)  # Demo-Beispielfall
-
-AdvancePayment (optional, falls Normalisierung gewuenscht)
-  bescheid              ForeignKey(Bescheid)
-  amount                DecimalField
-  due_date              DateField(null=True)
-  period                CharField(null=True)
-  payment_type          CharField(null=True)
+SavedBescheidUpload
+  id                            AutoField
+  session_key                   CharField, indiziert       # Session zum Zeitpunkt des Speicherns
+  user                          ForeignKey(User, null=True) # Login seit Issue #47 erforderlich
+  file_name                     CharField
+  file_size                     PositiveIntegerField
+  uploaded_at                   DateTimeField (auto_now_add)
+  municipality                  CharField, blank
+  tax_period                    CharField, blank
+  amount_due                    CharField, blank
+  payment_type                  CharField, blank
+  trade_tax_assessment_amount   CharField, blank
+  assessment_rate                CharField, blank
+  due_dates                     TextField, blank
+  advance_payments               JSONField(default=list)
+  summary_items                   JSONField(default=list)
+  result_data                     JSONField(default=dict)   # vollstaendiger aufbereiteter Auswertungskontext
 ```
 
-### 4.3 Designentscheidungen
+### Designentscheidungen
 
-* **Strukturierte Daten statt Roh-XML**: Gespeichert werden die extrahierten
-  Auswertungsdaten, nicht das vollstaendige XML. Das reduziert Speicherbedarf und
-  Datenschutzrisiken. Optionales Speichern des Original-XML ist bewusst aktivierbar.
-* **User-Zuordnung seit Issue #47 erforderlich fuers Speichern**: Neue gespeicherte
-  Auswertungen setzen `user` ueber Login voraus (siehe Abschnitt 8). Vor Issue #47
-  angelegte Zeilen behalten `user=NULL` und bleiben ueber die Oberflaeche nicht mehr
-  erreichbar, werden aber nicht geloescht.
-* **JSONField fuer variable Listen**: Faelligkeiten und Vorauszahlungen haben
-  unterschiedliche Laengen pro Bescheid. JSONField vermeidet unnoetige Joins
-  fuer Lesezugriffe.
+* **Aufbereitete Auswertungsdaten statt Roh-XML**: Gespeichert werden die bereits
+  extrahierten und aufbereiteten Werte (u. a. `result_data`, `summary_items`), nicht das
+  Original-XML. Das reduziert Speicherbedarf und Datenschutzrisiken.
+* **`user` bleibt nullable**: Neue gespeicherte Auswertungen setzen `user` ueber Login
+  voraus (`xgewerbesteuer_upload` bietet die Speichern-Option nur eingeloggten
+  Nutzer:innen an). Das nullable Feld sowie `session_key` stammen aus der Zeit vor dem
+  Login (Issue #47) und ermoeglichen es, bestehende Zeilen ohne Datenverlust
+  weiterzufuehren.
+* **JSONField fuer variable Listen**: Faelligkeiten, Vorauszahlungen und der komplette
+  Ergebniskontext haben eine variable Struktur. JSONField vermeidet unnoetige
+  Normalisierung fuer ein rein lesendes Anzeigeszenario (Dashboard, erneutes Oeffnen).
+* **Kein Django-Admin fuer `SavedBescheidUpload`**: `admin.py` registriert aktuell keine
+  Modelle; Verwaltung erfolgt ausschliesslich ueber die Anwendung selbst.
 
 ---
 
-## 5. URL-Struktur
+## 4. URL-Struktur
 
-Alle Routen liegen unter dem konfigurierbaren `APP_PATH`-Prefix.
-
-### 5.1 Aktuell
-
-```text
-/           -> xgewerbesteuer_default (Upload + Ergebnis)
-/admin/     -> Django Admin
-/healthz/   -> Health Check
-```
-
-### 5.2 Zielstruktur
-
-Die URL-Struktur wird um Seiten fuer Ergebnis, Export, Historie und Demo erweitert.
+Alle Routen liegen unter dem konfigurierbaren `APP_PATH`-Prefix
+(`app/xgewerbesteuer/urls.py`).
 
 ```text
-/                      -> Startseite / Upload
-/ergebnis/<id>/        -> Auswertung eines Bescheids
-/ergebnis/<id>/pdf/    -> PDF-Export
-/ergebnis/<id>/csv/    -> CSV-Export
-/vergleich/            -> Mehrjahresvergleich
-/historie/             -> Historische Entwicklung (gespeicherte Bescheide)
-/demo/                 -> Demo-Beispielfall laden
-/admin/                -> Django Admin
-/healthz/              -> Health Check
+/                              -> Dashboard (Startseite, gespeicherte Auswertungen)
+/upload/                       -> Bescheid(e) hochladen
+/demo/                         -> Demo-Beispielfall laden
+/ergebnis/                     -> Auswertung der aktuellen Session
+/ki-assistent/                 -> KI-Assistent (POST, HTML- oder JSON-Antwort)
+/hilfe/                        -> Hilfe- und Glossarseite
+/gespeichert/laden/             -> Gespeicherte Auswertung oeffnen (Login erforderlich)
+/gespeichert/loeschen/           -> Gespeicherte Auswertung loeschen (Login erforderlich)
+/pdf-bericht/                    -> PDF-Export der aktuellen Session
+/csv-export/                      -> CSV-Export der aktuellen Session
+/fristdatei.ics                    -> ICS-Kalenderdatei der Faelligkeiten
+/login/, /logout/                   -> Django-Auth-Views
+/registrieren/                       -> Selbstregistrierung
+/passwort-vergessen/ (+ Folgeschritte) -> Passwort-Reset-Flow
+/admin/                                -> Django Admin
+/healthz/                               -> Health Check
 ```
 
-Oeffentliche Routen (Upload, Demo, Health Check) bleiben ohne Login zugaenglich.
-Geschuetzte Routen (Historie, gespeicherte Ergebnisse) erfordern Authentifizierung,
-sobald Login eingefuehrt wird.
+Alle mit `require_login_enabled()` markierten Routen (Login, Logout, Registrierung,
+Passwort-Reset, gespeicherte Auswertungen) liefern **404**, solange
+`settings.LOGIN_ENABLED` `False` ist (siehe [Abschnitt 7](#7-authentifizierung-und-zugriffsschutz)).
+Es gibt bewusst keine separaten Routen fuer Mehrjahresvergleich oder Historie: Beides ist
+Teil von `/ergebnis/`, sobald mehrere Bescheide in der Session vorliegen.
 
 ---
 
-## 6. Template-Architektur
+## 5. Template-Architektur
 
-### 6.1 Vererbung
+### 5.1 Vererbung
 
 ```text
-base.html                          # KERN-UX, Meta, Bloecke
+app/templates/base.html                     # KERN-UX, Meta, Bloecke, Navigation
   |
-  +-- xgewerbesteuer_upload.html   # Upload-Formular
-  +-- xgewerbesteuer_result.html   # Auswertung
-  +-- xgewerbesteuer_compare.html  # Mehrjahresvergleich
-  +-- xgewerbesteuer_history.html  # Gespeicherte Bescheide
-  +-- xgewerbesteuer_demo.html     # Demo-Ansicht
+  +-- app/xgewerbesteuer/templates/xgewerbesteuer/dashboard.html
+  +-- app/xgewerbesteuer/templates/xgewerbesteuer/upload.html
+  +-- app/xgewerbesteuer/templates/xgewerbesteuer/results.html
+  +-- app/xgewerbesteuer/templates/xgewerbesteuer/help.html
+  +-- app/templates/registration/login.html, signup.html, password_reset_*.html
 ```
 
-### 6.2 Wiederverwendbare Partials
+`xgewerbesteuer_default.html` ist eine unbenutzte Altlast aus der Zeit vor der
+Modulaufteilung (kein View referenziert die Datei mehr) und kann entfernt werden.
+
+### 5.2 Wiederverwendbare Partials
 
 ```text
 app/templates/partials/
-  navigation.html          # Hauptnavigation mit aktivem Zustand
-  messages.html            # Erfolgs-/Fehler-/Hinweismeldungen
-  card_metric.html         # Kennzahlen-Card (Label + Wert)
-  card_payment.html        # Zahlungsinformation mit Einordnung
-  table_summary.html       # Zusammenfassungstabelle
-  table_comparison.html    # Vergleichstabelle (Vorjahr/Mehrjahr)
-  table_advance_payments.html  # Vorauszahlungstabelle
-  alert.html               # Hinweis-/Warnungsbox
-  empty_state.html         # Leerezustand mit Handlungsvorschlag
-  upload_form.html         # Upload-Formular
-  calculation_explanation.html  # Berechnungserklaerung
-  privacy_badge.html       # Datenschutzmodus-Anzeige
+  header.html               # Kopfbereich / Hauptnavigation
+  footer.html                # Fusszeile
+  messages.html                # Erfolgs-/Fehler-/Hinweismeldungen (Django messages)
+  card_metric.html               # Kennzahlen-Card (Label + Wert)
+  table_summary.html               # Zusammenfassungstabelle
+  alert.html                         # Hinweis-/Warnungsbox
+  upload_form.html                     # Upload-Formular
+
+app/xgewerbesteuer/templates/xgewerbesteuer/partials/
+  assistant.html              # Global eingebundenes KI-Assistenten-Panel
 ```
 
-Partials werden per `{% include "partials/card_metric.html" with label=item.label value=item.value %}`
-eingebunden und verwenden ausschliesslich KERN-UX-Klassen.
+Partials werden per `{% include "partials/card_metric.html" with label=... value=... %}`
+eingebunden und verwenden ausschliesslich KERN-UX-Klassen (siehe
+[`docs/design.md`](design.md)).
 
-### 6.3 Template-Tags und Filter
+### 5.3 Template-Tags und Filter
 
 ```python
 # templatetags/xgewerbesteuer_filters.py
@@ -300,106 +287,193 @@ def format_date_de(value):
 @register.filter
 def format_percent(value):
     """Formatiert Dezimalwert als '12,5 %'."""
-
-@register.filter
-def mask_sensitive(value):
-    """Maskiert sensible Werte im Datenschutzmodus."""
 ```
 
-Verwendung im Template:
+Die Maskierung sensibler Werte im Datenschutzmodus erfolgt **nicht** ueber einen
+Template-Filter, sondern ueber `services/privacy.py: anonymize_result_context()`
+auf dem bereits aufbereiteten Kontext (siehe [Abschnitt 6.3](#63-privacy-service)).
 
-```html
-{% load xgewerbesteuer_filters %}
-{{ bescheid.amount_due|format_currency|default_display }}
-```
+### 5.4 Globale Template-Kontexte
+
+`context_processors.py` stellt zwei projektweite Kontextvariablen bereit:
+
+* `login_enabled` -> `LOGIN_ENABLED` fuer Navigation/Templates.
+* `assistant_context` -> baut das KI-Assistenten-Panel (`partials/assistant.html`) aus
+  der aktuellen Session neu auf, damit es auf jeder Seite konsistent verfuegbar ist.
 
 ---
 
-## 7. Services
+## 6. Services im Detail
 
-### 7.1 Bescheid-Service
+### 6.1 Bescheid-Service
 
-Zentrale Orchestrierung fuer die Bescheidverarbeitung. Entkoppelt die View-Logik
-von Extraktion, Berechnung und Persistenz.
+Zentrale Orchestrierung fuer Upload, Aufbereitung und gespeicherte Auswertungen.
 
 ```python
 # services/bescheid.py
 
 def process_uploaded_bescheid(uploaded_file):
-    """Validiert, parst und extrahiert Bescheiddaten.
-    Gibt strukturiertes Dict oder Fehler zurueck."""
+    """Validiert, parst und extrahiert eine hochgeladene Datei."""
 
 def build_bescheid_data(uploaded_file, root, schema_name):
-    """Baut Auswertungsdaten aus geparster XML auf."""
+    """Baut die Auswertungsdaten aus dem geparsten XML auf."""
 
-def save_bescheid(bescheid_data, user=None):
-    """Speichert extrahierte Daten als Bescheid-Model-Instanz."""
+def classify_payment_type(amount_due, advance_payments):
+    """Ordnet den Zahlbetrag ein (Nachzahlung/Erstattung/...)."""
 
-def load_demo_bescheid(fixture_name):
-    """Laedt Demo-Beispielfall aus Fixture-Datei."""
+def build_notice_area(current_bescheid, change_comparison_items=None):
+    """Baut den zusammengefassten Hinweisbereich (fehlende Werte, Zahlungs-,
+    Vergleichshinweise)."""
+
+def build_liquidity_impact(current_bescheid, reference_date=None):
+    """Berechnet die Liquiditaetswirkung anstehender Zahlungen."""
+
+def build_due_date_calendar(current_bescheid):
+    """Gruppiert Faelligkeiten chronologisch nach Monat."""
+
+def create_saved_upload(request, bescheid_data, context_data):
+    """Speichert eine Auswertung fuer den eingeloggten Nutzer."""
 ```
 
-### 7.2 Export-Service
+### 6.2 Export-Service
 
-Erzeugt PDF- und CSV-Exporte aus strukturierten Bescheiddaten.
+Erzeugt PDF-, CSV- und ICS-Exporte aus den in der Session aufbereiteten Auswertungsdaten.
 
 ```python
 # services/export.py
 
-def export_as_pdf(bescheid_data, privacy_mode=False):
-    """Erzeugt PDF-Bericht. Gibt HttpResponse mit PDF zurueck."""
+def create_pdf_report(report_data):
+    """Erzeugt einen PDF-Bericht mit reportlab."""
 
-def export_as_csv(bescheid_data, privacy_mode=False):
-    """Erzeugt CSV-Export. Gibt HttpResponse mit CSV zurueck."""
+def create_csv_export(report_data):
+    """Erzeugt einen CSV-Export der Kennzahlen."""
+
+def create_ics_export(due_date_calendar):
+    """Erzeugt eine ICS-Kalenderdatei mit Faelligkeitsterminen."""
 ```
 
-### 7.3 Privacy-Service
+### 6.3 Privacy-Service
 
-Maskierung sensibler Daten fuer Anzeige, Export und Screenshots.
+Maskierung sensibler Daten fuer Anzeige, Export und Screenshots (Datenschutz-/
+Anonymisierungsmodus).
 
 ```python
 # services/privacy.py
 
-SENSITIVE_FIELDS = ["municipality", "tax_number", "message_id", ...]
+def anonymize_value(value):
+    """Ersetzt einen einzelnen Wert durch eine neutrale Platzhalterdarstellung."""
 
-def mask_bescheid_data(bescheid_data):
-    """Gibt Kopie mit maskierten sensiblen Feldern zurueck."""
-
-def is_privacy_mode(request):
-    """Prueft, ob Datenschutzmodus aktiv ist (Session/Parameter)."""
+def anonymize_result_context(context):
+    """Gibt eine Kopie des Auswertungskontexts mit maskierten sensiblen Feldern zurueck."""
 ```
+
+### 6.4 KI-Assistent
+
+Optionaler Assistent fuer allgemeine Bedienhilfe und Fragen zur aktuellen Auswertung
+(`ASSISTANT_MODE_GENERAL` / `ASSISTANT_MODE_RESULT`). Standardmaessig deaktiviert
+(`AI_ASSISTANT_ENABLED=false`); ohne Konfiguration wird die Anwendung ohne
+Einschraenkung nutzbar, es erscheint lediglich ein Hinweis.
+
+```python
+# services/assistant.py
+
+def build_assistant_context(result_context=None):
+    """Uebernimmt ausschliesslich eine Positivliste bereits aufbereiteter
+    Auswertungsfelder (Gemeinde, Steuerjahr, Betraege, Faelligkeiten,
+    Vergleichsergebnisse, verfuegbare Exporte) - keine Rohdaten aus dem
+    hochgeladenen XML, keine IDs oder Session-/Nutzerinformationen."""
+
+def answer_assistant_question(question, result_context):
+    """Validiert die Frage (Laenge, Inhalt) und ruft den konfigurierten Provider auf."""
+
+# services/assistant_providers.py
+
+class DisabledAssistantProvider(AssistantProvider):
+    """Sicherer Standard, falls kein Provider konfiguriert ist."""
+
+class OllamaAssistantProvider(AssistantProvider):
+    """Lokaler Ollama-Provider (AI_ASSISTANT_BASE_URL/-MODEL), ohne externe
+    Python-Abhaengigkeiten (nutzt urllib)."""
+```
+
+Jede Antwort ist als „KI-generierte Antwort" gekennzeichnet und enthaelt den Hinweis,
+dass sie keine steuerliche Beratung ersetzt. Provider-Fehler (Timeout, nicht
+erreichbar, unlesbare Antwort) werden als benutzerverstaendliche Meldung ausgegeben,
+nie als technischer Fehler.
+
+### 6.5 Support-Fehler-IDs
+
+```python
+# services/support_errors.py
+
+def generate_error_id():
+    """Erzeugt eine kurze neutrale ID (z. B. 'XGST-A1B2C3D4') ohne Bezug zu
+    Eingabedaten."""
+
+def log_upload_issue(error_id, code, level="warning", exception=None):
+    """Loggt nur neutrale Metadaten (Fehler-ID, Code, Exception-Typ) - keine
+    Bescheiddaten."""
+```
+
+Nutzer:innen erhalten bei Upload-Fehlern eine Fehler-ID, die im Support-Fall
+zurueckverfolgt werden kann, ohne dass dafuer vertrauliche Bescheiddaten geloggt
+werden muessten.
 
 ---
 
-## 8. Authentifizierung und Zugriffsschutz
+## 7. Authentifizierung und Zugriffsschutz
 
-### 8.1 Stufenmodell
-
-Die Authentifizierung wird stufenweise eingefuehrt:
+### 7.1 Stufenmodell
 
 | Stufe | Zustand | Oeffentlich | Geschuetzt |
 | --- | --- | --- | --- |
 | 1 | Ohne Login | Alles | Nichts |
 | 2 | Django-Auth (Issue #47, umgesetzt) | Upload, Demo, Ergebnis, Hilfe, Exporte, Dashboard-Grundgeruest | Speichern/Laden/Loeschen gespeicherter Bescheide |
-| 3 | OIDC optional (Issue #254) | wie Stufe 2 | wie Stufe 2 |
+| 3 | OIDC optional (Issue #254, offen) | wie Stufe 2 | wie Stufe 2 |
 
 Stufe 2 nutzt ausschliesslich Django-Bordmittel: `django.contrib.auth`
-(`LoginView`, `LogoutView`, `login_required`), `UserCreationForm` fuer die
-Selbstregistrierung sowie `PasswordResetView`/`PasswordResetConfirmView` fuer
-den Passwort-Vergessen-Flow. Es gibt keine Abhaengigkeit zu allauth oder OIDC;
-das bleibt der optionalen Stufe 3 vorbehalten.
+(`LoginView`, `LogoutView`, `login_required`), `UserCreationForm`
+(`SignupForm`) fuer die Selbstregistrierung sowie `PasswordResetView`/
+`PasswordResetConfirmView` fuer den Passwort-Vergessen-Flow. Es gibt keine
+Abhaengigkeit zu allauth oder OIDC; das bleibt der optionalen Stufe 3 vorbehalten.
 
-### 8.2 Welche Funktionen brauchen Login
+### 7.2 Automatische Login-Deaktivierung ohne Mailserver
 
-* **Oeffentlich (kein Login):** Bescheid hochladen (`/upload/`), Demo-Beispielfall
-  (`/demo/`), Ergebnisanzeige (`/ergebnis/`), Hilfe (`/hilfe/`), CSV-/PDF-/ICS-Export,
-  Dashboard-Grundgeruest (`/`).
-* **Login erforderlich:** Auswertung speichern (Checkbox beim Upload),
-  gespeicherte Auswertung laden/oeffnen (`/gespeichert/laden/`), gespeicherte
-  Auswertung loeschen (`/gespeichert/loeschen/`), Anzeige der eigenen
-  gespeicherten Auswertungen im Dashboard.
+Ohne echten Mailserver koennen Passwort-Reset-Mails nicht zugestellt werden. Deshalb
+gilt in `config/settings.py`:
 
-### 8.3 Zugriffsregeln
+```text
+LOGIN_ENABLED = DEBUG or EMAIL_SERVER_CONFIGURED
+```
+
+`EMAIL_SERVER_CONFIGURED` ist wahr, sobald `EMAIL_HOST` auf einen anderen Wert als
+`localhost` gesetzt ist. Die Heuristik laesst sich per `LOGIN_ENABLED=1`/`0` explizit
+uebersteuern. Ist Login deaktiviert, liefern alle betroffenen Routen (siehe
+[Abschnitt 4](#4-url-struktur)) **404** statt eines Formulars, und Navigation/Dashboard
+blenden die entsprechenden Links aus (`context_processors.login_enabled`).
+
+### 7.3 Passwort-Anforderungen
+
+Zusaetzlich zu Djangos `MinimumLengthValidator` und `CommonPasswordValidator` prueft
+`password_validators.py`:
+
+* mindestens ein Grossbuchstabe (`UppercaseValidator`)
+* mindestens ein Kleinbuchstabe (`LowercaseValidator`)
+* mindestens eine Ziffer (`DigitValidator`)
+* mindestens ein Sonderzeichen (`SpecialCharacterValidator`)
+* kein Bestandteil aus Benutzername oder E-Mail-Adresse (`NoUserInfoFragmentValidator`)
+
+### 7.4 Welche Funktionen brauchen Login
+
+* **Oeffentlich (kein Login):** Dashboard (`/`), Bescheid(e) hochladen (`/upload/`),
+  Demo-Beispielfall (`/demo/`), Ergebnisanzeige (`/ergebnis/`), Hilfe (`/hilfe/`),
+  PDF-/CSV-/ICS-Export, KI-Assistent (`/ki-assistent/`).
+* **Login erforderlich:** Auswertung speichern (Checkbox beim Upload), gespeicherte
+  Auswertung laden (`/gespeichert/laden/`), gespeicherte Auswertung loeschen
+  (`/gespeichert/loeschen/`), Anzeige der eigenen gespeicherten Auswertungen im
+  Dashboard.
+
+### 7.5 Zugriffsregeln
 
 * Einmaliger Upload und Auswertung bleiben immer ohne Login nutzbar.
 * Gespeicherte Bescheide sind an den Nutzer gebunden (`SavedBescheidUpload.user`).
@@ -409,9 +483,10 @@ das bleibt der optionalen Stufe 3 vorbehalten.
   `@login_required` geschuetzt und filtern ausschliesslich nach dem
   angemeldeten Nutzer; fremde oder unbekannte IDs liefern dieselbe generische
   Fehlermeldung (kein Enumeration-Leak).
-* Selbstregistrierung erfolgt ueber `UserCreationForm`, danach automatischer
-  Login. Es gibt keine E-Mail-Verifizierung, passend zum kleinen,
-  nicht-oeffentlichen Nutzerkreis der Anwendung.
+* Selbstregistrierung erfolgt ueber `SignupForm` (`UserCreationForm` + Pflicht-E-Mail
+  fuer Passwort-Reset), danach automatischer Login. Es gibt keine
+  E-Mail-Verifizierung, passend zum kleinen, nicht-oeffentlichen Nutzerkreis der
+  Anwendung.
 * Passwort-Vergessen nutzt Djangos Standardverhalten und bestaetigt jede
   Anfrage mit derselben Erfolgsseite, unabhaengig davon, ob die E-Mail-Adresse
   existiert (kein User-Enumeration-Leak).
@@ -419,21 +494,27 @@ das bleibt der optionalen Stufe 3 vorbehalten.
 
 ---
 
-## 9. Sicherheitsarchitektur
+## 8. Sicherheitsarchitektur
 
 ### XML-Verarbeitung
 
 * `defusedxml` fuer sicheres XML-Parsing (XXE-Schutz).
-* `lxml.etree` mit `resolve_entities=False`, `no_network=True`, `load_dtd=False`.
+* `lxml.etree` mit `resolve_entities=False`, `no_network=True`.
 * XSD-Validierung gegen lokale Schema-Dateien.
-* Maximale Dateigroesse: 5 MB.
+* Maximale Dateigroesse: 5 MB (`validators.MAX_UPLOAD_SIZE_BYTES`).
+* Mehrere Dateien pro Upload werden einzeln validiert; ungueltige Dateien blockieren
+  nicht die gueltigen (`upload_errors` je Datei).
 
 ### Datenschutz
 
-* Keine vertraulichen Bescheiddaten in Logs.
+* Keine vertraulichen Bescheiddaten in Logs; Upload-Fehler werden ueber neutrale
+  Fehler-IDs korrelierbar gemacht (`services/support_errors.py`).
 * Keine Roh-XML-Anzeige in der Oberflaeche.
 * Fehlermeldungen ohne technische Interna.
-* Optionaler Anonymisierungsmodus fuer Anzeige und Export.
+* Optionaler Anonymisierungsmodus fuer Anzeige und Export (`services/privacy.py`).
+* Der KI-Assistent erhaelt nur eine explizite Positivliste bereits aufbereiteter
+  Auswertungsfelder, nie das Original-XML oder Datenbank-/Session-IDs
+  (siehe [Abschnitt 6.4](#64-ki-assistent)); Standard-Provider ist deaktiviert.
 * Gespeicherte Daten nur mit Nutzerzuordnung zugaenglich.
 
 ### Django-Sicherheit
@@ -442,31 +523,39 @@ das bleibt der optionalen Stufe 3 vorbehalten.
 * `SECRET_KEY` ueber Umgebungsvariable.
 * `DEBUG=False` in Produktion.
 * `ALLOWED_HOSTS` konfigurierbar.
+* CodeQL-Scanning ist als Pull-Request-Check aktiv (siehe `CONTRIBUTING.md`).
 
 ---
 
-## 10. Abhaengigkeiten
+## 9. Abhaengigkeiten
 
-### Bestehend
+### Laufzeit (`requirements.txt`)
 
 | Paket | Zweck |
 | --- | --- |
-| Django 6.0 | Webframework |
-| lxml 5-7 | XML-Parsing und XSD-Validierung |
-| defusedxml | Sicheres XML-Parsing |
+| Django >=6.0,<6.1 | Webframework, Auth, ORM |
+| lxml >=5.0,<7.0 | XML-Parsing und XSD-Validierung |
+| defusedxml | Sicheres XML-Parsing (XXE-Schutz) |
+| reportlab >=4.0,<5.0 | PDF-Erzeugung (`services/export.py`) |
+
+### Optional / zur Laufzeit konfigurierbar
+
+| Komponente | Zweck | Aktivierung |
+| --- | --- | --- |
+| Ollama (extern, nicht als Python-Paket eingebunden) | KI-Assistent-Provider | `AI_ASSISTANT_ENABLED=true`, `AI_ASSISTANT_PROVIDER=ollama` |
+| SMTP-Server (extern) | Passwort-Reset-Mails, schaltet Login/Registrierung frei | `EMAIL_HOST` != `localhost` oder `LOGIN_ENABLED=1` |
 
 ### Geplant
 
 | Paket | Zweck | Benoetigt fuer |
 | --- | --- | --- |
-| weasyprint oder reportlab | PDF-Erzeugung | Issue #34 |
-| mozilla-django-oidc oder authlib | OIDC-Anbindung | Issue #254 |
+| mozilla-django-oidc oder authlib | OIDC-Anbindung (Stufe 3) | Issue #254 |
 
 Neue Abhaengigkeiten werden nur eingefuehrt, wenn Django-Bordmittel nicht ausreichen.
 
 ---
 
-## 11. Testarchitektur
+## 10. Testarchitektur
 
 ### Teststruktur
 
@@ -474,24 +563,34 @@ Neue Abhaengigkeiten werden nur eingefuehrt, wenn Django-Bordmittel nicht ausrei
 app/xgewerbesteuer/tests/
   __init__.py
   test_views.py              # View-, URL- und Integrationstests
-  test_fixtures.py           # Fixture-Struktur- und Smoke-Tests
-  test_xml_uploads.py        # Upload-, Extraktions- und Validierungstests
-  test_extractors.py         # Unit-Tests fuer Extraktionsfunktionen
-  test_validators.py         # Unit-Tests fuer Validierungslogik
-  test_calculations.py       # Unit-Tests fuer Berechnungen und Plausibilitaet
-  test_comparisons.py        # Unit-Tests fuer Vergleichslogik
-  test_services.py           # Service-Tests (Bescheid, Export, Privacy)
-  test_models.py             # Model- und Migrationstests
-  test_templatetags.py       # Template-Filter-Tests
-  fixtures/                  # 18 anonymisierte XGewerbesteuer-XML-Dateien
+  test_xml_uploads.py         # Upload-, Extraktions- und Validierungstests
+  test_fixtures.py            # Fixture-Struktur- und Schema-Tests (XSD, Grundformel)
+  test_models.py              # Model-Tests (SavedBescheidUpload)
+  test_auth.py                # Login, Registrierung, Passwort-Reset, Zugriffsschutz
+  test_assistant.py           # KI-Assistent: Kontext, Provider, Fehlerfaelle
+  fixtures/                   # 15 fiktive XGewerbesteuer-XML-Dateien (siehe docs/testdaten.md)
 ```
 
 ### Testprinzipien
 
 * Tests werden vor der Implementierung geschrieben (testgetrieben, siehe AGENTS.md).
-* Jedes neue Modul bekommt eine eigene Testdatei.
 * Extraktions-, Berechnungs- und Vergleichslogik ist unabhaengig von Django testbar.
 * View-Tests pruefen Statuscode, Template und Kontextdaten.
 * Export-Tests pruefen Content-Type, Header und Inhalte.
-* Zugriffsschutztests pruefen eigene und fremde Daten.
+* Zugriffsschutztests pruefen eigene und fremde Daten sowie das Verhalten bei
+  deaktiviertem Login (`LOGIN_ENABLED=False` -> 404).
+* Assistant-Tests pruefen Kontextaufbereitung (keine Rohdaten), Providerfehler und die
+  deaktivierte Standardkonfiguration.
 * Alle Tests verwenden ausschliesslich fiktive Daten und vorhandene Fixtures.
+
+---
+
+## 11. Bekannte technische Schulden / Ausblick
+
+* `app/xgewerbesteuer/templates/xgewerbesteuer_default.html` ist eine unbenutzte
+  Altlast aus der Zeit vor der Modulaufteilung und kann entfernt werden.
+* `admin.py` registriert bisher kein Modell im Django-Admin.
+* OIDC (Stufe 3, Issue #254) ist weiterhin nur als Option vorgesehen, nicht umgesetzt.
+* Der KI-Assistent unterstuetzt aktuell nur den Ollama-Provider; weitere Provider
+  lassen sich in `assistant_providers.py` ergaenzen, ohne `assistant.py` oder die
+  Views anzupassen.
