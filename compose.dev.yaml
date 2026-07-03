@@ -9,6 +9,8 @@ services:
       - "${WEB_PORT:-8000}:${WEB_PORT:-8000}"
     environment:
       DEBUG: ${DEBUG:-1}
+      # Devserver mit Auto-Reload statt gunicorn (Quellcode ist als Volume gemountet).
+      USE_DEV_SERVER: "1"
       SECRET_KEY: ${SECRET_KEY:-dev-secret-key}
       DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost 127.0.0.1 [::1]}
       PUID: ${PUID:-1000}

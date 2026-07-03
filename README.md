@@ -68,6 +68,9 @@ Details zur technischen Umsetzung stehen in [`docs/architektur.md`](docs/archite
 - **[lxml](https://lxml.de/)** / **[defusedxml](https://github.com/tiran/defusedxml)** für
   sicheres XML-Parsing und XSD-Validierung
 - **[reportlab](https://www.reportlab.com/)** für den PDF-Export
+- **[gunicorn](https://gunicorn.org/)** als WSGI-Server und
+  **[WhiteNoise](https://whitenoise.readthedocs.io/)** für die Auslieferung
+  statischer Dateien im Container-Betrieb
 - **[Ollama](https://ollama.com/)** (optional, extern) als lokaler Provider für den
   KI-Assistenten – ohne Konfiguration bleibt der Assistent deaktiviert
 

@@ -91,6 +91,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -180,3 +181,17 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 STATIC_URL = build_static_url(APP_PATH)
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [BASE_DIR / "static"]
+
+# Whitenoise liefert die statischen Dateien direkt aus dem Anwendungsprozess
+# aus. Der Django-Devserver bedient statische Dateien nur bei DEBUG=1; ohne
+# Whitenoise waeren CSS/Logo/Favicons im Produktivbetrieb nicht erreichbar.
+# Bewusst ohne Manifest-Variante, damit Tests und Entwicklung ohne
+# vorheriges collectstatic funktionieren.
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+    },
+}
