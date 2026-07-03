@@ -92,6 +92,9 @@ body {
 }
 
 .site-logo {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     font-weight: 700;
     font-size: 1.05rem;
     color: var(--color-primary);
@@ -102,6 +105,12 @@ body {
 
 .site-logo:hover {
     color: var(--color-primary-hover);
+}
+
+.site-logo__image {
+    height: 1.75rem;
+    width: auto;
+    display: block;
 }
 
 /* ===== NAVIGATION ===== */
