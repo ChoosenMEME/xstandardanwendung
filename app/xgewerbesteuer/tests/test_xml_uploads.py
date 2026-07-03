@@ -2287,6 +2287,22 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertContains(response, "keine echten Bescheiddaten")
         self.assertContains(response, "Zusammenfassung")
 
+    def test_result_page_explains_core_terms_near_values(self):
+        response = self.client.get(reverse("xgewerbesteuer_demo"), follow=True)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "term-help")
+        self.assertContains(response, "Begriffserklärung: Gewerbesteuermessbetrag")
+        self.assertContains(response, "Begriffserklärung: Hebesatz")
+        self.assertContains(response, "Begriffserklärung: Gewerbesteuerbetrag")
+        self.assertContains(response, "Begriffserklärung: Festsetzung")
+        self.assertContains(response, "Begriffserklärung: Vorauszahlung")
+        self.assertContains(response, "Begriffserklärung: Fälligkeit")
+        self.assertContains(response, "Begriffserklärung: Erhebungszeitraum")
+        self.assertContains(response, "Begriffserklärung: Änderungsbescheid")
+        self.assertContains(response, "<details", count=None)
+        self.assertContains(response, "<summary", count=None)
+
     def test_demo_entry_uses_fictional_fixture_files(self):
         response = self.client.get(reverse("xgewerbesteuer_demo"), follow=True)
 
