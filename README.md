@@ -258,6 +258,16 @@ Defaults; `SECRET_KEY` muss gesetzt werden. Die echte `.env`-Datei wird
 | `AI_ASSISTANT_PROVIDER` | KI-Provider; aktuell unterstützt: `ollama` | `disabled` |
 | `AI_ASSISTANT_MODEL` / `AI_ASSISTANT_BASE_URL` | Modellname und Basis-URL des Ollama-Servers | – |
 | `AI_ASSISTANT_TIMEOUT_SECONDS` | Timeout für Anfragen an den KI-Provider | `10` |
+| `CSRF_TRUSTED_ORIGINS` | Leerzeichen-getrennte Liste vollständiger Origins (z. B. `https://steuer.example.de`) für den CSRF-Origin-Check hinter einem HTTPS-Reverse-Proxy; ohne diesen Wert liefern POSTs hinter TLS-Terminierung 403 | – |
+| `USE_X_FORWARDED_PROTO` | `1` = Django vertraut dem `X-Forwarded-Proto`-Header des Proxys (`SECURE_PROXY_SSL_HEADER`). Nur setzen, wenn der Proxy den Header selbst setzt/überschreibt | `0` |
+| `COOKIES_SECURE` | `1` = Session- und CSRF-Cookie nur über HTTPS ausliefern | `0` |
+| `SECURE_HSTS_SECONDS` | HSTS-Laufzeit in Sekunden (`0` = aus); erst aktivieren, wenn die Domain dauerhaft per HTTPS erreichbar ist | `0` |
+| `SECURE_HSTS_INCLUDE_SUBDOMAINS` / `SECURE_HSTS_PRELOAD` | HSTS auf Subdomains ausweiten bzw. Preload-Flag setzen (`1` = an) | `0` / `0` |
+| `SECURE_SSL_REDIRECT` | `1` = HTTP-Anfragen serverseitig auf HTTPS umleiten (meist erledigt das der Proxy) | `0` |
+
+Für den Betrieb hinter einem HTTPS-Reverse-Proxy sind typischerweise
+`CSRF_TRUSTED_ORIGINS`, `USE_X_FORWARDED_PROTO=1` und `COOKIES_SECURE=1` nötig.
+`python manage.py check --deploy` listet verbleibende Härtungsempfehlungen auf.
 
 Im DEBUG-Modus (Bare-Metal- und Docker-Dev-Setup) werden E-Mails standardmäßig auf der
 Konsole ausgegeben (`EmailBackend` = console) – Registrierungs- und
