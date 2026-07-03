@@ -122,10 +122,6 @@ Aktuelle Struktur:
             └── fixtures/
 ```
 
-Die Datei `app/xgewerbesteuer/templates/xgewerbesteuer_default.html` ist eine unbenutzte
-Altlast aus der Zeit vor der Modulaufteilung (siehe `docs/architektur.md`, Abschnitt
-„Bekannte technische Schulden").
-
 Falls sich die Struktur aendert, soll sich der Agent an der tatsaechlich vorhandenen Struktur im Repository orientieren.
 
 ## Docker Compose

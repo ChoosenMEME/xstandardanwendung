@@ -69,7 +69,6 @@ app/xgewerbesteuer/
   apps.py
   schemas/                       # XSD-Dateien fuer Validierung
   templates/
-    xgewerbesteuer_default.html  # Altlast vor der Modulaufteilung, wird nicht mehr referenziert
     xgewerbesteuer/
       dashboard.html             # Startseite mit gespeicherten Auswertungen
       upload.html                # Upload-Formular (mehrere Dateien, Demo-Einstieg)
@@ -243,9 +242,6 @@ app/templates/base.html                     # KERN-UX, Meta, Bloecke, Navigation
   +-- app/xgewerbesteuer/templates/xgewerbesteuer/help.html
   +-- app/templates/registration/login.html, signup.html, password_reset_*.html
 ```
-
-`xgewerbesteuer_default.html` ist eine unbenutzte Altlast aus der Zeit vor der
-Modulaufteilung (kein View referenziert die Datei mehr) und kann entfernt werden.
 
 ### 5.2 Wiederverwendbare Partials
 
@@ -587,8 +583,6 @@ app/xgewerbesteuer/tests/
 
 ## 11. Bekannte technische Schulden / Ausblick
 
-* `app/xgewerbesteuer/templates/xgewerbesteuer_default.html` ist eine unbenutzte
-  Altlast aus der Zeit vor der Modulaufteilung und kann entfernt werden.
 * `admin.py` registriert bisher kein Modell im Django-Admin.
 * OIDC (Stufe 3, Issue #254) ist weiterhin nur als Option vorgesehen, nicht umgesetzt.
 * Der KI-Assistent unterstuetzt aktuell nur den Ollama-Provider; weitere Provider

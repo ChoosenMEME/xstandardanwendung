@@ -303,7 +303,7 @@ Auswertungen und ein optionaler, lokal konfigurierbarer KI-Assistent hinzugefüg
 
 Offene Punkte (siehe [`docs/architektur.md`](docs/architektur.md#11-bekannte-technische-schulden--ausblick)):
 optionale OIDC-Anbindung (Stufe 3), Registrierung von `SavedBescheidUpload` im
-Django-Admin, Entfernen des unbenutzten Legacy-Templates `xgewerbesteuer_default.html`.
+Django-Admin.
 
 Der laufende Fortschritt wird im
 [GitHub Project](https://github.com/users/ChoosenMEME/projects/1) getrackt. Die
