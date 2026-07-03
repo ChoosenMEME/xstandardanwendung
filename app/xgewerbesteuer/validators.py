@@ -180,9 +180,3 @@ def validate_xml_against_xsd(xml_data):
         return False, None, " | ".join(validation_errors)
 
     return False, None, "Es konnte keine passende XSD-Schema-Datei für die Validierung gefunden werden."
-
-
-def get_upload_error(uploaded_file):
-    issue = get_upload_issue(uploaded_file)
-
-    return issue.message if issue else None

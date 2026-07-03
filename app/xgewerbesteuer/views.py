@@ -491,31 +491,10 @@ def xgewerbesteuer_load_saved(request):
         )
         return redirect("xgewerbesteuer_dashboard")
 
-    current_bescheid = saved_upload.result_data.get("current_bescheid") or {
-        "file_name": saved_upload.file_name,
-        "file_size": saved_upload.file_size,
-        "schema_name": "",
-        "message_type": None,
-        "message_type_label": None,
-        "message_type_category": "unknown",
-        "message_type_summary": "",
-        "supports_comparison": False,
-        "municipality": saved_upload.municipality or None,
-        "tax_period": saved_upload.tax_period or None,
-        "amount_due": saved_upload.amount_due or None,
-        "trade_tax_assessment_amount": (
-            saved_upload.trade_tax_assessment_amount or None
-        ),
-        "assessment_rate": saved_upload.assessment_rate or None,
-        "due_dates": saved_upload.due_dates or None,
-        "advance_payments": saved_upload.advance_payments or [],
-        "summary_items": saved_upload.summary_items or [],
-        "calculation_explanation": saved_upload.result_data.get("calculation_explanation", {}),
-        "payment_classification": {
-            "type": saved_upload.payment_type or None,
-            "message": "",
-        },
-    }
+    current_bescheid = (
+        saved_upload.result_data.get("current_bescheid")
+        or saved_upload.to_bescheid_dict()
+    )
 
     request.session[RESULT_SESSION_KEY] = {
         "current_bescheid": current_bescheid,

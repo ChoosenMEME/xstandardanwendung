@@ -47,3 +47,52 @@ class SavedBescheidUploadUserFieldTests(TestCase):
         user.delete()
 
         self.assertEqual(SavedBescheidUpload.objects.count(), 0)
+
+
+class SavedBescheidUploadToBescheidDictTests(TestCase):
+    def test_to_bescheid_dict_maps_db_fields_to_bescheid_structure(self):
+        saved_upload = SavedBescheidUpload.objects.create(
+            session_key="irrelevant",
+            file_name="bescheid.xml",
+            file_size=10,
+            municipality="Stadt Musterhausen",
+            tax_period="2023",
+            amount_due="630.00",
+            payment_type="Nachzahlung",
+            trade_tax_assessment_amount="150.00",
+            assessment_rate="420",
+            due_dates="2025-02-15",
+            advance_payments=[{"amount": "147.00"}],
+            summary_items=[{"label": "Zahlbetrag", "value": "630.00"}],
+            result_data={"calculation_explanation": {"can_calculate": True}},
+        )
+
+        bescheid = saved_upload.to_bescheid_dict()
+
+        self.assertEqual(bescheid["file_name"], "bescheid.xml")
+        self.assertEqual(bescheid["municipality"], "Stadt Musterhausen")
+        self.assertEqual(bescheid["tax_period"], "2023")
+        self.assertEqual(bescheid["amount_due"], "630.00")
+        self.assertEqual(bescheid["payment_classification"]["type"], "Nachzahlung")
+        self.assertEqual(
+            bescheid["calculation_explanation"],
+            {"can_calculate": True},
+        )
+
+    def test_to_bescheid_dict_normalizes_empty_values_to_none(self):
+        saved_upload = SavedBescheidUpload.objects.create(
+            session_key="irrelevant",
+            file_name="bescheid.xml",
+            file_size=10,
+        )
+
+        bescheid = saved_upload.to_bescheid_dict()
+
+        self.assertIsNone(bescheid["municipality"])
+        self.assertIsNone(bescheid["tax_period"])
+        self.assertIsNone(bescheid["amount_due"])
+        self.assertIsNone(bescheid["due_dates"])
+        self.assertEqual(bescheid["advance_payments"], [])
+        self.assertEqual(bescheid["summary_items"], [])
+        self.assertEqual(bescheid["calculation_explanation"], {})
+        self.assertIsNone(bescheid["payment_classification"]["type"])

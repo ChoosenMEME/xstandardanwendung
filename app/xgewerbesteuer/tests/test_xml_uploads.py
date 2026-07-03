@@ -30,7 +30,6 @@ from xgewerbesteuer.comparisons import (
     build_message_type_comparison_notice,
     build_multi_bescheid_comparison,
     build_multi_bescheid_record,
-    build_multi_bescheid_upload_errors,
     build_period_comparison_notice,
     calculate_historical_change,
     classify_change_importance,
@@ -995,31 +994,6 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
 
         self.assertIn("147.00", record["advance_payments"])
         self.assertIn("Vorauszahlung", record["advance_payments"])
-
-    def test_build_multi_bescheid_upload_errors_keeps_valid_results(self):
-        errors = build_multi_bescheid_upload_errors(
-            [
-                {
-                    "file_name": "gueltig.xml",
-                    "result": {
-                        "is_valid": True,
-                        "bescheid": comparison_bescheid("2023"),
-                    },
-                },
-                {
-                    "file_name": "ungueltig.txt",
-                    "result": {
-                        "is_valid": False,
-                        "error_type": "upload",
-                        "message": "Die hochgeladene Datei muss eine XML-Datei sein.",
-                    },
-                },
-            ]
-        )
-
-        self.assertEqual(len(errors), 1)
-        self.assertEqual(errors[0]["file_name"], "ungueltig.txt")
-        self.assertIn("XML-Datei", errors[0]["message"])
 
     def test_single_valid_bescheid_does_not_create_multi_comparison(self):
         comparison = build_multi_bescheid_comparison([comparison_bescheid("2023")])

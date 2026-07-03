@@ -358,28 +358,6 @@ def build_multi_bescheid_comparison(bescheide):
     }
 
 
-def build_multi_bescheid_upload_errors(results):
-    errors = []
-
-    for item in results:
-        result = item["result"]
-
-        if result.get("is_valid"):
-            continue
-
-        errors.append(
-            {
-                "file_name": item["file_name"],
-                "message": result.get(
-                    "message",
-                    "Die Datei konnte nicht verarbeitet werden.",
-                ),
-            }
-        )
-
-    return errors
-
-
 def calculate_historical_change(current_value, previous_value):
     current_decimal = parse_decimal_value(current_value)
     previous_decimal = parse_decimal_value(previous_value)

@@ -45,7 +45,7 @@ Services.
 ```text
 app/xgewerbesteuer/
   views.py                    # View-Funktionen, Request-Handling, Orchestrierung (~600 Zeilen)
-  forms.py                    # SignupForm, BescheidUploadForm
+  forms.py                    # SignupForm
   models.py                   # SavedBescheidUpload
   admin.py                    # (noch keine Modelle registriert)
   extractors.py                # Nachrichtentyp-Erkennung und XML-Datenextraktion
