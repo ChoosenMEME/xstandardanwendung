@@ -17,7 +17,18 @@ class SignupForm(UserCreationForm):
         fields = ("username", "email")
 
     def clean_email(self):
-        email = self.cleaned_data["email"]
+        email = self.cleaned_data["email"].strip()
+
+        # Djangos User-Modell erzwingt keine eindeutige E-Mail-Adresse. Ohne
+        # diese Pruefung wuerde der Passwort-Reset mehrdeutig, weil fuer jede
+        # Uebereinstimmung eine eigene Reset-Mail verschickt wird. Der
+        # Vergleich ist case-insensitiv, damit "Foo@..." und "foo@..." nicht
+        # als verschiedene Adressen durchgehen.
+        if User.objects.filter(email__iexact=email).exists():
+            raise forms.ValidationError(
+                "Für diese E-Mail-Adresse existiert bereits ein Konto."
+            )
+
         # NoUserInfoFragmentValidator prueft self.instance.email waehrend
         # der Passwort-Validierung, die vor save() laeuft.
         self.instance.email = email

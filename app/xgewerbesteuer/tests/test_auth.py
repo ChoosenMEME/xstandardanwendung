@@ -193,6 +193,49 @@ class SignupTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertFalse(User.objects.filter(username="geheimnis").exists())
 
+    def test_signup_with_already_used_email_is_rejected(self):
+        """Regression fuer #322: keine zwei Konten mit derselben Adresse."""
+        User.objects.create_user(
+            username="bestehende-nutzerin",
+            email="doppelt@example.com",
+            password="Test-Passwort-1234",
+        )
+
+        response = self.client.post(
+            reverse("xgewerbesteuer_signup"),
+            data={
+                "username": "neue-nutzerin",
+                "email": "doppelt@example.com",
+                "password1": "Sicheres-Passwort-42",
+                "password2": "Sicheres-Passwort-42",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(User.objects.filter(username="neue-nutzerin").exists())
+        self.assertContains(response, "existiert bereits ein Konto")
+
+    def test_signup_with_differently_cased_duplicate_email_is_rejected(self):
+        User.objects.create_user(
+            username="bestehende-nutzerin",
+            email="doppelt@example.com",
+            password="Test-Passwort-1234",
+        )
+
+        response = self.client.post(
+            reverse("xgewerbesteuer_signup"),
+            data={
+                "username": "neue-nutzerin",
+                "email": "Doppelt@Example.com",
+                "password1": "Sicheres-Passwort-42",
+                "password2": "Sicheres-Passwort-42",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(User.objects.filter(username="neue-nutzerin").exists())
+        self.assertContains(response, "existiert bereits ein Konto")
+
     def test_signup_password_containing_email_is_rejected(self):
         response = self.client.post(
             reverse("xgewerbesteuer_signup"),
