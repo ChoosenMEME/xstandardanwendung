@@ -1,5 +1,6 @@
 """Dezimalformatierung, Formeln und Plausibilitaetspruefung."""
 
+import re
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
@@ -7,6 +8,12 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 # Kleine Rundungsdifferenzen zwischen Bescheid und eigener Nachrechnung sollen
 # keine Warnung erzeugen, weil Beträge in Bescheiden auf Cent gerundet sind.
 PLAUSIBILITY_TOLERANCE = Decimal("0.02")
+
+# Reine Dreiergruppen wie "1.234" oder "12.345.678" sind deutsche
+# Tausendertrennzeichen. Eine fuehrende Null ("0.500") faellt nicht darunter,
+# weil Tausendergruppierung nie mit 0 beginnt — solche Werte bleiben
+# Dezimalzahlen (xsd:decimal).
+_THOUSANDS_GROUPING_PATTERN = re.compile(r"[+-]?[1-9]\d{0,2}(\.\d{3})+")
 
 
 def parse_decimal_value(value):
@@ -22,9 +29,19 @@ def parse_decimal_value(value):
     )
 
     if "," in cleaned_value and "." in cleaned_value:
-        cleaned_value = cleaned_value.replace(".", "").replace(",", ".")
+        if cleaned_value.rfind(",") > cleaned_value.rfind("."):
+            # Deutsches Format: 1.234,56
+            cleaned_value = cleaned_value.replace(".", "").replace(",", ".")
+        else:
+            # Englisches Format: 1,234.56
+            cleaned_value = cleaned_value.replace(",", "")
     elif "," in cleaned_value:
+        # Komma ohne Punkt gilt als deutsches Dezimaltrennzeichen: 630,50
         cleaned_value = cleaned_value.replace(",", ".")
+    elif _THOUSANDS_GROUPING_PATTERN.fullmatch(cleaned_value):
+        # Punkt ohne Komma: Dreiergruppen sind Tausendertrennzeichen
+        # (1.234 -> 1234), alles andere bleibt Dezimalpunkt (1234.56, 400.5).
+        cleaned_value = cleaned_value.replace(".", "")
 
     try:
         return Decimal(cleaned_value)
