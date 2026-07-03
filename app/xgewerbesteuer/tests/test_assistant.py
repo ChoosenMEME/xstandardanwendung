@@ -26,8 +26,9 @@ from xgewerbesteuer.services.assistant_providers import (
 
 
 FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
+DEMO_DATA_DIR = Path(__file__).resolve().parents[1] / "demo_data"
 FIXTURES_BY_KIND = {
-    "gewerbesteuerbescheid": FIXTURES_DIR
+    "gewerbesteuerbescheid": DEMO_DATA_DIR
     / "GEWST-0010-12345678-1234567890000-2023-01-15_"
     "00000000-0000-0000-0000-000000000103.xml",
     "zinsbescheid": FIXTURES_DIR

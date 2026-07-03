@@ -51,7 +51,9 @@ from .services.export import (
 from .services.privacy import anonymize_result_context
 
 RESULT_SESSION_KEY = "xgewerbesteuer_result"
-DEMO_FIXTURE_DIR = Path(__file__).resolve().parent / "tests" / "fixtures"
+# Die Demo-Dateien liegen bewusst ausserhalb von tests/, weil das
+# Test-Verzeichnis per .dockerignore nicht ins Release-Image gelangt.
+DEMO_FIXTURE_DIR = Path(__file__).resolve().parent / "demo_data"
 DEMO_FIXTURE_FILES = [
     (
         "GEWST-0010-12345678-1234567890000-2022-01-15_"
@@ -215,9 +217,20 @@ def xgewerbesteuer_demo(request):
 
     for fixture_name in DEMO_FIXTURE_FILES:
         fixture_path = DEMO_FIXTURE_DIR / fixture_name
+
+        try:
+            fixture_content = fixture_path.read_bytes()
+        except OSError:
+            upload_errors.append({
+                "file_name": fixture_name,
+                "message": "Die Demo-Datei konnte nicht gelesen werden.",
+                "details": [],
+            })
+            continue
+
         uploaded_file = SimpleUploadedFile(
             fixture_name,
-            fixture_path.read_bytes(),
+            fixture_content,
             content_type="application/xml",
         )
         result = process_uploaded_bescheid(uploaded_file)
