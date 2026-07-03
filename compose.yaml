@@ -14,15 +14,23 @@ services:
       PGID: ${PGID:-1000}
       WEB_HOST: ${WEB_HOST:-0.0.0.0}
       WEB_PORT: ${WEB_PORT:-8000}
+      WEB_CONCURRENCY: ${WEB_CONCURRENCY:-3}
       APP_PATH: ${APP_PATH:-}
       LANGUAGE_CODE: ${LANGUAGE_CODE:-de-de}
       TZ: ${TZ:-Europe/Berlin}
       SQLITE_PATH: ${SQLITE_PATH:-/data/db.sqlite3}
+      AI_ASSISTANT_ENABLED: ${AI_ASSISTANT_ENABLED:-false}
+      AI_ASSISTANT_PROVIDER: ${AI_ASSISTANT_PROVIDER:-disabled}
+      AI_ASSISTANT_MODEL: ${AI_ASSISTANT_MODEL:-}
+      AI_ASSISTANT_BASE_URL: ${AI_ASSISTANT_BASE_URL:-}
+      AI_ASSISTANT_TIMEOUT_SECONDS: ${AI_ASSISTANT_TIMEOUT_SECONDS:-10}
       EMAIL_HOST: ${EMAIL_HOST:-localhost}
       EMAIL_PORT: ${EMAIL_PORT:-25}
       EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
       EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
       EMAIL_USE_TLS: ${EMAIL_USE_TLS:-0}
       DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-webmaster@localhost}
+      # Leerer Wert = Heuristik aus den Settings (DEBUG bzw. EMAIL_HOST).
+      LOGIN_ENABLED: ${LOGIN_ENABLED:-}
     volumes:
       - ./data:/data

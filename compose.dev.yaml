@@ -32,6 +32,8 @@ services:
       EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
       EMAIL_USE_TLS: ${EMAIL_USE_TLS:-0}
       DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-webmaster@localhost}
+      # Leerer Wert = Heuristik aus den Settings (DEBUG bzw. EMAIL_HOST).
+      LOGIN_ENABLED: ${LOGIN_ENABLED:-}
     volumes:
       # Quellcode live in Container spiegeln (inkl. Dev-DB + Tests).
       - ./app:/app

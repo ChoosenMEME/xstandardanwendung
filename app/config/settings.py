@@ -63,10 +63,12 @@ DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "webmaster@localhost")
 # daher bleibt Login/Registrierung ausserhalb von DEBUG deaktiviert, bis
 # EMAIL_HOST auf einen echten Host gesetzt wird. Die Heuristik laesst sich
 # per LOGIN_ENABLED-Env-Var explizit uebersteuern, z.B. fuer einen lokalen
-# SMTP-Relay im selben Container.
+# SMTP-Relay im selben Container. Ein leerer Wert gilt als "nicht gesetzt",
+# damit Compose-Durchreichungen wie LOGIN_ENABLED=${LOGIN_ENABLED:-} die
+# Heuristik nicht versehentlich deaktivieren.
 EMAIL_SERVER_CONFIGURED = bool(EMAIL_HOST) and EMAIL_HOST != "localhost"
-_login_enabled_override = os.getenv("LOGIN_ENABLED")
-if _login_enabled_override is not None:
+_login_enabled_override = (os.getenv("LOGIN_ENABLED") or "").strip()
+if _login_enabled_override:
     LOGIN_ENABLED = _login_enabled_override == "1"
 else:
     LOGIN_ENABLED = DEBUG or EMAIL_SERVER_CONFIGURED
