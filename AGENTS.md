@@ -66,6 +66,7 @@ Aktuelle Struktur:
     │   ├── asgi.py
     │   └── wsgi.py
     ├── static/
+    │   └── branding/
     ├── staticfiles/
     ├── templates/
     │   ├── base.html

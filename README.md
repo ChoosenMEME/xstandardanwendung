@@ -107,6 +107,7 @@ Details zur technischen Umsetzung stehen in [`docs/architektur.md`](docs/archite
     │   ├── asgi.py / wsgi.py
     │   └── __init__.py
     ├── static/                 # eigene statische Dateien
+    │   └── branding/           # Logo/Favicon (logo.svg, favicon.svg/.ico, apple-touch-icon.png)
     ├── staticfiles/            # Ergebnis von collectstatic (generiert)
     ├── templates/
     │   ├── base.html           # Basistemplate inkl. KERN-UX-Einbindung
