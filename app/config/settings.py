@@ -63,10 +63,12 @@ DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "webmaster@localhost")
 # daher bleibt Login/Registrierung ausserhalb von DEBUG deaktiviert, bis
 # EMAIL_HOST auf einen echten Host gesetzt wird. Die Heuristik laesst sich
 # per LOGIN_ENABLED-Env-Var explizit uebersteuern, z.B. fuer einen lokalen
-# SMTP-Relay im selben Container.
+# SMTP-Relay im selben Container. Ein leerer Wert gilt als "nicht gesetzt",
+# damit Compose-Durchreichungen wie LOGIN_ENABLED=${LOGIN_ENABLED:-} die
+# Heuristik nicht versehentlich deaktivieren.
 EMAIL_SERVER_CONFIGURED = bool(EMAIL_HOST) and EMAIL_HOST != "localhost"
-_login_enabled_override = os.getenv("LOGIN_ENABLED")
-if _login_enabled_override is not None:
+_login_enabled_override = (os.getenv("LOGIN_ENABLED") or "").strip()
+if _login_enabled_override:
     LOGIN_ENABLED = _login_enabled_override == "1"
 else:
     LOGIN_ENABLED = DEBUG or EMAIL_SERVER_CONFIGURED
@@ -91,6 +93,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -180,3 +183,17 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 STATIC_URL = build_static_url(APP_PATH)
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [BASE_DIR / "static"]
+
+# Whitenoise liefert die statischen Dateien direkt aus dem Anwendungsprozess
+# aus. Der Django-Devserver bedient statische Dateien nur bei DEBUG=1; ohne
+# Whitenoise waeren CSS/Logo/Favicons im Produktivbetrieb nicht erreichbar.
+# Bewusst ohne Manifest-Variante, damit Tests und Entwicklung ohne
+# vorheriges collectstatic funktionieren.
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+    },
+}

@@ -11,7 +11,7 @@ from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import DatabaseError
 from django.template.loader import render_to_string
-from django.test import SimpleTestCase, TestCase
+from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 
 from xgewerbesteuer.models import SavedBescheidUpload
@@ -93,13 +93,14 @@ from xgewerbesteuer.validators import (
 
 
 FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
+DEMO_DATA_DIR = Path(__file__).resolve().parents[1] / "demo_data"
 VALID_BESCHEID_FIXTURE = (
-    FIXTURES_DIR
+    DEMO_DATA_DIR
     / "GEWST-0010-12345678-1234567890000-2023-01-15_"
     "00000000-0000-0000-0000-000000000103.xml"
 )
 PREVIOUS_BESCHEID_FIXTURE = (
-    FIXTURES_DIR
+    DEMO_DATA_DIR
     / "GEWST-0010-12345678-1234567890000-2022-01-15_"
     "00000000-0000-0000-0000-000000000102.xml"
 )
@@ -127,12 +128,8 @@ MULTI_YEAR_FIXTURES = [
     FIXTURES_DIR
     / "GEWST-0010-12345678-1234567890000-2021-01-15_"
     "00000000-0000-0000-0000-000000000101.xml",
-    FIXTURES_DIR
-    / "GEWST-0010-12345678-1234567890000-2022-01-15_"
-    "00000000-0000-0000-0000-000000000102.xml",
-    FIXTURES_DIR
-    / "GEWST-0010-12345678-1234567890000-2023-01-15_"
-    "00000000-0000-0000-0000-000000000103.xml",
+    PREVIOUS_BESCHEID_FIXTURE,
+    VALID_BESCHEID_FIXTURE,
 ]
 APP_CSS_FILE = (
     Path(__file__).resolve().parents[1]
@@ -1822,6 +1819,10 @@ class XGewerbesteuerXsdValidationTests(SimpleTestCase):
         self.assertNotIn("Traceback", schema_error)
 
 
+# LOGIN_ENABLED haengt in den Settings von DEBUG bzw. EMAIL_HOST ab. Die
+# Tests fuer gespeicherte Auswertungen setzen den Wert explizit, damit die
+# Suite unabhaengig von Umgebungsvariablen laeuft.
+@override_settings(LOGIN_ENABLED=True)
 class SavedBescheidUploadTests(TestCase):
     def create_user(self, username="nutzerin", password="test-passwort-123"):
         return User.objects.create_user(username=username, password=password)
@@ -2240,6 +2241,7 @@ class SavedBescheidUploadTests(TestCase):
 class XGewerbesteuerUploadViewTests(SimpleTestCase):
     databases = {"default"}
 
+    @override_settings(LOGIN_ENABLED=True)
     def test_start_page_renders_upload_form_and_expected_summary_scope(self):
         response = self.client.get(reverse("xgewerbesteuer_upload"))
 
@@ -2663,6 +2665,41 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
             "Stadt Musterhausen",
             str(pdf_report_data.get("summary_items")),
         )
+
+    def test_privacy_mode_survives_assistant_requests(self):
+        """Regression fuer #311: Assistent darf die Maskierung nicht aufheben."""
+        content = VALID_BESCHEID_FIXTURE.read_bytes()
+
+        self.client.post(
+            reverse("xgewerbesteuer_upload"),
+            data={"bescheide": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
+            follow=True,
+        )
+        self.client.get(reverse("xgewerbesteuer_results") + "?privacy=1")
+
+        # AJAX-Frage an den Assistenten darf die Export-Session-Daten
+        # nicht mit unmaskierten Werten ueberschreiben.
+        self.client.post(
+            reverse("xgewerbesteuer_assistant"),
+            data={"assistant_question": "Was bedeutet der Hebesatz?"},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        csv_content = self.client.get(
+            reverse("xgewerbesteuer_csv_export")
+        ).content.decode("utf-8")
+
+        self.assertNotIn("Stadt Musterhausen", csv_content)
+        self.assertNotIn(VALID_BESCHEID_FIXTURE.name, csv_content)
+
+        # Auch die vom Assistenten gerenderte Ergebnisseite bleibt maskiert.
+        response = self.client.post(
+            reverse("xgewerbesteuer_assistant"),
+            data={"assistant_question": "Was bedeutet der Hebesatz?"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Stadt Musterhausen")
+        self.assertNotContains(response, VALID_BESCHEID_FIXTURE.name)
 
     def test_privacy_mode_does_not_change_plausibility_or_comparison_results(self):
         upload_response = self.client.post(

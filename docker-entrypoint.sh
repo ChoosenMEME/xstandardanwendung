@@ -53,8 +53,20 @@ log "INFO" "Running collectstatic"
 run_as_app python manage.py collectstatic --noinput
 log "INFO" "collectstatic finished"
 
+# Standardmaessig laeuft der Produktiv-WSGI-Server (gunicorn); statische
+# Dateien liefert Whitenoise aus dem Anwendungsprozess. Der Django-Devserver
+# mit Auto-Reload laesst sich fuer die Entwicklung ueber USE_DEV_SERVER=1
+# aktivieren (siehe compose.dev.yaml).
 if [ "$#" -eq 0 ]; then
-  set -- python manage.py runserver "${WEB_HOST}:${WEB_PORT}"
+  if [ "${USE_DEV_SERVER:-0}" = "1" ]; then
+    set -- python manage.py runserver "${WEB_HOST}:${WEB_PORT}"
+  else
+    set -- gunicorn config.wsgi:application \
+      --bind "${WEB_HOST}:${WEB_PORT}" \
+      --workers "${WEB_CONCURRENCY:-3}" \
+      --access-logfile - \
+      --error-logfile -
+  fi
 fi
 
 if [ "$(id -u)" = "0" ]; then

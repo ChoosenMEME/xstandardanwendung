@@ -3,7 +3,7 @@
 from django.conf import settings
 
 from .services.assistant import build_assistant_ui_context
-from .views import RESULT_SESSION_KEY, _build_result_context
+from .views import RESULT_SESSION_KEY, _build_display_context
 
 
 def login_enabled(request):
@@ -17,6 +17,6 @@ def assistant_context(request):
     result_context = None
 
     if session_data:
-        result_context = _build_result_context(session_data)
+        result_context = _build_display_context(session_data)
 
     return build_assistant_ui_context(result_context=result_context)
