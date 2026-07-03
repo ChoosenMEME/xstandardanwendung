@@ -88,11 +88,36 @@
         {% csrf_token %}
 
         <div class="form-group">
-            <label class="form-label" for="bescheide">
+            <label class="form-label" id="bescheide-label" for="bescheide">
                 {% trans "Gewerbesteuerbescheide auswählen" %}
             </label>
-            <input type="file" class="form-input" id="bescheide" name="bescheide" accept=".xml" multiple required>
-            <span class="form-hint">{% trans "Eine oder mehrere XML-Dateien im XGewerbesteuer-Format" %}</span>
+            <div class="upload-dropzone"
+                 data-upload-dropzone
+                 role="button"
+                 tabindex="0"
+                 aria-labelledby="bescheide-label upload-dropzone-title"
+                 aria-describedby="upload-dropzone-hint upload-file-list">
+                <input type="file"
+                       class="upload-dropzone__input"
+                       id="bescheide"
+                       name="bescheide"
+                       accept=".xml"
+                       multiple
+                       required
+                       data-upload-file-input>
+                <div class="upload-dropzone__content">
+                    <span class="upload-dropzone__icon" aria-hidden="true">+</span>
+                    <p class="upload-dropzone__title" id="upload-dropzone-title">
+                        {% trans "XML-Dateien hier ablegen oder auswählen" %}
+                    </p>
+                    <p class="upload-dropzone__hint" id="upload-dropzone-hint">
+                        {% trans "Eine oder mehrere XML-Dateien im XGewerbesteuer-Format" %}
+                    </p>
+                </div>
+            </div>
+            <p class="upload-file-list" id="upload-file-list" data-upload-file-list aria-live="polite">
+                {% trans "Noch keine Datei ausgewählt." %}
+            </p>
         </div>
 
         <p class="form-section-hint">
@@ -130,4 +155,71 @@
         </div>
     </form>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    var dropzone = document.querySelector('[data-upload-dropzone]');
+    var input = document.querySelector('[data-upload-file-input]');
+    var fileList = document.querySelector('[data-upload-file-list]');
+
+    if (!dropzone || !input || !fileList) return;
+
+    function renderSelectedFiles(files) {
+        if (!files || files.length === 0) {
+            fileList.textContent = 'Noch keine Datei ausgewaehlt.';
+            return;
+        }
+
+        var names = Array.prototype.map.call(files, function(file) {
+            return file.name;
+        });
+        fileList.textContent = names.length === 1
+            ? 'Ausgewaehlt: ' + names[0]
+            : 'Ausgewaehlt (' + names.length + '): ' + names.join(', ');
+    }
+
+    function setDragging(isDragging) {
+        dropzone.classList.toggle('upload-dropzone--dragging', isDragging);
+    }
+
+    dropzone.addEventListener('click', function(event) {
+        if (event.target !== input) {
+            input.click();
+        }
+    });
+
+    dropzone.addEventListener('keydown', function(event) {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            input.click();
+        }
+    });
+
+    input.addEventListener('change', function() {
+        renderSelectedFiles(input.files);
+    });
+
+    ['dragenter', 'dragover'].forEach(function(eventName) {
+        dropzone.addEventListener(eventName, function(event) {
+            event.preventDefault();
+            setDragging(true);
+        });
+    });
+
+    ['dragleave', 'drop'].forEach(function(eventName) {
+        dropzone.addEventListener(eventName, function(event) {
+            event.preventDefault();
+            setDragging(false);
+        });
+    });
+
+    dropzone.addEventListener('drop', function(event) {
+        if (!event.dataTransfer || !event.dataTransfer.files.length) return;
+        input.files = event.dataTransfer.files;
+        renderSelectedFiles(input.files);
+    });
+})();
+</script>
 {% endblock %}
