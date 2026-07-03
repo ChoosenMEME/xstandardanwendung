@@ -1075,14 +1075,13 @@ def prepare_download_sessions(request, context):
     from .export import (
         ICS_EXPORT_SESSION_KEY,
         PDF_REPORT_SESSION_KEY,
-        CSV_EXPORT_SESSION_KEY,
         build_pdf_report_data,
         create_ics_export,
     )
 
+    # PDF und CSV teilen sich denselben Session-Datensatz (siehe export.py).
     report_data = build_pdf_report_data(context)
     request.session[PDF_REPORT_SESSION_KEY] = report_data
-    request.session[CSV_EXPORT_SESSION_KEY] = report_data
     request.session.pop(ICS_EXPORT_SESSION_KEY, None)
 
     due_date_calendar = context.get("due_date_calendar")

@@ -87,6 +87,7 @@ from xgewerbesteuer.services.privacy import (
 from xgewerbesteuer.validators import (
     MAX_UPLOAD_SIZE_BYTES,
     UploadValidationIssue,
+    _load_compiled_schema,
     get_upload_issue,
     validate_xml_against_xsd,
 )
@@ -1817,6 +1818,20 @@ class XGewerbesteuerXsdValidationTests(SimpleTestCase):
         self.assertNotIn("<nachricht", schema_error)
         self.assertNotIn(str(FIXTURES_DIR), schema_error)
         self.assertNotIn("Traceback", schema_error)
+
+    def test_xsd_schemas_are_compiled_only_once_per_process(self):
+        """Regression fuer #318: Schemas nicht pro Upload neu parsen."""
+        _load_compiled_schema.cache_clear()
+        content = VALID_BESCHEID_FIXTURE.read_bytes()
+
+        validate_xml_against_xsd(content)
+        misses_after_first_run = _load_compiled_schema.cache_info().misses
+
+        validate_xml_against_xsd(content)
+        cache_info = _load_compiled_schema.cache_info()
+
+        self.assertEqual(cache_info.misses, misses_after_first_run)
+        self.assertGreater(cache_info.hits, 0)
 
 
 # LOGIN_ENABLED haengt in den Settings von DEBUG bzw. EMAIL_HOST ab. Die

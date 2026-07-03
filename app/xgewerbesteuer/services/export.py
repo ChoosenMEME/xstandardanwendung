@@ -16,7 +16,9 @@ from ..calculations import (
 
 
 PDF_REPORT_SESSION_KEY = "xgewerbesteuer_pdf_report"
-CSV_EXPORT_SESSION_KEY = "xgewerbesteuer_csv_export"
+# CSV-Export nutzt denselben Datensatz wie der PDF-Bericht. Ein gemeinsamer
+# Session-Key vermeidet die doppelte Datenhaltung pro Session (#318).
+CSV_EXPORT_SESSION_KEY = PDF_REPORT_SESSION_KEY
 ICS_EXPORT_SESSION_KEY = "xgewerbesteuer_ics_export"
 
 CSV_EXPORT_COLUMNS = [
