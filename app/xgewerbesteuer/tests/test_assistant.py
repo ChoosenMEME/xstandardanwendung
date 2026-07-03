@@ -15,6 +15,8 @@ from xgewerbesteuer.services.assistant import (
     MAX_ASSISTANT_QUESTION_LENGTH,
     build_assistant_context,
     build_assistant_prompt,
+    build_assistant_ui_context,
+    get_assistant_example_questions,
     normalize_assistant_answer,
 )
 from xgewerbesteuer.services.assistant_providers import (
@@ -106,6 +108,63 @@ def assistant_result_context(**current_overrides):
 
 
 class AssistantServiceTests(SimpleTestCase):
+    def test_general_example_questions_contain_only_generic_help(self):
+        questions = get_assistant_example_questions(None)
+
+        self.assertIn("Wie funktioniert der Upload?", questions)
+        self.assertIn("Welche XML-Datei brauche ich?", questions)
+        self.assertIn("Was bedeutet PDF-Export?", questions)
+        self.assertNotIn("Was hat sich gegenueber dem vorherigen Bescheid geaendert?", questions)
+
+        serialized = " ".join(questions)
+        self.assertNotIn("Musterhausen", serialized)
+        self.assertNotIn("1234567890000", serialized)
+        self.assertNotIn("SECRET", serialized)
+
+    def test_result_example_questions_depend_on_available_result_data(self):
+        questions = get_assistant_example_questions(assistant_result_context())
+
+        self.assertIn("Was sind die wichtigsten Angaben in diesem Bescheid?", questions)
+        self.assertIn("Welche Zahlungen sind wann faellig?", questions)
+        self.assertIn("Was bedeutet die Plausibilitaetspruefung?", questions)
+        self.assertIn("Was hat sich gegenueber dem vorherigen Bescheid geaendert?", questions)
+        self.assertNotIn("Wie funktioniert der Upload?", questions)
+
+    def test_result_example_questions_omit_unavailable_topics(self):
+        context = assistant_result_context(due_dates=None)
+        context["due_date_calendar"] = {"has_entries": False}
+        context["plausibility_check"] = None
+        context["change_comparison_items"] = []
+
+        questions = get_assistant_example_questions(context)
+
+        self.assertNotIn("Welche Zahlungen sind wann faellig?", questions)
+        self.assertNotIn("Was bedeutet die Plausibilitaetspruefung?", questions)
+        self.assertNotIn("Was hat sich gegenueber dem vorherigen Bescheid geaendert?", questions)
+
+    @override_settings(
+        AI_ASSISTANT_ENABLED=False,
+        AI_ASSISTANT_PROVIDER="disabled",
+    )
+    def test_ui_context_hides_example_questions_when_assistant_is_disabled(self):
+        context = build_assistant_ui_context(result_context=assistant_result_context())
+
+        self.assertEqual(context["assistant"]["example_questions"], [])
+
+    @override_settings(
+        AI_ASSISTANT_ENABLED=True,
+        AI_ASSISTANT_PROVIDER="ollama",
+        AI_ASSISTANT_BASE_URL="http://localhost:11434",
+        AI_ASSISTANT_MODEL="llama3.1",
+    )
+    def test_ui_context_shows_example_questions_when_assistant_is_enabled(self):
+        context = build_assistant_ui_context()
+
+        self.assertIn(
+            "Wie funktioniert der Upload?",
+            context["assistant"]["example_questions"],
+        )
+
     def test_general_assistant_context_contains_no_bescheid_data(self):
         context = build_assistant_context(None)
 
@@ -263,6 +322,87 @@ class AssistantViewTests(TestCase):
 
         self.assertContains(response, "sessionStorage")
         self.assertContains(response, "Verlauf loeschen")
+
+    @override_settings(
+        AI_ASSISTANT_ENABLED=True,
+        AI_ASSISTANT_PROVIDER="ollama",
+        AI_ASSISTANT_BASE_URL="http://localhost:11434",
+        AI_ASSISTANT_MODEL="llama3.1",
+    )
+    def test_general_mode_displays_example_question_buttons(self):
+        response = self.client.get(reverse("xgewerbesteuer_dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Beispielfragen")
+        self.assertContains(response, "Wie funktioniert der Upload?")
+        self.assertContains(response, 'class="assistant-suggestion-button"', count=7)
+        self.assertContains(response, 'class="assistant-suggestions__list"')
+        self.assertContains(response, 'type="button"')
+        self.assertContains(response, 'data-assistant-example-question="')
+        self.assertContains(response, 'aria-label="Beispielfrage uebernehmen:')
+
+    @override_settings(
+        AI_ASSISTANT_ENABLED=True,
+        AI_ASSISTANT_PROVIDER="ollama",
+        AI_ASSISTANT_BASE_URL="http://localhost:11434",
+        AI_ASSISTANT_MODEL="llama3.1",
+    )
+    def test_result_mode_displays_distinct_example_question_buttons(self):
+        response = self.upload_fixture(FIXTURES_BY_KIND["gewerbesteuerbescheid"])
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Was sind die wichtigsten Angaben in diesem Bescheid?")
+        self.assertContains(response, "Wie setzt sich der Gewerbesteuerbetrag zusammen?")
+        self.assertNotContains(response, "Wie funktioniert der Upload?")
+
+    @override_settings(
+        AI_ASSISTANT_ENABLED=True,
+        AI_ASSISTANT_PROVIDER="ollama",
+        AI_ASSISTANT_BASE_URL="http://localhost:11434",
+        AI_ASSISTANT_MODEL="llama3.1",
+    )
+    def test_example_questions_do_not_contain_confidential_sample_data(self):
+        response = self.upload_fixture(FIXTURES_BY_KIND["gewerbesteuerbescheid"])
+        content = response.content.decode("utf-8")
+        suggestions_start = content.index("assistant-suggestions")
+        suggestions_end = content.index("assistant-form")
+        suggestions_markup = content[suggestions_start:suggestions_end]
+
+        self.assertNotIn("Musterbetrieb", suggestions_markup)
+        self.assertNotIn("1234567890000", suggestions_markup)
+        self.assertNotIn("SECRET", suggestions_markup)
+
+    def test_disabled_assistant_displays_no_example_questions(self):
+        response = self.client.get(reverse("xgewerbesteuer_dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Beispielfragen")
+        self.assertNotContains(response, "Wie funktioniert der Upload?")
+        self.assertNotContains(response, 'data-assistant-example-question="')
+
+    def test_example_question_script_fills_input_without_submit_or_history_change(self):
+        response = self.client.get(reverse("xgewerbesteuer_dashboard"))
+
+        self.assertContains(response, "exampleQuestionButtons")
+        self.assertContains(response, "question.value = selectedQuestion;")
+        self.assertContains(response, "question.focus();")
+        self.assertContains(response, "data-assistant-example-question")
+        self.assertContains(response, "form.addEventListener('submit'")
+        self.assertContains(response, "saveHistory(items);")
+
+    def test_example_question_styles_include_focus_and_responsive_wrapping(self):
+        css_path = (
+            Path(__file__).resolve().parents[1]
+            / "static"
+            / "xgewerbesteuer"
+            / "app.css"
+        )
+        css_content = css_path.read_text(encoding="utf-8")
+
+        self.assertIn(".assistant-suggestion-button:focus-visible", css_content)
+        self.assertIn(".assistant-suggestions__list", css_content)
+        self.assertIn("flex-wrap: wrap", css_content)
+        self.assertIn("appearance: none", css_content)
 
     def test_general_mode_rejects_concrete_bescheid_question_without_provider(self):
         response = self.client.post(

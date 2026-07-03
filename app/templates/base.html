@@ -63,6 +63,7 @@
         var history = document.getElementById('assistant-history');
         var clearButton = document.getElementById('assistant-clear-history');
         var status = document.getElementById('assistant-status');
+        var exampleQuestionButtons = document.querySelectorAll('[data-assistant-example-question]');
         var storageKey = 'xgewerbesteuer.assistant.history';
 
         if (!panel || !toggle || !form || !question || !history) return;
@@ -133,6 +134,17 @@
                 }
             });
         }
+
+        exampleQuestionButtons.forEach(function(button) {
+            button.addEventListener('click', function() {
+                var selectedQuestion = button.getAttribute('data-assistant-example-question') || '';
+                question.value = selectedQuestion;
+                question.focus();
+                if (status) {
+                    status.textContent = 'Die Beispielfrage wurde in das Eingabefeld uebernommen.';
+                }
+            });
+        });
 
         form.addEventListener('submit', function(event) {
             event.preventDefault();
