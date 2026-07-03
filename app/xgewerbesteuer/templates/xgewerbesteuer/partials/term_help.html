@@ -1,0 +1,11 @@
+{% if definition %}
+    <details class="term-help">
+        <summary class="term-help__trigger"
+                 aria-label="Begriffserklärung: {{ definition.term }}">
+            ?
+        </summary>
+        <span class="term-help__content" role="note">
+            <strong>{{ definition.term }}:</strong> {{ definition.description }}
+        </span>
+    </details>
+{% endif %}

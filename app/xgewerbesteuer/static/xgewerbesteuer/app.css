@@ -1140,6 +1140,62 @@ body {
     font-size: 0.8rem;
 }
 
+.term-help {
+    position: relative;
+    display: inline-block;
+    margin-left: 0.35rem;
+    vertical-align: middle;
+}
+
+.term-help__trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.1rem;
+    height: 1.1rem;
+    border: 1px solid var(--color-info-border);
+    border-radius: 50%;
+    background: var(--color-info-bg);
+    color: var(--color-info-text);
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    list-style: none;
+}
+
+.term-help__trigger::-webkit-details-marker {
+    display: none;
+}
+
+.term-help__trigger:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+.term-help__content {
+    position: absolute;
+    z-index: 20;
+    top: calc(100% + 0.35rem);
+    left: 0;
+    width: min(18rem, calc(100vw - 2rem));
+    padding: 0.65rem 0.75rem;
+    border: 1px solid var(--color-info-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-card);
+    box-shadow: var(--shadow-md);
+    color: var(--color-text-secondary);
+    font-size: 0.82rem;
+    font-weight: 400;
+    line-height: 1.45;
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+.term-help:not([open]) .term-help__content {
+    display: none;
+}
+
 .help-text {
     font-size: 0.85rem;
     color: var(--color-text-muted);

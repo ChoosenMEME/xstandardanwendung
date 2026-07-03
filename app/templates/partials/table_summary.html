@@ -11,7 +11,7 @@
     <tbody>
       {% for item in summary_items %}
         <tr>
-          <th scope="row">{{ item.label }}</th>
+          <th scope="row">{{ item.label }}{% term_help item.label %}</th>
           <td><strong>{{ item.value|default_display }}</strong></td>
         </tr>
       {% endfor %}

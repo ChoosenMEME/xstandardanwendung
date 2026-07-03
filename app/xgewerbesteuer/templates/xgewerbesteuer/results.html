@@ -137,7 +137,9 @@
         {% for item in summary_items %}
             {% if item.label == "Zahlbetrag" or item.label == "Gemeinde / Kommune" or item.label == "Steuerjahr / Erhebungszeitraum" or item.label == "Gewerbesteuermessbetrag" %}
                 <div class="metric-card">
-                    <p class="metric-card__label">{{ item.label }}</p>
+                    <p class="metric-card__label">
+                        {{ item.label }}{% term_help item.label %}
+                    </p>
                     <p class="metric-card__value">{{ item.value|default_display }}</p>
                 </div>
             {% endif %}
@@ -196,7 +198,7 @@
                 <tbody>
                     {% for item in summary_items %}
                         <tr>
-                            <th scope="row">{{ item.label }}</th>
+                            <th scope="row">{{ item.label }}{% term_help item.label %}</th>
                             <td><strong>{{ item.value|default_display }}</strong></td>
                         </tr>
                     {% endfor %}
@@ -253,11 +255,11 @@
                 </thead>
                 <tbody>
                     <tr>
-                        <th scope="row">{% trans "Ausgelesener Zahlbetrag" %}</th>
+                        <th scope="row">{% trans "Ausgelesener Zahlbetrag" %}{% term_help "Ausgelesener Zahlbetrag" %}</th>
                         <td>{{ plausibility_check.actual_amount }}</td>
                     </tr>
                     <tr>
-                        <th scope="row">{% trans "Rechnerisch erwarteter Betrag" %}</th>
+                        <th scope="row">{% trans "Rechnerisch erwarteter Betrag" %}{% term_help "Rechnerisch erwarteter Betrag" %}</th>
                         <td>{{ plausibility_check.expected_amount }}</td>
                     </tr>
                     <tr>
@@ -265,7 +267,7 @@
                         <td>{{ plausibility_check.difference }}</td>
                     </tr>
                     <tr>
-                        <th scope="row">{% trans "Verwendete Formel" %}</th>
+                        <th scope="row">{% trans "Verwendete Formel" %}{% term_help "Gewerbesteuerbetrag" %}</th>
                         <td>{{ plausibility_check.formula }}</td>
                     </tr>
                 </tbody>
@@ -275,7 +277,7 @@
         {% if plausibility_check.items %}
             <ul class="text-sm text-secondary mt-1">
                 {% for item in plausibility_check.items %}
-                        <li>{{ item.label }}: {{ item.value|default_display }}</li>
+                        <li>{{ item.label }}{% term_help item.label %}: {{ item.value|default_display }}</li>
                 {% endfor %}
             </ul>
         {% endif %}
@@ -288,13 +290,14 @@
         <h2 class="card__title" id="payment-heading">{% trans "Einordnung der Zahlung" %}</h2>
 
         <p class="mt-1">
-            {% trans "Zahlungsart" %}:
+            {% trans "Zahlungsart" %}{% term_help payment_classification.type %}:
             <strong>{{ payment_classification.type|default_display }}</strong>
         </p>
         <p class="text-secondary">{{ payment_classification.message }}</p>
 
         <p class="disclaimer">
             {% trans "Diese Einordnung ist eine verständliche Orientierung anhand der ausgelesenen Daten und ersetzt keine steuerliche Beratung." %}
+            {% trans "Maßgeblich bleibt die Festsetzung im Originalbescheid." %}{% term_help "Festsetzung" %}
         </p>
     </section>
 {% endif %}
@@ -302,7 +305,7 @@
 {# === CALCULATION EXPLANATION === #}
 {% if calculation_explanation %}
     <section class="card" aria-labelledby="calculation-heading">
-        <h2 class="card__title" id="calculation-heading">{% trans "Berechnungslogik" %}</h2>
+        <h2 class="card__title" id="calculation-heading">{% trans "Berechnungslogik" %}{% term_help "Gewerbesteuerbetrag" %}</h2>
 
         {% if calculation_explanation.can_calculate %}
             <p class="text-secondary mt-1">
@@ -325,7 +328,7 @@
 {# === DUE DATE CALENDAR === #}
 {% if due_date_calendar %}
     <section class="card" aria-labelledby="calendar-heading">
-        <h2 class="card__title" id="calendar-heading">{% trans "Fälligkeiten" %}</h2>
+        <h2 class="card__title" id="calendar-heading">{% trans "Fälligkeiten" %}{% term_help "Fälligkeit" %}</h2>
         <p class="card__subtitle">
             {% trans "Aus dem Bescheid ausgelesene Fälligkeitstermine." %}
         </p>
@@ -342,7 +345,7 @@
                                     <p class="calendar-entry__label">{{ entry.label|default_display }}</p>
                                     <p class="calendar-entry__meta">
                                         {% trans "Betrag" %}: {{ entry.amount|default_display }} &middot;
-                                        {% trans "Zahlungsart" %}: {{ entry.payment_type|default_display }}
+                                        {% trans "Zahlungsart" %}{% term_help entry.payment_type %}: {{ entry.payment_type|default_display }}
                                     </p>
                                     {% if entry.notes %}
                                         <ul class="text-xs text-muted mt-1">
@@ -386,7 +389,7 @@
     <section class="card" aria-labelledby="liquidity-heading">
         <h2 class="card__title" id="liquidity-heading">{% trans "Liquiditätsauswirkung" %}</h2>
         <p class="card__subtitle">
-            {% trans "Zeitliche Einordnung der Zahlungen nach Fälligkeit." %}
+            {% trans "Zeitliche Einordnung der Zahlungen nach Fälligkeit." %}{% term_help "Fälligkeit" %}
             {% trans "Bezugsdatum" %}: <strong>{{ liquidity_impact.reference_date }}</strong>
         </p>
 
@@ -407,7 +410,7 @@
                                     <li class="liquidity-item liquidity-item--{{ item.impact }}">
                                         {{ item.payment_type|default_display }}:
                                         {{ item.amount_display|default_display }},
-                                        {% trans "Fälligkeit" %}: {{ item.due_date_display|default_display }}
+                                        {% trans "Fälligkeit" %}{% term_help "Fälligkeit" %}: {{ item.due_date_display|default_display }}
                                         {% if item.notice %}
                                             <span class="liquidity-item__notice">{{ item.notice }}</span>
                                         {% endif %}
@@ -433,7 +436,7 @@
 {# === ADVANCE PAYMENTS === #}
 {% if advance_payments %}
     <section class="card" aria-labelledby="advance-payment-heading">
-        <h2 class="card__title" id="advance-payment-heading">{% trans "Vorauszahlungen" %}</h2>
+        <h2 class="card__title" id="advance-payment-heading">{% trans "Vorauszahlungen" %}{% term_help "Vorauszahlung" %}</h2>
         <p class="card__subtitle">
             {% trans "Separat ausgelesene Vorauszahlungen aus dem Bescheid." %}
         </p>
@@ -443,8 +446,8 @@
                 <thead>
                     <tr>
                         <th scope="col">{% trans "Betrag" %}</th>
-                        <th scope="col">{% trans "Fälligkeit" %}</th>
-                        <th scope="col">{% trans "Zeitraum" %}</th>
+                        <th scope="col">{% trans "Fälligkeit" %}{% term_help "Fälligkeit" %}</th>
+                        <th scope="col">{% trans "Zeitraum" %}{% term_help "Zeitraum" %}</th>
                         <th scope="col">{% trans "Art" %}</th>
                     </tr>
                 </thead>
@@ -470,7 +473,7 @@
 {# === YEAR-OVER-YEAR COMPARISON (auto-detected) === #}
 {% if previous_bescheid %}
     <section class="card" aria-labelledby="previous-heading">
-        <h2 class="card__title" id="previous-heading">{% trans "Vergleich mit Vorbescheid" %}</h2>
+        <h2 class="card__title" id="previous-heading">{% trans "Vergleich mit Vorbescheid" %}{% term_help "Änderungsbescheid" %}</h2>
         <p class="card__subtitle">
             {% trans "Automatisch erkannt anhand des Steuerjahres." %}
         </p>
@@ -481,7 +484,7 @@
                     <tr>
                         <th scope="col">{% trans "Bescheid" %}</th>
                         <th scope="col">{% trans "Nachrichtentyp" %}</th>
-                        <th scope="col">{% trans "Steuerjahr / Erhebungszeitraum" %}</th>
+                        <th scope="col">{% trans "Steuerjahr / Erhebungszeitraum" %}{% term_help "Erhebungszeitraum" %}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -523,7 +526,7 @@
                     <tbody>
                         {% for item in change_comparison_items %}
                             <tr class="{% if item.importance == 'important' %}row--highlight-warning{% elif item.importance == 'notice' %}row--highlight-notice{% endif %}">
-                                <th scope="row">{{ item.label }}</th>
+                                <th scope="row">{{ item.label }}{% term_help item.label %}</th>
                                 <td><strong>{{ item.current_value|default_display }}</strong></td>
                                 <td>{{ item.previous_value|default_display }}</td>
                                 <td>
@@ -569,16 +572,16 @@
             <table class="table">
                 <thead>
                     <tr>
-                        <th scope="col">{% trans "Steuerjahr" %}</th>
+                        <th scope="col">{% trans "Steuerjahr" %}{% term_help "Steuerjahr" %}</th>
                         <th scope="col">{% trans "Nachrichtentyp" %}</th>
                         <th scope="col">{% trans "Datei" %}</th>
                         <th scope="col">{% trans "Gemeinde" %}</th>
-                        <th scope="col">{% trans "Zahlbetrag" %}</th>
+                        <th scope="col">{% trans "Zahlbetrag" %}{% term_help "Zahlbetrag" %}</th>
                         <th scope="col">{% trans "Zahlungsart" %}</th>
-                        <th scope="col">{% trans "Messbetrag" %}</th>
-                        <th scope="col">{% trans "Hebesatz" %}</th>
-                        <th scope="col">{% trans "Fälligkeiten" %}</th>
-                        <th scope="col">{% trans "Vorauszahlungen" %}</th>
+                        <th scope="col">{% trans "Messbetrag" %}{% term_help "Messbetrag" %}</th>
+                        <th scope="col">{% trans "Hebesatz" %}{% term_help "Hebesatz" %}</th>
+                        <th scope="col">{% trans "Fälligkeiten" %}{% term_help "Fälligkeit" %}</th>
+                        <th scope="col">{% trans "Vorauszahlungen" %}{% term_help "Vorauszahlung" %}</th>
                         <th scope="col">{% trans "Hinweis" %}</th>
                     </tr>
                 </thead>
@@ -629,15 +632,15 @@
                 <div class="multi-metric-chart__legend">
                     <div class="multi-metric-chart__legend-item">
                         <span class="multi-metric-chart__legend-swatch multi-metric-chart__legend-swatch--primary"></span>
-                        {% trans "Zahlbetrag" %}
+                        {% trans "Zahlbetrag" %}{% term_help "Zahlbetrag" %}
                     </div>
                     <div class="multi-metric-chart__legend-item">
                         <span class="multi-metric-chart__legend-swatch multi-metric-chart__legend-swatch--secondary"></span>
-                        {% trans "Messbetrag" %}
+                        {% trans "Messbetrag" %}{% term_help "Messbetrag" %}
                     </div>
                     <div class="multi-metric-chart__legend-item">
                         <span class="multi-metric-chart__legend-swatch multi-metric-chart__legend-swatch--tertiary"></span>
-                        {% trans "Hebesatz" %}
+                        {% trans "Hebesatz" %}{% term_help "Hebesatz" %}
                     </div>
                 </div>
 
@@ -681,14 +684,14 @@
             <table class="table">
                 <thead>
                     <tr>
-                        <th scope="col">{% trans "Steuerjahr" %}</th>
-                        <th scope="col">{% trans "Zahlbetrag" %}</th>
+                        <th scope="col">{% trans "Steuerjahr" %}{% term_help "Steuerjahr" %}</th>
+                        <th scope="col">{% trans "Zahlbetrag" %}{% term_help "Zahlbetrag" %}</th>
                         <th scope="col">{% trans "Änderung" %}</th>
-                        <th scope="col">{% trans "Messbetrag" %}</th>
+                        <th scope="col">{% trans "Messbetrag" %}{% term_help "Messbetrag" %}</th>
                         <th scope="col">{% trans "Änderung" %}</th>
-                        <th scope="col">{% trans "Hebesatz" %}</th>
+                        <th scope="col">{% trans "Hebesatz" %}{% term_help "Hebesatz" %}</th>
                         <th scope="col">{% trans "Änderung" %}</th>
-                        <th scope="col">{% trans "Fälligkeit" %}</th>
+                        <th scope="col">{% trans "Fälligkeit" %}{% term_help "Fälligkeit" %}</th>
                         <th scope="col">{% trans "Hinweise" %}</th>
                     </tr>
                 </thead>
