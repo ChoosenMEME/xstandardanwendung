@@ -1,0 +1,40 @@
+name: Django Tests
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # Bewusst ohne DEBUG/LOGIN_ENABLED: Die Testsuite muss unabhaengig von
+      # Umgebungsvariablen bestehen. Der Docker-Workflow testet zusaetzlich
+      # innerhalb des Dev-Stacks.
+      - name: Run Django system check
+        working-directory: app
+        env:
+          SECRET_KEY: ci-test-secret-key
+        run: python manage.py check
+
+      - name: Run Django tests
+        working-directory: app
+        env:
+          SECRET_KEY: ci-test-secret-key
+        run: python manage.py test

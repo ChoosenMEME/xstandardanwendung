@@ -11,7 +11,7 @@ from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import DatabaseError
 from django.template.loader import render_to_string
-from django.test import SimpleTestCase, TestCase
+from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 
 from xgewerbesteuer.models import SavedBescheidUpload
@@ -1819,6 +1819,10 @@ class XGewerbesteuerXsdValidationTests(SimpleTestCase):
         self.assertNotIn("Traceback", schema_error)
 
 
+# LOGIN_ENABLED haengt in den Settings von DEBUG bzw. EMAIL_HOST ab. Die
+# Tests fuer gespeicherte Auswertungen setzen den Wert explizit, damit die
+# Suite unabhaengig von Umgebungsvariablen laeuft.
+@override_settings(LOGIN_ENABLED=True)
 class SavedBescheidUploadTests(TestCase):
     def create_user(self, username="nutzerin", password="test-passwort-123"):
         return User.objects.create_user(username=username, password=password)
@@ -2237,6 +2241,7 @@ class SavedBescheidUploadTests(TestCase):
 class XGewerbesteuerUploadViewTests(SimpleTestCase):
     databases = {"default"}
 
+    @override_settings(LOGIN_ENABLED=True)
     def test_start_page_renders_upload_form_and_expected_summary_scope(self):
         response = self.client.get(reverse("xgewerbesteuer_upload"))
 
