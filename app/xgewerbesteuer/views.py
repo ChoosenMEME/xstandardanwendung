@@ -263,14 +263,26 @@ def xgewerbesteuer_results(request):
         session_data["privacy_mode_enabled"] = request.GET.get("privacy") == "1"
         request.session[RESULT_SESSION_KEY] = session_data
 
+    context = _build_display_context(session_data)
+
+    prepare_download_sessions(request, context)
+
+    return render(request, "xgewerbesteuer/results.html", context)
+
+
+def _build_display_context(session_data):
+    """Baut den Anzeigenkontext und wendet den Datenschutzmodus an.
+
+    Alle Views, die Ergebnisdaten anzeigen, exportieren oder an den
+    KI-Assistenten weitergeben, muessen diesen Helper verwenden, damit der
+    Datenschutzmodus nicht durch einzelne Views umgangen werden kann.
+    """
     context = _build_result_context(session_data)
 
     if session_data.get("privacy_mode_enabled"):
         context = anonymize_result_context(context)
 
-    prepare_download_sessions(request, context)
-
-    return render(request, "xgewerbesteuer/results.html", context)
+    return context
 
 
 def _build_result_context(session_data):
@@ -347,7 +359,7 @@ def xgewerbesteuer_assistant(request):
     )
 
     if session_data:
-        result_context = _build_result_context(session_data)
+        result_context = _build_display_context(session_data)
         prepare_download_sessions(request, result_context)
 
     mode = get_assistant_mode(result_context)

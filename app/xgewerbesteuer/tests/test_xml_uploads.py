@@ -2664,6 +2664,41 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
             str(pdf_report_data.get("summary_items")),
         )
 
+    def test_privacy_mode_survives_assistant_requests(self):
+        """Regression fuer #311: Assistent darf die Maskierung nicht aufheben."""
+        content = VALID_BESCHEID_FIXTURE.read_bytes()
+
+        self.client.post(
+            reverse("xgewerbesteuer_upload"),
+            data={"bescheide": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
+            follow=True,
+        )
+        self.client.get(reverse("xgewerbesteuer_results") + "?privacy=1")
+
+        # AJAX-Frage an den Assistenten darf die Export-Session-Daten
+        # nicht mit unmaskierten Werten ueberschreiben.
+        self.client.post(
+            reverse("xgewerbesteuer_assistant"),
+            data={"assistant_question": "Was bedeutet der Hebesatz?"},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        csv_content = self.client.get(
+            reverse("xgewerbesteuer_csv_export")
+        ).content.decode("utf-8")
+
+        self.assertNotIn("Stadt Musterhausen", csv_content)
+        self.assertNotIn(VALID_BESCHEID_FIXTURE.name, csv_content)
+
+        # Auch die vom Assistenten gerenderte Ergebnisseite bleibt maskiert.
+        response = self.client.post(
+            reverse("xgewerbesteuer_assistant"),
+            data={"assistant_question": "Was bedeutet der Hebesatz?"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Stadt Musterhausen")
+        self.assertNotContains(response, VALID_BESCHEID_FIXTURE.name)
+
     def test_privacy_mode_does_not_change_plausibility_or_comparison_results(self):
         upload_response = self.client.post(
             reverse("xgewerbesteuer_upload"),
