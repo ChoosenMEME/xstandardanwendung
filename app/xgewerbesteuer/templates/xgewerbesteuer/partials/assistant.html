@@ -63,6 +63,32 @@
     </div>
   {% endif %}
 
+  {% if assistant.example_questions %}
+    <section
+      class="assistant-suggestions"
+      aria-labelledby="assistant-suggestions-heading"
+    >
+      <h3
+        class="assistant-suggestions__title"
+        id="assistant-suggestions-heading"
+      >
+        {% trans "Beispielfragen" %}
+      </h3>
+      <div class="assistant-suggestions__list">
+        {% for example_question in assistant.example_questions %}
+          <button
+            class="assistant-suggestion-button"
+            type="button"
+            data-assistant-example-question="{{ example_question }}"
+            aria-label="{% trans 'Beispielfrage uebernehmen:' %} {{ example_question }}"
+          >
+            {{ example_question }}
+          </button>
+        {% endfor %}
+      </div>
+    </section>
+  {% endif %}
+
   <form class="assistant-form" id="assistant-form" method="post" action="{% url 'xgewerbesteuer_assistant' %}">
     {% csrf_token %}
     <div class="form-group">
