@@ -2625,7 +2625,11 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
             data={"bescheide": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
             follow=True,
         )
-        response = self.client.get(reverse("xgewerbesteuer_results") + "?privacy=1")
+        response = self.client.post(
+            reverse("xgewerbesteuer_toggle_privacy"),
+            data={"privacy": "1"},
+            follow=True,
+        )
 
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.context["privacy_mode_enabled"])
@@ -2645,7 +2649,10 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
             data={"bescheide": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
             follow=True,
         )
-        self.client.get(reverse("xgewerbesteuer_results") + "?privacy=1")
+        self.client.post(
+            reverse("xgewerbesteuer_toggle_privacy"),
+            data={"privacy": "1"},
+        )
 
         csv_response = self.client.get(reverse("xgewerbesteuer_csv_export"))
         csv_content = csv_response.content.decode("utf-8")
@@ -2675,7 +2682,10 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
             data={"bescheide": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
             follow=True,
         )
-        self.client.get(reverse("xgewerbesteuer_results") + "?privacy=1")
+        self.client.post(
+            reverse("xgewerbesteuer_toggle_privacy"),
+            data={"privacy": "1"},
+        )
 
         # AJAX-Frage an den Assistenten darf die Export-Session-Daten
         # nicht mit unmaskierten Werten ueberschreiben.
@@ -2721,7 +2731,11 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         original_plausibility = upload_response.context["plausibility_check"]
         original_changes = upload_response.context["change_comparison_items"]
 
-        privacy_response = self.client.get(reverse("xgewerbesteuer_results") + "?privacy=1")
+        privacy_response = self.client.post(
+            reverse("xgewerbesteuer_toggle_privacy"),
+            data={"privacy": "1"},
+            follow=True,
+        )
 
         self.assertEqual(
             privacy_response.context["plausibility_check"],
@@ -2731,6 +2745,76 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
             privacy_response.context["change_comparison_items"],
             original_changes,
         )
+
+    def test_privacy_mode_cannot_be_toggled_via_get_parameter(self):
+        """Regression fuer #317: GET darf den Session-Zustand nicht aendern."""
+        content = VALID_BESCHEID_FIXTURE.read_bytes()
+
+        self.client.post(
+            reverse("xgewerbesteuer_upload"),
+            data={"bescheide": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
+            follow=True,
+        )
+        self.client.post(
+            reverse("xgewerbesteuer_toggle_privacy"),
+            data={"privacy": "1"},
+        )
+
+        # Ein praeparierter GET-Link (z. B. Prefetch oder fremde Seite) darf
+        # den aktivierten Datenschutzmodus nicht wieder abschalten.
+        response = self.client.get(reverse("xgewerbesteuer_results") + "?privacy=0")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["privacy_mode_enabled"])
+        self.assertContains(response, "Datenschutzmodus aktiv")
+
+    def test_toggle_privacy_via_get_redirects_without_changing_state(self):
+        content = VALID_BESCHEID_FIXTURE.read_bytes()
+
+        self.client.post(
+            reverse("xgewerbesteuer_upload"),
+            data={"bescheide": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
+            follow=True,
+        )
+
+        response = self.client.get(
+            reverse("xgewerbesteuer_toggle_privacy") + "?privacy=1",
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.context["privacy_mode_enabled"])
+
+    def test_toggle_privacy_can_be_disabled_again_via_post(self):
+        content = VALID_BESCHEID_FIXTURE.read_bytes()
+
+        self.client.post(
+            reverse("xgewerbesteuer_upload"),
+            data={"bescheide": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
+            follow=True,
+        )
+        self.client.post(
+            reverse("xgewerbesteuer_toggle_privacy"),
+            data={"privacy": "1"},
+        )
+
+        response = self.client.post(
+            reverse("xgewerbesteuer_toggle_privacy"),
+            data={"privacy": "0"},
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.context["privacy_mode_enabled"])
+        self.assertContains(response, "Datenschutzmodus inaktiv")
+
+    def test_toggle_privacy_without_result_redirects_to_upload(self):
+        response = self.client.post(
+            reverse("xgewerbesteuer_toggle_privacy"),
+            data={"privacy": "1"},
+        )
+
+        self.assertRedirects(response, reverse("xgewerbesteuer_upload"))
 
     def test_valid_upload_uses_responsive_result_layout(self):
         content = VALID_BESCHEID_FIXTURE.read_bytes()

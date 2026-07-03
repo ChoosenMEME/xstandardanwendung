@@ -272,15 +272,37 @@ def xgewerbesteuer_results(request):
     if not session_data:
         return redirect("xgewerbesteuer_upload")
 
-    if "privacy" in request.GET:
-        session_data["privacy_mode_enabled"] = request.GET.get("privacy") == "1"
-        request.session[RESULT_SESSION_KEY] = session_data
-
     context = _build_display_context(session_data)
 
     prepare_download_sessions(request, context)
 
     return render(request, "xgewerbesteuer/results.html", context)
+
+
+def xgewerbesteuer_toggle_privacy(request):
+    """Schaltet den Datenschutzmodus um — bewusst nur per POST.
+
+    Ein GET-Parameter waere weder CSRF-geschuetzt noch frei von
+    Seiteneffekten (Prefetching/Link-Vorschau koennte den Modus umschalten),
+    deshalb aendert diese View den Session-Zustand nur auf POST und leitet
+    danach per Post/Redirect/Get zurueck auf die Ergebnisseite.
+    """
+    if request.method != "POST":
+        return redirect("xgewerbesteuer_results")
+
+    session_data = request.session.get(RESULT_SESSION_KEY)
+
+    if not session_data:
+        return redirect("xgewerbesteuer_upload")
+
+    session_data["privacy_mode_enabled"] = request.POST.get("privacy") == "1"
+    request.session[RESULT_SESSION_KEY] = session_data
+
+    # Export-Daten sofort neu aufbauen, damit Downloads nicht bis zum
+    # naechsten Aufruf der Ergebnisseite den alten Maskierungszustand behalten.
+    prepare_download_sessions(request, _build_display_context(session_data))
+
+    return redirect("xgewerbesteuer_results")
 
 
 def _build_display_context(session_data):
