@@ -17,6 +17,7 @@ from .views import (
     xgewerbesteuer_pdf_report,
     xgewerbesteuer_results,
     xgewerbesteuer_signup,
+    xgewerbesteuer_toggle_privacy,
     xgewerbesteuer_upload,
 )
 
@@ -38,6 +39,11 @@ urlpatterns = [
     path("upload/", xgewerbesteuer_upload, name="xgewerbesteuer_upload"),
     path("demo/", xgewerbesteuer_demo, name="xgewerbesteuer_demo"),
     path("ergebnis/", xgewerbesteuer_results, name="xgewerbesteuer_results"),
+    path(
+        "ergebnis/datenschutzmodus/",
+        xgewerbesteuer_toggle_privacy,
+        name="xgewerbesteuer_toggle_privacy",
+    ),
     path("ki-assistent/", xgewerbesteuer_assistant, name="xgewerbesteuer_assistant"),
     path("hilfe/", xgewerbesteuer_help, name="xgewerbesteuer_help"),
     path(

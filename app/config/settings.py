@@ -21,6 +21,26 @@ from .url_paths import normalize_route_prefix
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
+def env_int(name, default):
+    """Liest eine Integer-Umgebungsvariable mit verstaendlicher Fehlermeldung.
+
+    Ein Tippfehler in der .env (z. B. "10s") soll den Start nicht mit einem
+    nackten ValueError-Traceback beenden, sondern klar benennen, welche
+    Variable betroffen ist. Ein leerer Wert gilt als "nicht gesetzt".
+    """
+    raw_value = os.getenv(name)
+
+    if raw_value is None or raw_value.strip() == "":
+        return default
+
+    try:
+        return int(raw_value)
+    except ValueError:
+        raise ImproperlyConfigured(
+            f"{name} muss eine ganze Zahl sein, erhalten wurde: {raw_value!r}."
+        )
+
+
 # SECURITY WARNING: keep the secret key used in production secret!
 # SECURITY WARNING: don't run with debug turned on in production!
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
@@ -31,6 +51,37 @@ if not SECRET_KEY:
 DEBUG = os.getenv("DEBUG", "0") == "1"
 ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "").split()
 APP_PATH = os.getenv("APP_PATH", "")
+
+# --- Reverse-Proxy- und HTTPS-Betrieb ---------------------------------------
+# Seit Django 4 prueft der CSRF-Schutz den Origin-Header inklusive Schema.
+# Hinter einem TLS-terminierenden Proxy (nginx, Traefik, Caddy ...) schlagen
+# POSTs ohne diese Einstellungen mit 403 fehl.
+
+# Leerzeichen-getrennte Liste vollstaendiger Origins,
+# z. B. "https://steuer.example.de".
+CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS", "").split()
+
+# Nur aktivieren, wenn der Proxy X-Forwarded-Proto selbst setzt bzw.
+# ueberschreibt — sonst koennten Clients den Header faelschen.
+if os.getenv("USE_X_FORWARDED_PROTO", "0") == "1":
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# Session- und CSRF-Cookie nur ueber HTTPS ausliefern. Relevant, weil die
+# komplette Bescheid-Auswertung in der Session liegt.
+COOKIES_SECURE = os.getenv("COOKIES_SECURE", "0") == "1"
+SESSION_COOKIE_SECURE = COOKIES_SECURE
+CSRF_COOKIE_SECURE = COOKIES_SECURE
+
+# HSTS erst aktivieren, wenn die Domain dauerhaft per HTTPS erreichbar ist
+# (mit kleinem Wert beginnen, siehe Django-Deployment-Checkliste).
+SECURE_HSTS_SECONDS = env_int("SECURE_HSTS_SECONDS", 0)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = (
+    os.getenv("SECURE_HSTS_INCLUDE_SUBDOMAINS", "0") == "1"
+)
+SECURE_HSTS_PRELOAD = os.getenv("SECURE_HSTS_PRELOAD", "0") == "1"
+
+# Optional; meist uebernimmt bereits der Reverse-Proxy die Umleitung.
+SECURE_SSL_REDIRECT = os.getenv("SECURE_SSL_REDIRECT", "0") == "1"
 DEFAULT_SQLITE_PATH = BASE_DIR / "dev.db.sqlite3" if DEBUG else Path("/data/db.sqlite3")
 AI_ASSISTANT_ENABLED = os.getenv("AI_ASSISTANT_ENABLED", "false").lower() in [
     "1",
@@ -41,7 +92,7 @@ AI_ASSISTANT_ENABLED = os.getenv("AI_ASSISTANT_ENABLED", "false").lower() in [
 AI_ASSISTANT_PROVIDER = os.getenv("AI_ASSISTANT_PROVIDER", "disabled")
 AI_ASSISTANT_MODEL = os.getenv("AI_ASSISTANT_MODEL", "")
 AI_ASSISTANT_BASE_URL = os.getenv("AI_ASSISTANT_BASE_URL", "")
-AI_ASSISTANT_TIMEOUT_SECONDS = int(os.getenv("AI_ASSISTANT_TIMEOUT_SECONDS", "10"))
+AI_ASSISTANT_TIMEOUT_SECONDS = env_int("AI_ASSISTANT_TIMEOUT_SECONDS", 10)
 
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "xgewerbesteuer_dashboard"
@@ -53,7 +104,7 @@ EMAIL_BACKEND = (
     else "django.core.mail.backends.smtp.EmailBackend"
 )
 EMAIL_HOST = os.getenv("EMAIL_HOST", "localhost")
-EMAIL_PORT = int(os.getenv("EMAIL_PORT", "25"))
+EMAIL_PORT = env_int("EMAIL_PORT", 25)
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
 EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "0") == "1"

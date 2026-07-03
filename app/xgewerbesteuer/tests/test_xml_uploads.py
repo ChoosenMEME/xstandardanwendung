@@ -30,7 +30,6 @@ from xgewerbesteuer.comparisons import (
     build_message_type_comparison_notice,
     build_multi_bescheid_comparison,
     build_multi_bescheid_record,
-    build_multi_bescheid_upload_errors,
     build_period_comparison_notice,
     calculate_historical_change,
     classify_change_importance,
@@ -87,6 +86,7 @@ from xgewerbesteuer.services.privacy import (
 from xgewerbesteuer.validators import (
     MAX_UPLOAD_SIZE_BYTES,
     UploadValidationIssue,
+    _load_compiled_schema,
     get_upload_issue,
     validate_xml_against_xsd,
 )
@@ -577,6 +577,65 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
         self.assertEqual(unchanged["level"], "neutral")
         self.assertEqual(unchanged["label"], "Keine wichtige Änderung")
 
+    def classify_decimal_comparison(self, current_value, previous_value):
+        result = compare_decimal_values(current_value, previous_value)
+
+        return classify_change_importance(
+            result["change_type"],
+            result["difference_value"],
+            result["percentage_value"],
+        )
+
+    def test_cent_increase_is_downgraded_to_notice(self):
+        """Regression fuer #323: Cent-Erhoehung darf keine Warnstufe ausloesen."""
+        importance = self.classify_decimal_comparison("4000.01", "4000.00")
+
+        self.assertEqual(importance["level"], "notice")
+        self.assertEqual(importance["label"], "Änderung")
+        self.assertIn("leicht erhöht", importance["message"])
+
+    def test_increase_just_below_absolute_threshold_is_notice(self):
+        # +4,99 unterhalb der absoluten Schwelle, obwohl prozentual gross.
+        importance = self.classify_decimal_comparison("14.99", "10.00")
+
+        self.assertEqual(importance["level"], "notice")
+
+    def test_increase_meeting_both_thresholds_is_important(self):
+        # Exakt +5,00 und +5 % erreichen beide Schwellen.
+        importance = self.classify_decimal_comparison("105.00", "100.00")
+
+        self.assertEqual(importance["level"], "important")
+        self.assertIn("deutlich erhöht", importance["message"])
+
+    def test_large_absolute_but_small_relative_increase_is_notice(self):
+        # +15,00 aber nur +1,5 % — unterhalb der relativen Schwelle.
+        importance = self.classify_decimal_comparison("1015.00", "1000.00")
+
+        self.assertEqual(importance["level"], "notice")
+
+    def test_increase_from_zero_previous_value_uses_absolute_threshold(self):
+        # Vorjahreswert 0: kein Prozentwert berechenbar, absolute Schwelle
+        # entscheidet allein.
+        large_increase = self.classify_decimal_comparison("10.00", "0.00")
+        small_increase = self.classify_decimal_comparison("4.00", "0.00")
+
+        self.assertEqual(large_increase["level"], "important")
+        self.assertEqual(small_increase["level"], "notice")
+
+    def test_increase_with_negative_previous_value_is_classified_by_amount(self):
+        # -100 -> -50: Die Erstattung schrumpft um 50,00. Das angezeigte
+        # Prozent (-50 %) darf die Einordnung nicht verfaelschen.
+        importance = self.classify_decimal_comparison("-50.00", "-100.00")
+
+        self.assertEqual(importance["level"], "important")
+
+    def test_large_decrease_remains_notice(self):
+        # Senkungen bleiben unabhaengig von der Groesse eine normale Aenderung.
+        importance = self.classify_decimal_comparison("100.00", "4000.00")
+
+        self.assertEqual(importance["level"], "notice")
+        self.assertEqual(importance["label"], "Änderung")
+
     def test_build_notice_area_prioritizes_warning_before_info(self):
         current_bescheid = {
             "municipality": "Stadt Musterhausen",
@@ -753,7 +812,7 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
         )
         self.assertEqual(
             comparison_by_label["Zahlbetrag"]["importance_message"],
-            "Dieser Wert hat sich gegenüber dem Vorjahr erhöht.",
+            "Dieser Wert hat sich gegenüber dem Vorjahr deutlich erhöht.",
         )
 
         self.assertEqual(
@@ -927,6 +986,22 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
             ["2021", "2022", "2023"],
         )
 
+    def test_sort_places_unknown_tax_periods_first(self):
+        """Regression fuer #323: einheitliche Regel mit der Ergebnisauswahl —
+        unbekannte Zeitraeume vorn, letzter Eintrag = aktuellster Bescheid."""
+        records = [
+            build_multi_bescheid_record(comparison_bescheid("2023")),
+            build_multi_bescheid_record(comparison_bescheid(None)),
+            build_multi_bescheid_record(comparison_bescheid("2022")),
+        ]
+
+        sorted_records = sort_bescheid_records_chronologically(records)
+
+        self.assertEqual(
+            [record["tax_period"] for record in sorted_records],
+            [None, "2022", "2023"],
+        )
+
     def test_build_multi_bescheid_comparison_structures_multiple_years(self):
         comparison = build_multi_bescheid_comparison(
             [
@@ -948,7 +1023,8 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
             ]
         )
 
-        missing_record = comparison["records"][1]
+        # Unbekannte Zeitraeume stehen in der einheitlichen Sortierung vorn.
+        missing_record = comparison["records"][0]
 
         self.assertIsNone(missing_record["tax_period"])
         self.assertIsNone(missing_record["amount_due"])
@@ -994,31 +1070,6 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
 
         self.assertIn("147.00", record["advance_payments"])
         self.assertIn("Vorauszahlung", record["advance_payments"])
-
-    def test_build_multi_bescheid_upload_errors_keeps_valid_results(self):
-        errors = build_multi_bescheid_upload_errors(
-            [
-                {
-                    "file_name": "gueltig.xml",
-                    "result": {
-                        "is_valid": True,
-                        "bescheid": comparison_bescheid("2023"),
-                    },
-                },
-                {
-                    "file_name": "ungueltig.txt",
-                    "result": {
-                        "is_valid": False,
-                        "error_type": "upload",
-                        "message": "Die hochgeladene Datei muss eine XML-Datei sein.",
-                    },
-                },
-            ]
-        )
-
-        self.assertEqual(len(errors), 1)
-        self.assertEqual(errors[0]["file_name"], "ungueltig.txt")
-        self.assertIn("XML-Datei", errors[0]["message"])
 
     def test_single_valid_bescheid_does_not_create_multi_comparison(self):
         comparison = build_multi_bescheid_comparison([comparison_bescheid("2023")])
@@ -1817,6 +1868,20 @@ class XGewerbesteuerXsdValidationTests(SimpleTestCase):
         self.assertNotIn("<nachricht", schema_error)
         self.assertNotIn(str(FIXTURES_DIR), schema_error)
         self.assertNotIn("Traceback", schema_error)
+
+    def test_xsd_schemas_are_compiled_only_once_per_process(self):
+        """Regression fuer #318: Schemas nicht pro Upload neu parsen."""
+        _load_compiled_schema.cache_clear()
+        content = VALID_BESCHEID_FIXTURE.read_bytes()
+
+        validate_xml_against_xsd(content)
+        misses_after_first_run = _load_compiled_schema.cache_info().misses
+
+        validate_xml_against_xsd(content)
+        cache_info = _load_compiled_schema.cache_info()
+
+        self.assertEqual(cache_info.misses, misses_after_first_run)
+        self.assertGreater(cache_info.hits, 0)
 
 
 # LOGIN_ENABLED haengt in den Settings von DEBUG bzw. EMAIL_HOST ab. Die
@@ -2625,7 +2690,11 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
             data={"bescheide": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
             follow=True,
         )
-        response = self.client.get(reverse("xgewerbesteuer_results") + "?privacy=1")
+        response = self.client.post(
+            reverse("xgewerbesteuer_toggle_privacy"),
+            data={"privacy": "1"},
+            follow=True,
+        )
 
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.context["privacy_mode_enabled"])
@@ -2645,7 +2714,10 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
             data={"bescheide": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
             follow=True,
         )
-        self.client.get(reverse("xgewerbesteuer_results") + "?privacy=1")
+        self.client.post(
+            reverse("xgewerbesteuer_toggle_privacy"),
+            data={"privacy": "1"},
+        )
 
         csv_response = self.client.get(reverse("xgewerbesteuer_csv_export"))
         csv_content = csv_response.content.decode("utf-8")
@@ -2675,7 +2747,10 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
             data={"bescheide": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
             follow=True,
         )
-        self.client.get(reverse("xgewerbesteuer_results") + "?privacy=1")
+        self.client.post(
+            reverse("xgewerbesteuer_toggle_privacy"),
+            data={"privacy": "1"},
+        )
 
         # AJAX-Frage an den Assistenten darf die Export-Session-Daten
         # nicht mit unmaskierten Werten ueberschreiben.
@@ -2721,7 +2796,11 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         original_plausibility = upload_response.context["plausibility_check"]
         original_changes = upload_response.context["change_comparison_items"]
 
-        privacy_response = self.client.get(reverse("xgewerbesteuer_results") + "?privacy=1")
+        privacy_response = self.client.post(
+            reverse("xgewerbesteuer_toggle_privacy"),
+            data={"privacy": "1"},
+            follow=True,
+        )
 
         self.assertEqual(
             privacy_response.context["plausibility_check"],
@@ -2731,6 +2810,76 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
             privacy_response.context["change_comparison_items"],
             original_changes,
         )
+
+    def test_privacy_mode_cannot_be_toggled_via_get_parameter(self):
+        """Regression fuer #317: GET darf den Session-Zustand nicht aendern."""
+        content = VALID_BESCHEID_FIXTURE.read_bytes()
+
+        self.client.post(
+            reverse("xgewerbesteuer_upload"),
+            data={"bescheide": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
+            follow=True,
+        )
+        self.client.post(
+            reverse("xgewerbesteuer_toggle_privacy"),
+            data={"privacy": "1"},
+        )
+
+        # Ein praeparierter GET-Link (z. B. Prefetch oder fremde Seite) darf
+        # den aktivierten Datenschutzmodus nicht wieder abschalten.
+        response = self.client.get(reverse("xgewerbesteuer_results") + "?privacy=0")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["privacy_mode_enabled"])
+        self.assertContains(response, "Datenschutzmodus aktiv")
+
+    def test_toggle_privacy_via_get_redirects_without_changing_state(self):
+        content = VALID_BESCHEID_FIXTURE.read_bytes()
+
+        self.client.post(
+            reverse("xgewerbesteuer_upload"),
+            data={"bescheide": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
+            follow=True,
+        )
+
+        response = self.client.get(
+            reverse("xgewerbesteuer_toggle_privacy") + "?privacy=1",
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.context["privacy_mode_enabled"])
+
+    def test_toggle_privacy_can_be_disabled_again_via_post(self):
+        content = VALID_BESCHEID_FIXTURE.read_bytes()
+
+        self.client.post(
+            reverse("xgewerbesteuer_upload"),
+            data={"bescheide": uploaded_xml(VALID_BESCHEID_FIXTURE.name, content)},
+            follow=True,
+        )
+        self.client.post(
+            reverse("xgewerbesteuer_toggle_privacy"),
+            data={"privacy": "1"},
+        )
+
+        response = self.client.post(
+            reverse("xgewerbesteuer_toggle_privacy"),
+            data={"privacy": "0"},
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.context["privacy_mode_enabled"])
+        self.assertContains(response, "Datenschutzmodus inaktiv")
+
+    def test_toggle_privacy_without_result_redirects_to_upload(self):
+        response = self.client.post(
+            reverse("xgewerbesteuer_toggle_privacy"),
+            data={"privacy": "1"},
+        )
+
+        self.assertRedirects(response, reverse("xgewerbesteuer_upload"))
 
     def test_valid_upload_uses_responsive_result_layout(self):
         content = VALID_BESCHEID_FIXTURE.read_bytes()
@@ -3011,7 +3160,7 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertContains(response, "Wichtige Änderung")
         self.assertContains(
             response,
-            "Dieser Wert hat sich gegenüber dem Vorjahr erhöht.",
+            "Dieser Wert hat sich gegenüber dem Vorjahr deutlich erhöht.",
         )
         self.assertContains(response, "Keine wichtige Änderung")
         self.assertContains(response, "Wichtige Änderung zum Vorjahr")

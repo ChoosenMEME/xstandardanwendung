@@ -17,7 +17,7 @@ from .comparisons import (
     build_message_type_comparison_notice,
     build_multi_bescheid_comparison,
     build_period_comparison_notice,
-    extract_sort_year,
+    sort_bescheid_records_chronologically,
 )
 from .forms import SignupForm
 from .services.bescheid import (
@@ -73,28 +73,10 @@ def xgewerbesteuer_dashboard(request):
     })
 
 
-def _sort_bescheide_chronologically(bescheide):
-    def sort_key(bescheid):
-        tax_period = bescheid.get("tax_period", "")
-        sort_year = extract_sort_year(tax_period)
-
-        # Unknown periods come first so the last entry remains the newest
-        # reliably dated Bescheid selected for summaries and exports.
-        return (
-            sort_year != 9999,
-            sort_year,
-            tax_period,
-            bescheid.get("file_name", ""),
-        )
-
-    return sorted(
-        bescheide,
-        key=sort_key,
-    )
-
-
 def _build_result_session_data(results, upload_errors=None, is_demo=False, demo_notice=None):
-    sorted_bescheide = _sort_bescheide_chronologically(results)
+    # Gemeinsame Sortierregel mit der Mehrjahrestabelle (siehe comparisons):
+    # unbekannte Zeitraeume vorn, letzter Eintrag = aktuellster Bescheid.
+    sorted_bescheide = sort_bescheid_records_chronologically(results)
     current_bescheid = sorted_bescheide[-1]
 
     session_data = {
@@ -272,15 +254,37 @@ def xgewerbesteuer_results(request):
     if not session_data:
         return redirect("xgewerbesteuer_upload")
 
-    if "privacy" in request.GET:
-        session_data["privacy_mode_enabled"] = request.GET.get("privacy") == "1"
-        request.session[RESULT_SESSION_KEY] = session_data
-
     context = _build_display_context(session_data)
 
     prepare_download_sessions(request, context)
 
     return render(request, "xgewerbesteuer/results.html", context)
+
+
+def xgewerbesteuer_toggle_privacy(request):
+    """Schaltet den Datenschutzmodus um — bewusst nur per POST.
+
+    Ein GET-Parameter waere weder CSRF-geschuetzt noch frei von
+    Seiteneffekten (Prefetching/Link-Vorschau koennte den Modus umschalten),
+    deshalb aendert diese View den Session-Zustand nur auf POST und leitet
+    danach per Post/Redirect/Get zurueck auf die Ergebnisseite.
+    """
+    if request.method != "POST":
+        return redirect("xgewerbesteuer_results")
+
+    session_data = request.session.get(RESULT_SESSION_KEY)
+
+    if not session_data:
+        return redirect("xgewerbesteuer_upload")
+
+    session_data["privacy_mode_enabled"] = request.POST.get("privacy") == "1"
+    request.session[RESULT_SESSION_KEY] = session_data
+
+    # Export-Daten sofort neu aufbauen, damit Downloads nicht bis zum
+    # naechsten Aufruf der Ergebnisseite den alten Maskierungszustand behalten.
+    prepare_download_sessions(request, _build_display_context(session_data))
+
+    return redirect("xgewerbesteuer_results")
 
 
 def _build_display_context(session_data):
@@ -469,31 +473,10 @@ def xgewerbesteuer_load_saved(request):
         )
         return redirect("xgewerbesteuer_dashboard")
 
-    current_bescheid = saved_upload.result_data.get("current_bescheid") or {
-        "file_name": saved_upload.file_name,
-        "file_size": saved_upload.file_size,
-        "schema_name": "",
-        "message_type": None,
-        "message_type_label": None,
-        "message_type_category": "unknown",
-        "message_type_summary": "",
-        "supports_comparison": False,
-        "municipality": saved_upload.municipality or None,
-        "tax_period": saved_upload.tax_period or None,
-        "amount_due": saved_upload.amount_due or None,
-        "trade_tax_assessment_amount": (
-            saved_upload.trade_tax_assessment_amount or None
-        ),
-        "assessment_rate": saved_upload.assessment_rate or None,
-        "due_dates": saved_upload.due_dates or None,
-        "advance_payments": saved_upload.advance_payments or [],
-        "summary_items": saved_upload.summary_items or [],
-        "calculation_explanation": saved_upload.result_data.get("calculation_explanation", {}),
-        "payment_classification": {
-            "type": saved_upload.payment_type or None,
-            "message": "",
-        },
-    }
+    current_bescheid = (
+        saved_upload.result_data.get("current_bescheid")
+        or saved_upload.to_bescheid_dict()
+    )
 
     request.session[RESULT_SESSION_KEY] = {
         "current_bescheid": current_bescheid,

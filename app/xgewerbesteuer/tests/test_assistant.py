@@ -552,3 +552,48 @@ class AssistantViewTests(TestCase):
                 self.assertNotIn("<?xml", serialized)
                 self.assertNotIn("nachrichtenID", serialized)
                 self.assertNotIn("SECRET", serialized)
+
+
+@override_settings(
+    AI_ASSISTANT_ENABLED=True,
+    AI_ASSISTANT_PROVIDER="ollama",
+    AI_ASSISTANT_BASE_URL="http://localhost:11434",
+    AI_ASSISTANT_MODEL="llama3.1",
+)
+class AssistantContextProcessorTests(TestCase):
+    """Regressionstests fuer #318: Panel-Kontext ohne vollen Ergebnisaufbau."""
+
+    def upload_fixture(self, fixture_path):
+        return self.client.post(
+            reverse("xgewerbesteuer_upload"),
+            data={"bescheide": uploaded_xml(fixture_path)},
+            follow=True,
+        )
+
+    def test_panel_questions_match_full_result_context_questions(self):
+        results_response = self.upload_fixture(
+            FIXTURES_BY_KIND["gewerbesteuerbescheid"]
+        )
+        expected_questions = get_assistant_example_questions(results_response.context)
+
+        help_response = self.client.get(reverse("xgewerbesteuer_help"))
+        help_assistant = help_response.context["assistant"]
+
+        self.assertEqual(help_assistant["mode"], "result")
+        self.assertEqual(help_assistant["example_questions"], expected_questions)
+
+    def test_panel_does_not_build_full_result_context_outside_result_views(self):
+        self.upload_fixture(FIXTURES_BY_KIND["gewerbesteuerbescheid"])
+
+        with patch(
+            "xgewerbesteuer.views._build_display_context"
+        ) as full_context_build:
+            response = self.client.get(reverse("xgewerbesteuer_help"))
+
+        self.assertEqual(response.status_code, 200)
+        full_context_build.assert_not_called()
+
+    def test_panel_shows_general_mode_without_result(self):
+        response = self.client.get(reverse("xgewerbesteuer_help"))
+
+        self.assertEqual(response.context["assistant"]["mode"], "general")

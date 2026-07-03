@@ -29,3 +29,39 @@ class SavedBescheidUpload(models.Model):
 
     def __str__(self):
         return f"{self.tax_period or 'Ohne Zeitraum'} - {self.file_name}"
+
+    def to_bescheid_dict(self):
+        """Rekonstruiert die Bescheid-Struktur aus den einzelnen DB-Feldern.
+
+        Fallback fuer aeltere gespeicherte Auswertungen, deren result_data
+        noch keinen vollstaendigen current_bescheid enthaelt. Einzige Quelle
+        fuer diese Rekonstruktion, damit View- und Service-Schicht nicht
+        auseinanderdriften.
+        """
+        return {
+            "file_name": self.file_name,
+            "file_size": self.file_size,
+            "schema_name": "",
+            "message_type": None,
+            "message_type_label": None,
+            "message_type_category": "unknown",
+            "message_type_summary": "",
+            "supports_comparison": False,
+            "municipality": self.municipality or None,
+            "tax_period": self.tax_period or None,
+            "amount_due": self.amount_due or None,
+            "trade_tax_assessment_amount": (
+                self.trade_tax_assessment_amount or None
+            ),
+            "assessment_rate": self.assessment_rate or None,
+            "due_dates": self.due_dates or None,
+            "advance_payments": self.advance_payments or [],
+            "summary_items": self.summary_items or [],
+            "calculation_explanation": self.result_data.get(
+                "calculation_explanation", {}
+            ),
+            "payment_classification": {
+                "type": self.payment_type or None,
+                "message": "",
+            },
+        }

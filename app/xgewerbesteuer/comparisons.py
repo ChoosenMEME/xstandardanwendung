@@ -13,6 +13,21 @@ from .calculations import (
 )
 
 
+# Bagatellgrenzen fuer den Vorjahresvergleich (analog PLAUSIBILITY_TOLERANCE
+# in calculations.py): Eine Erhoehung gilt erst als "wichtige Aenderung" mit
+# Warnstufe, wenn sie BEIDE Schwellen erreicht — mindestens 5,00 Werteinheiten
+# (EUR bzw. Hebesatz-Punkte) UND mindestens 2 % gegenueber dem Vorjahreswert.
+# Cent- und Rundungsdifferenzen loesen damit keine Warnampel mehr aus. Ist
+# kein Prozentwert berechenbar (Vorjahreswert 0), entscheidet allein die
+# absolute Schwelle.
+IMPORTANT_INCREASE_ABSOLUTE_THRESHOLD = Decimal("5")
+IMPORTANT_INCREASE_RELATIVE_THRESHOLD_PERCENT = Decimal("2")
+
+# extract_sort_year liefert diesen Platzhalter, wenn kein Steuerjahr
+# erkennbar ist.
+UNKNOWN_SORT_YEAR = 9999
+
+
 def build_period_comparison_notice(current_tax_period, previous_tax_period):
     if is_missing_value(current_tax_period) or is_missing_value(previous_tax_period):
         return (
@@ -64,6 +79,8 @@ def compare_decimal_values(current_value, previous_value):
             "difference": "Nicht vergleichbar",
             "percentage": "Nicht vergleichbar",
             "change_type": "Nicht vergleichbar",
+            "difference_value": None,
+            "percentage_value": None,
         }
 
     difference = current_decimal - previous_decimal
@@ -77,14 +94,21 @@ def compare_decimal_values(current_value, previous_value):
 
     if previous_decimal == Decimal("0"):
         percentage = "Nicht vergleichbar"
+        percentage_value = None
     else:
         percentage_difference = difference / previous_decimal * Decimal("100")
         percentage = f"{format_signed_decimal_value(percentage_difference)} %"
+        # Fuer die Wichtigkeits-Einordnung zaehlt die relative Aenderung zum
+        # Betrag des Vorjahreswerts; bei negativen Vorwerten waere das
+        # Vorzeichen des angezeigten Prozentwerts irrefuehrend.
+        percentage_value = difference / abs(previous_decimal) * Decimal("100")
 
     return {
         "difference": format_signed_decimal_value(difference),
         "percentage": percentage,
         "change_type": change_type,
+        "difference_value": difference,
+        "percentage_value": percentage_value,
     }
 
 
@@ -110,12 +134,50 @@ def compare_text_values(current_value, previous_value):
     }
 
 
-def classify_change_importance(change_type):
+def is_minor_increase(difference, percentage):
+    """Prueft, ob eine Erhoehung unterhalb der Bagatellgrenzen liegt.
+
+    Wichtig ist eine Erhoehung nur, wenn sie die absolute Schwelle erreicht
+    UND (sofern berechenbar) auch die relative Schwelle. Ohne Rohwerte
+    (difference is None) wird konservativ nicht heruntergestuft.
+    """
+    if difference is None:
+        return False
+
+    if difference < IMPORTANT_INCREASE_ABSOLUTE_THRESHOLD:
+        return True
+
+    return (
+        percentage is not None
+        and percentage < IMPORTANT_INCREASE_RELATIVE_THRESHOLD_PERCENT
+    )
+
+
+def classify_change_importance(change_type, difference=None, percentage=None):
+    """Ordnet einen Vergleichswert nach fachlicher Wichtigkeit ein.
+
+    difference und percentage sind die rohen Dezimalwerte aus
+    compare_decimal_values. Textvergleiche liefern keine Rohwerte; dort
+    bleibt jede Erhoehung konservativ eine wichtige Aenderung.
+    """
     if change_type == "Erhöhung":
+        if is_minor_increase(difference, percentage):
+            return {
+                "level": "notice",
+                "label": "Änderung",
+                "message": (
+                    "Dieser Wert hat sich gegenüber dem Vorjahr leicht erhöht."
+                ),
+            }
+
         return {
             "level": "important",
             "label": "Wichtige Änderung",
-            "message": "Dieser Wert hat sich gegenüber dem Vorjahr erhöht.",
+            "message": (
+                "Dieser Wert hat sich gegenüber dem Vorjahr deutlich erhöht."
+                if difference is not None
+                else "Dieser Wert hat sich gegenüber dem Vorjahr erhöht."
+            ),
         }
 
     if change_type == "Senkung":
@@ -182,7 +244,11 @@ def build_change_comparison(current_bescheid, previous_bescheid):
         else:
             comparison_result = compare_text_values(current_value, previous_value)
 
-        importance = classify_change_importance(comparison_result["change_type"])
+        importance = classify_change_importance(
+            comparison_result["change_type"],
+            comparison_result.get("difference_value"),
+            comparison_result.get("percentage_value"),
+        )
 
         comparison_items.append(
             {
@@ -203,12 +269,12 @@ def build_change_comparison(current_bescheid, previous_bescheid):
 
 def extract_sort_year(tax_period):
     if is_missing_value(tax_period):
-        return 9999
+        return UNKNOWN_SORT_YEAR
 
     match = re.search(r"\b(19|20)\d{2}\b", str(tax_period))
 
     if not match:
-        return 9999
+        return UNKNOWN_SORT_YEAR
 
     return int(match.group(0))
 
@@ -279,14 +345,26 @@ def build_multi_bescheid_record(bescheid):
 
 
 def sort_bescheid_records_chronologically(records):
-    return sorted(
-        records,
-        key=lambda record: (
-            extract_sort_year(record.get("tax_period")),
-            record.get("tax_period") or "",
+    """Sortiert Bescheide aufsteigend nach erkanntem Steuerjahr.
+
+    Einheitliche Regel fuer Ergebnisauswahl und Mehrjahrestabelle:
+    Eintraege ohne erkennbares Steuerjahr stehen bewusst vorn, damit der
+    letzte Eintrag immer der neueste zuverlaessig datierte Bescheid ist —
+    er wird als "aktueller" Bescheid fuer Zusammenfassung, Vergleich und
+    Exporte verwendet.
+    """
+    def sort_key(record):
+        tax_period = record.get("tax_period") or ""
+        sort_year = extract_sort_year(tax_period)
+
+        return (
+            sort_year != UNKNOWN_SORT_YEAR,
+            sort_year,
+            tax_period,
             record.get("file_name") or "",
-        ),
-    )
+        )
+
+    return sorted(records, key=sort_key)
 
 
 def group_bescheide_by_tax_period(records):
@@ -356,28 +434,6 @@ def build_multi_bescheid_comparison(bescheide):
         "duplicate_tax_periods": duplicate_tax_periods,
         "notices": notices,
     }
-
-
-def build_multi_bescheid_upload_errors(results):
-    errors = []
-
-    for item in results:
-        result = item["result"]
-
-        if result.get("is_valid"):
-            continue
-
-        errors.append(
-            {
-                "file_name": item["file_name"],
-                "message": result.get(
-                    "message",
-                    "Die Datei konnte nicht verarbeitet werden.",
-                ),
-            }
-        )
-
-    return errors
 
 
 def calculate_historical_change(current_value, previous_value):

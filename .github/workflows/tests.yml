@@ -33,6 +33,14 @@ jobs:
           SECRET_KEY: ci-test-secret-key
         run: python manage.py check
 
+      # Informativ: listet offene Haertungsempfehlungen fuer den
+      # Produktivbetrieb auf (Warnungen brechen den Build nicht ab).
+      - name: Run Django deployment checklist
+        working-directory: app
+        env:
+          SECRET_KEY: ci-test-secret-key
+        run: python manage.py check --deploy
+
       - name: Run Django tests
         working-directory: app
         env:

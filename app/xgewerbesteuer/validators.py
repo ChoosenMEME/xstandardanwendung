@@ -1,5 +1,6 @@
 """Datei-, XML- und XSD-Validierung fuer XGewerbesteuer-Bescheide."""
 
+import functools
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -120,6 +121,18 @@ def get_upload_issue(uploaded_file):
     return None
 
 
+@functools.lru_cache(maxsize=None)
+def _load_compiled_schema(schema_file_name):
+    """Parst und kompiliert eine XSD-Datei einmalig pro Prozess.
+
+    Die Schemas sind statische Repository-Dateien; erneutes Parsen und
+    Kompilieren pro Upload waere reiner Mehraufwand. Fehlschlaege werden
+    nicht gecacht (lru_cache speichert keine Ausnahmen), sodass ein spaeter
+    reparierter Schema-Ordner ohne Neustart funktioniert.
+    """
+    return etree.XMLSchema(etree.parse(str(SCHEMA_DIR / schema_file_name)))
+
+
 def validate_xml_against_xsd(xml_data):
     validation_errors = []
 
@@ -144,8 +157,7 @@ def validate_xml_against_xsd(xml_data):
             continue
 
         try:
-            schema_document = etree.parse(str(schema_path))
-            schema = etree.XMLSchema(schema_document)
+            schema = _load_compiled_schema(schema_file_name)
             schema.assertValid(xml_document)
 
             return True, schema_file_name, None
@@ -168,9 +180,3 @@ def validate_xml_against_xsd(xml_data):
         return False, None, " | ".join(validation_errors)
 
     return False, None, "Es konnte keine passende XSD-Schema-Datei für die Validierung gefunden werden."
-
-
-def get_upload_error(uploaded_file):
-    issue = get_upload_issue(uploaded_file)
-
-    return issue.message if issue else None
