@@ -57,6 +57,17 @@ class AppPathConfigurationTests(SimpleTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "xgewerbesteuer/upload.html")
 
+    def test_upload_page_offers_drag_and_drop_file_selection(self):
+        route = "/" + normalize_route_prefix(settings.APP_PATH) + "upload/"
+
+        response = self.client.get(route)
+
+        self.assertContains(response, 'data-upload-dropzone')
+        self.assertContains(response, 'data-upload-file-input')
+        self.assertContains(response, 'data-upload-file-list')
+        self.assertContains(response, 'name="bescheide"')
+        self.assertContains(response, "multiple")
+
     def test_demo_page_route_redirects_to_results_or_upload(self):
         route = "/" + normalize_route_prefix(settings.APP_PATH) + "demo/"
 
