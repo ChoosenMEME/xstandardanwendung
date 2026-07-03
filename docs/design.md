@@ -631,7 +631,6 @@ app/
       alert.html
   xgewerbesteuer/
     templates/
-      xgewerbesteuer_default.html
       (weitere Seiten-Templates)
 ```
 
