@@ -17,7 +17,7 @@ from .comparisons import (
     build_message_type_comparison_notice,
     build_multi_bescheid_comparison,
     build_period_comparison_notice,
-    extract_sort_year,
+    sort_bescheid_records_chronologically,
 )
 from .forms import SignupForm
 from .services.bescheid import (
@@ -73,28 +73,10 @@ def xgewerbesteuer_dashboard(request):
     })
 
 
-def _sort_bescheide_chronologically(bescheide):
-    def sort_key(bescheid):
-        tax_period = bescheid.get("tax_period", "")
-        sort_year = extract_sort_year(tax_period)
-
-        # Unknown periods come first so the last entry remains the newest
-        # reliably dated Bescheid selected for summaries and exports.
-        return (
-            sort_year != 9999,
-            sort_year,
-            tax_period,
-            bescheid.get("file_name", ""),
-        )
-
-    return sorted(
-        bescheide,
-        key=sort_key,
-    )
-
-
 def _build_result_session_data(results, upload_errors=None, is_demo=False, demo_notice=None):
-    sorted_bescheide = _sort_bescheide_chronologically(results)
+    # Gemeinsame Sortierregel mit der Mehrjahrestabelle (siehe comparisons):
+    # unbekannte Zeitraeume vorn, letzter Eintrag = aktuellster Bescheid.
+    sorted_bescheide = sort_bescheid_records_chronologically(results)
     current_bescheid = sorted_bescheide[-1]
 
     session_data = {

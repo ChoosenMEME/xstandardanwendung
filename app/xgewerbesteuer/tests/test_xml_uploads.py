@@ -577,6 +577,65 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
         self.assertEqual(unchanged["level"], "neutral")
         self.assertEqual(unchanged["label"], "Keine wichtige Änderung")
 
+    def classify_decimal_comparison(self, current_value, previous_value):
+        result = compare_decimal_values(current_value, previous_value)
+
+        return classify_change_importance(
+            result["change_type"],
+            result["difference_value"],
+            result["percentage_value"],
+        )
+
+    def test_cent_increase_is_downgraded_to_notice(self):
+        """Regression fuer #323: Cent-Erhoehung darf keine Warnstufe ausloesen."""
+        importance = self.classify_decimal_comparison("4000.01", "4000.00")
+
+        self.assertEqual(importance["level"], "notice")
+        self.assertEqual(importance["label"], "Änderung")
+        self.assertIn("leicht erhöht", importance["message"])
+
+    def test_increase_just_below_absolute_threshold_is_notice(self):
+        # +4,99 unterhalb der absoluten Schwelle, obwohl prozentual gross.
+        importance = self.classify_decimal_comparison("14.99", "10.00")
+
+        self.assertEqual(importance["level"], "notice")
+
+    def test_increase_meeting_both_thresholds_is_important(self):
+        # Exakt +5,00 und +5 % erreichen beide Schwellen.
+        importance = self.classify_decimal_comparison("105.00", "100.00")
+
+        self.assertEqual(importance["level"], "important")
+        self.assertIn("deutlich erhöht", importance["message"])
+
+    def test_large_absolute_but_small_relative_increase_is_notice(self):
+        # +15,00 aber nur +1,5 % — unterhalb der relativen Schwelle.
+        importance = self.classify_decimal_comparison("1015.00", "1000.00")
+
+        self.assertEqual(importance["level"], "notice")
+
+    def test_increase_from_zero_previous_value_uses_absolute_threshold(self):
+        # Vorjahreswert 0: kein Prozentwert berechenbar, absolute Schwelle
+        # entscheidet allein.
+        large_increase = self.classify_decimal_comparison("10.00", "0.00")
+        small_increase = self.classify_decimal_comparison("4.00", "0.00")
+
+        self.assertEqual(large_increase["level"], "important")
+        self.assertEqual(small_increase["level"], "notice")
+
+    def test_increase_with_negative_previous_value_is_classified_by_amount(self):
+        # -100 -> -50: Die Erstattung schrumpft um 50,00. Das angezeigte
+        # Prozent (-50 %) darf die Einordnung nicht verfaelschen.
+        importance = self.classify_decimal_comparison("-50.00", "-100.00")
+
+        self.assertEqual(importance["level"], "important")
+
+    def test_large_decrease_remains_notice(self):
+        # Senkungen bleiben unabhaengig von der Groesse eine normale Aenderung.
+        importance = self.classify_decimal_comparison("100.00", "4000.00")
+
+        self.assertEqual(importance["level"], "notice")
+        self.assertEqual(importance["label"], "Änderung")
+
     def test_build_notice_area_prioritizes_warning_before_info(self):
         current_bescheid = {
             "municipality": "Stadt Musterhausen",
@@ -753,7 +812,7 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
         )
         self.assertEqual(
             comparison_by_label["Zahlbetrag"]["importance_message"],
-            "Dieser Wert hat sich gegenüber dem Vorjahr erhöht.",
+            "Dieser Wert hat sich gegenüber dem Vorjahr deutlich erhöht.",
         )
 
         self.assertEqual(
@@ -927,6 +986,22 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
             ["2021", "2022", "2023"],
         )
 
+    def test_sort_places_unknown_tax_periods_first(self):
+        """Regression fuer #323: einheitliche Regel mit der Ergebnisauswahl —
+        unbekannte Zeitraeume vorn, letzter Eintrag = aktuellster Bescheid."""
+        records = [
+            build_multi_bescheid_record(comparison_bescheid("2023")),
+            build_multi_bescheid_record(comparison_bescheid(None)),
+            build_multi_bescheid_record(comparison_bescheid("2022")),
+        ]
+
+        sorted_records = sort_bescheid_records_chronologically(records)
+
+        self.assertEqual(
+            [record["tax_period"] for record in sorted_records],
+            [None, "2022", "2023"],
+        )
+
     def test_build_multi_bescheid_comparison_structures_multiple_years(self):
         comparison = build_multi_bescheid_comparison(
             [
@@ -948,7 +1023,8 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
             ]
         )
 
-        missing_record = comparison["records"][1]
+        # Unbekannte Zeitraeume stehen in der einheitlichen Sortierung vorn.
+        missing_record = comparison["records"][0]
 
         self.assertIsNone(missing_record["tax_period"])
         self.assertIsNone(missing_record["amount_due"])
@@ -3084,7 +3160,7 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertContains(response, "Wichtige Änderung")
         self.assertContains(
             response,
-            "Dieser Wert hat sich gegenüber dem Vorjahr erhöht.",
+            "Dieser Wert hat sich gegenüber dem Vorjahr deutlich erhöht.",
         )
         self.assertContains(response, "Keine wichtige Änderung")
         self.assertContains(response, "Wichtige Änderung zum Vorjahr")
