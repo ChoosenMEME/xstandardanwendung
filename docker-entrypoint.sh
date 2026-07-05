@@ -49,6 +49,12 @@ fi
 # Apply SQLite-backed migrations before starting Django.
 run_as_app python manage.py migrate --noinput
 
+# Remove expired sessions: the full bescheid evaluation lives in DB-backed
+# sessions and Django never purges expired rows on its own. Running this at
+# every container start bounds how long stale tax data stays on disk.
+log "INFO" "Clearing expired sessions"
+run_as_app python manage.py clearsessions || log "WARN" "clearsessions failed"
+
 log "INFO" "Running collectstatic"
 run_as_app python manage.py collectstatic --noinput
 log "INFO" "collectstatic finished"

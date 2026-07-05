@@ -132,8 +132,10 @@ def build_static_url(app_path):
 
 # Application definition
 
+# django.contrib.admin ist bewusst nicht installiert: Es sind keine Modelle
+# im Admin registriert, und die oeffentlich erreichbare Admin-Loginseite
+# waere nur zusaetzliche Angriffsflaeche.
 INSTALLED_APPS = [
-    'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
@@ -246,5 +248,41 @@ STORAGES = {
     },
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+    },
+}
+
+
+# --- Sessions -----------------------------------------------------------------
+# Die komplette Bescheid-Auswertung liegt in der Session (DB-Backend). Eine
+# kurze Lebensdauer begrenzt, wie lange sensible Steuerdaten in der Datenbank
+# verbleiben; abgelaufene Sessions raeumt "manage.py clearsessions" im
+# Entrypoint auf. Standard: 24 Stunden statt Django-Default (2 Wochen).
+SESSION_COOKIE_AGE = env_int("SESSION_COOKIE_AGE", 60 * 60 * 24)
+
+
+# --- Logging ------------------------------------------------------------------
+# Ohne explizite Konfiguration haetten die App-Logger keinen Handler und die
+# supportfreundlichen Fehler-IDs (services/support_errors.py) wuerden nirgends
+# ausgegeben. Konsole reicht: gunicorn/Docker sammeln stdout/stderr ein.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "simple": {
+            "format": "{asctime} {levelname} {name} {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "simple",
+        },
+    },
+    "loggers": {
+        "xgewerbesteuer": {
+            "handlers": ["console"],
+            "level": "INFO",
+        },
     },
 }

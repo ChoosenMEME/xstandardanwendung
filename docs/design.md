@@ -29,12 +29,19 @@ Die Oberflaeche soll nicht wie ein technischer Prototyp wirken, sondern wie eine
 
 ## 3. KERN-UX als verbindlicher Designstandard
 
-KERN-UX wird ueber CDN in `app/templates/base.html` eingebunden:
+KERN-UX (`@kern-ux/native` 2.6.2) wird lokal aus `app/static/vendor/kern/` in
+`app/templates/base.html` eingebunden — bewusst ohne CDN (Datenschutz:
+IP-Weitergabe an Dritte; Offline-/Intranet-Betrieb; keine Manipulationsgefahr
+durch Dritte):
 
 ```html
-<link href="https://cdn.jsdelivr.net/npm/@kern-ux/native@2.6.2/dist/kern.min.css" rel="stylesheet"/>
-<link href="https://cdn.jsdelivr.net/npm/@kern-ux/native@2.6.2/dist/fonts/fira-sans.css" rel="stylesheet"/>
+<link href="{% static 'vendor/kern/kern.min.css' %}" rel="stylesheet"/>
+<link href="{% static 'vendor/kern/fonts/fira-sans.css' %}" rel="stylesheet"/>
 ```
+
+Fuer ein Versions-Update werden `kern.min.css`, `fonts/fira-sans.css` und die
+`fonts/fira-sans/*.woff2`-Dateien aus dem npm-Paket `@kern-ux/native`
+uebernommen und `THIRD-PARTY-NOTICES.md` aktualisiert.
 
 Fuer Layout, Typografie, Buttons, Formulare, Hinweise, Navigation, Tabellen, Cards und Statusdarstellungen sind bevorzugt KERN-UX-Komponenten und KERN-UX-Klassen zu verwenden.
 

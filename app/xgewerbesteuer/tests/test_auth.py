@@ -2,15 +2,28 @@
 
 from django.contrib.auth.models import User
 from django.core import mail
+from django.core.cache import cache
 from django.test import TestCase, override_settings
 from django.urls import reverse
+
+
+class RateLimitedEndpointTestCase(TestCase):
+    """Basisklasse fuer Tests gegen ratenbegrenzte Endpunkte.
+
+    Die Zaehler der Anfragebegrenzung leben im prozessweiten LocMemCache
+    und wuerden sonst ueber Tests und Testklassen hinweg akkumulieren.
+    """
+
+    def setUp(self):
+        super().setUp()
+        cache.clear()
 
 
 # LOGIN_ENABLED haengt in den Settings von DEBUG bzw. EMAIL_HOST ab. Die
 # Login-Tests setzen den Wert explizit, damit die Suite unabhaengig von
 # Umgebungsvariablen laeuft.
 @override_settings(LOGIN_ENABLED=True)
-class LoginTests(TestCase):
+class LoginTests(RateLimitedEndpointTestCase):
     def create_user(self, username="nutzerin", password="Test-Passwort-1234"):
         return User.objects.create_user(username=username, password=password)
 
@@ -71,7 +84,7 @@ class LoginTests(TestCase):
 
 
 @override_settings(LOGIN_ENABLED=True)
-class SignupTests(TestCase):
+class SignupTests(RateLimitedEndpointTestCase):
     def test_signup_page_is_reachable(self):
         response = self.client.get(reverse("xgewerbesteuer_signup"))
 
@@ -252,7 +265,7 @@ class SignupTests(TestCase):
 
 
 @override_settings(LOGIN_ENABLED=True)
-class PasswordResetTests(TestCase):
+class PasswordResetTests(RateLimitedEndpointTestCase):
     def test_password_reset_form_is_reachable(self):
         response = self.client.get(reverse("password_reset"))
 

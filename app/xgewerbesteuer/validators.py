@@ -9,8 +9,11 @@ from lxml import etree
 
 SCHEMA_DIR = Path(__file__).resolve().parent / "schemas"
 
+# gewerbesteuer.xsd ist der Einstiegspunkt mit Ziel-Namespace und bindet
+# xunternehmen-gewerbesteuer.xsd per xs:include ein. Beide Dateien separat zu
+# pruefen waere doppelte Arbeit gegen dasselbe effektive Schema und wuerde
+# jede Fehlermeldung verdoppeln.
 XSD_SCHEMA_FILES = [
-    "xunternehmen-gewerbesteuer.xsd",
     "gewerbesteuer.xsd",
 ]
 

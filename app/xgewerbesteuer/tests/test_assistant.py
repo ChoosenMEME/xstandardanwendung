@@ -4,6 +4,7 @@ import socket
 from pathlib import Path
 from unittest.mock import patch
 
+from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
@@ -285,7 +286,7 @@ class AssistantServiceTests(SimpleTestCase):
             def __exit__(self, exc_type, exc, traceback):
                 return False
 
-            def read(self):
+            def read(self, size=-1):
                 return b'{"response": ""}'
 
         with patch("urllib.request.urlopen", return_value=FakeResponse()):
@@ -315,6 +316,11 @@ class FakeAssistantProvider:
     AI_ASSISTANT_BASE_URL="https://example.invalid/?token=SECRET_TOKEN",
 )
 class AssistantViewTests(TestCase):
+    def setUp(self):
+        super().setUp()
+        # Zaehler der Anfragebegrenzung zuruecksetzen (prozessweiter Cache).
+        cache.clear()
+
     def upload_fixture(self, fixture_path):
         return self.client.post(
             reverse("xgewerbesteuer_upload"),

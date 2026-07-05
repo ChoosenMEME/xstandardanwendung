@@ -2,7 +2,9 @@
 
 import csv
 import hashlib
+from datetime import datetime, timezone
 from io import BytesIO, StringIO
+from xml.sax.saxutils import escape
 
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet
@@ -11,6 +13,7 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table
 from ..calculations import (
     format_german_date,
     parse_date_value,
+    parse_decimal_value,
     split_due_dates,
 )
 
@@ -69,8 +72,11 @@ def add_pdf_heading(elements, styles, text):
 
 
 def add_pdf_paragraph(elements, styles, text):
+    # Paragraph interpretiert seinen Text als Markup. Dateinamen und aus dem
+    # XML ausgelesene Werte sind nutzerkontrolliert; ohne Escaping fuehrt ein
+    # "<" im Dateinamen zu einem Absturz und Tags wie <b> zu Markup-Injection.
     if text:
-        elements.append(Paragraph(str(text), styles["BodyText"]))
+        elements.append(Paragraph(escape(str(text)), styles["BodyText"]))
         elements.append(Spacer(1, 6))
 
 
@@ -210,7 +216,19 @@ def normalize_csv_value(value):
     if value is None:
         return ""
 
-    return str(value)
+    text = str(value)
+
+    # Werte aus dem hochgeladenen XML koennen mit Formelzeichen beginnen und
+    # wuerden in Tabellenkalkulationen als Formel ausgefuehrt (CSV-Injection).
+    # Echte Zahlen mit Vorzeichen ("-25,00", "+430") bleiben unveraendert;
+    # nur nicht als Zahl lesbare Werte werden mit einem Apostroph
+    # neutralisiert.
+    if text[:1] in ("=", "@", "\t") or (
+        text[:1] in ("-", "+") and parse_decimal_value(text) is None
+    ):
+        return f"'{text}"
+
+    return text
 
 
 def get_summary_value(report_data, label):
@@ -352,7 +370,45 @@ def format_ics_date(value):
     return parsed_date.strftime("%Y%m%d")
 
 
-def build_ics_event(entry, index):
+def format_ics_timestamp(value):
+    return value.strftime("%Y%m%dT%H%M%SZ")
+
+
+def fold_ics_line(line, limit=75):
+    """Faltet lange Zeilen gemaess RFC 5545 (max. 75 Oktette pro Zeile).
+
+    Folgezeilen beginnen mit einem Leerzeichen. Gefaltet wird auf Basis der
+    UTF-8-Oktettlaenge, ohne Mehrbyte-Zeichen zu zerschneiden.
+    """
+    encoded = line.encode("utf-8")
+
+    if len(encoded) <= limit:
+        return [line]
+
+    folded_lines = []
+    current_chars = []
+    current_length = 0
+    # Folgezeilen verlieren ein Oktett an das fuehrende Leerzeichen.
+    current_limit = limit
+
+    for character in line:
+        character_length = len(character.encode("utf-8"))
+
+        if current_length + character_length > current_limit:
+            folded_lines.append("".join(current_chars))
+            current_chars = [" "]
+            current_length = 1
+            current_limit = limit
+
+        current_chars.append(character)
+        current_length += character_length
+
+    folded_lines.append("".join(current_chars))
+
+    return folded_lines
+
+
+def build_ics_event(entry, index, timestamp):
     ics_date = format_ics_date(entry.get("date"))
 
     if ics_date is None:
@@ -379,7 +435,9 @@ def build_ics_event(entry, index):
             f"UID:xgewerbesteuer-frist-{ics_date}-{index}-{uid_hash}"
             "@xgewerbesteuer-assistent.local"
         ),
-        f"DTSTAMP:{ics_date}T000000Z",
+        # DTSTAMP ist laut RFC 5545 der Erstellungszeitpunkt der Datei,
+        # nicht das Datum des Termins.
+        f"DTSTAMP:{format_ics_timestamp(timestamp)}",
         f"DTSTART;VALUE=DATE:{ics_date}",
         f"SUMMARY:{escape_ics_text(summary)}",
         f"DESCRIPTION:{escape_ics_text(description)}",
@@ -390,10 +448,11 @@ def build_ics_event(entry, index):
 def create_ics_export(due_date_calendar):
     """Create an ICS calendar from validated due-date calendar entries."""
     events = []
+    timestamp = datetime.now(timezone.utc)
 
     for month in due_date_calendar.get("months", []):
         for entry in month.get("entries", []):
-            event = build_ics_event(entry, len(events) + 1)
+            event = build_ics_event(entry, len(events) + 1, timestamp)
 
             if event:
                 events.append(event)
@@ -414,4 +473,9 @@ def create_ics_export(due_date_calendar):
 
     lines.append("END:VCALENDAR")
 
-    return "\r\n".join(lines) + "\r\n"
+    folded_lines = []
+
+    for line in lines:
+        folded_lines.extend(fold_ics_line(line))
+
+    return "\r\n".join(folded_lines) + "\r\n"

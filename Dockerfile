@@ -11,8 +11,11 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends gosu \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt /app/
-RUN pip install --no-cache-dir -r requirements.txt
+# Das Release-Image installiert aus dem Lock-File (exakte Versionen inkl.
+# transitiver Abhaengigkeiten), damit Builds desselben Stands reproduzierbar
+# sind. Die CI-Testsuite prueft weiterhin die Spannen aus requirements.txt.
+COPY requirements.lock /app/
+RUN pip install --no-cache-dir -r requirements.lock
 
 # Nur der Anwendungscode. Tests, lokale DB und Build-Artefakte werden ueber
 # .dockerignore vom Build-Kontext ausgeschlossen und landen nicht im Image.

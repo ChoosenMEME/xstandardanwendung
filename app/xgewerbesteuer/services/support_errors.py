@@ -4,8 +4,10 @@ import logging
 import uuid
 
 
+# Kein NullHandler: Er wuerde auch Pythons lastResort-Ausgabe unterdruecken
+# und die Fehler-IDs waeren nirgends auffindbar. Das Routing uebernimmt die
+# LOGGING-Konfiguration in den Settings (Konsole -> gunicorn stdout/stderr).
 logger = logging.getLogger(__name__)
-logger.addHandler(logging.NullHandler())
 
 
 def generate_error_id():

@@ -47,7 +47,8 @@ app/xgewerbesteuer/
   views.py                    # View-Funktionen, Request-Handling, Orchestrierung (~600 Zeilen)
   forms.py                    # SignupForm
   models.py                   # SavedBescheidUpload
-  admin.py                    # (noch keine Modelle registriert)
+  constants.py                # Zentrale Konstanten (u. a. RESULT_SESSION_KEY)
+  ratelimit.py                # Anfragebegrenzung fuer missbrauchsanfaellige Endpunkte
   extractors.py                # Nachrichtentyp-Erkennung und XML-Datenextraktion
   validators.py                 # Datei-, XML- und XSD-Validierung
   calculations.py               # Formatierung, Formelerklaerung, Plausibilitaetspruefung
@@ -162,8 +163,7 @@ bereits aufbereiteten Auswertungsdaten optional als JSON:
 ```text
 SavedBescheidUpload
   id                            AutoField
-  session_key                   CharField, indiziert       # Session zum Zeitpunkt des Speicherns
-  user                          ForeignKey(User, null=True) # Login seit Issue #47 erforderlich
+  user                          ForeignKey(User)           # Pflichtfeld; Login erforderlich
   file_name                     CharField
   file_size                     PositiveIntegerField
   uploaded_at                   DateTimeField (auto_now_add)
@@ -184,16 +184,19 @@ SavedBescheidUpload
 * **Aufbereitete Auswertungsdaten statt Roh-XML**: Gespeichert werden die bereits
   extrahierten und aufbereiteten Werte (u. a. `result_data`, `summary_items`), nicht das
   Original-XML. Das reduziert Speicherbedarf und Datenschutzrisiken.
-* **`user` bleibt nullable**: Neue gespeicherte Auswertungen setzen `user` ueber Login
+* **`user` ist Pflichtfeld**: Gespeicherte Auswertungen setzen `user` ueber Login
   voraus (`xgewerbesteuer_upload` bietet die Speichern-Option nur eingeloggten
-  Nutzer:innen an). Das nullable Feld sowie `session_key` stammen aus der Zeit vor dem
-  Login (Issue #47) und ermoeglichen es, bestehende Zeilen ohne Datenverlust
-  weiterzufuehren.
+  Nutzer:innen an). Das frueher nullable Feld sowie das nie abgefragte
+  `session_key`-Feld aus der Zeit vor dem Login (Issue #47) wurden mit
+  Migration 0003 entfernt; verwaiste Alt-Zeilen ohne Nutzer loescht die
+  Migration.
 * **JSONField fuer variable Listen**: Faelligkeiten, Vorauszahlungen und der komplette
   Ergebniskontext haben eine variable Struktur. JSONField vermeidet unnoetige
   Normalisierung fuer ein rein lesendes Anzeigeszenario (Dashboard, erneutes Oeffnen).
-* **Kein Django-Admin fuer `SavedBescheidUpload`**: `admin.py` registriert aktuell keine
-  Modelle; Verwaltung erfolgt ausschliesslich ueber die Anwendung selbst.
+* **Kein Django-Admin**: `django.contrib.admin` ist nicht installiert — es waeren
+  keine Modelle registriert, und die oeffentliche Admin-Loginseite waere nur
+  zusaetzliche Angriffsflaeche. Verwaltung erfolgt ausschliesslich ueber die
+  Anwendung selbst.
 
 ---
 
@@ -217,13 +220,15 @@ Alle Routen liegen unter dem konfigurierbaren `APP_PATH`-Prefix
 /login/, /logout/                   -> Django-Auth-Views
 /registrieren/                       -> Selbstregistrierung
 /passwort-vergessen/ (+ Folgeschritte) -> Passwort-Reset-Flow
-/admin/                                -> Django Admin
 /healthz/                               -> Health Check
 ```
 
 Alle mit `require_login_enabled()` markierten Routen (Login, Logout, Registrierung,
 Passwort-Reset, gespeicherte Auswertungen) liefern **404**, solange
 `settings.LOGIN_ENABLED` `False` ist (siehe [Abschnitt 7](#7-authentifizierung-und-zugriffsschutz)).
+Login, Registrierung, Passwort-Reset und der KI-Assistent sind zusaetzlich pro
+Client-IP ratenbegrenzt (`ratelimit.py`, HTTP 429). Einen Django-Admin gibt es
+nicht (siehe Designentscheidungen in Abschnitt 3).
 Es gibt bewusst keine separaten Routen fuer Mehrjahresvergleich oder Historie: Beides ist
 Teil von `/ergebnis/`, sobald mehrere Bescheide in der Session vorliegen.
 
@@ -249,19 +254,15 @@ app/templates/base.html                     # KERN-UX, Meta, Bloecke, Navigation
 app/templates/partials/
   header.html               # Kopfbereich / Hauptnavigation
   footer.html                # Fusszeile
-  messages.html                # Erfolgs-/Fehler-/Hinweismeldungen (Django messages)
-  card_metric.html               # Kennzahlen-Card (Label + Wert)
-  table_summary.html               # Zusammenfassungstabelle
-  alert.html                         # Hinweis-/Warnungsbox
-  upload_form.html                     # Upload-Formular
 
 app/xgewerbesteuer/templates/xgewerbesteuer/partials/
   assistant.html              # Global eingebundenes KI-Assistenten-Panel
+  term_help.html              # Begriffserklaerung (via Inclusion-Tag term_help)
 ```
 
-Partials werden per `{% include "partials/card_metric.html" with label=... value=... %}`
-eingebunden und verwenden ausschliesslich KERN-UX-Klassen (siehe
-[`docs/design.md`](design.md)).
+Partials werden per `{% include %}` bzw. Inclusion-Tag eingebunden und verwenden
+ausschliesslich KERN-UX-Klassen (siehe [`docs/design.md`](design.md)). Nicht
+referenzierte Partials werden geloescht statt auf Vorrat gepflegt.
 
 ### 5.3 Template-Tags und Filter
 
@@ -527,6 +528,10 @@ Zusaetzlich zu Djangos `MinimumLengthValidator` und `CommonPasswordValidator` pr
 
 ### Laufzeit (`requirements.txt`)
 
+Die Versionsspannen stehen in `requirements.txt`; das Release-Image installiert
+aus `requirements.lock` (exakte, reproduzierbare Versionen inkl. transitiver
+Abhaengigkeiten). Die CI-Testsuite prueft weiterhin die Spannen.
+
 | Paket | Zweck |
 | --- | --- |
 | Django >=6.0,<6.1 | Webframework, Auth, ORM |
@@ -583,7 +588,6 @@ app/xgewerbesteuer/tests/
 
 ## 11. Bekannte technische Schulden / Ausblick
 
-* `admin.py` registriert bisher kein Modell im Django-Admin.
 * OIDC (Stufe 3, Issue #254) ist weiterhin nur als Option vorgesehen, nicht umgesetzt.
 * Der KI-Assistent unterstuetzt aktuell nur den Ollama-Provider; weitere Provider
   lassen sich in `assistant_providers.py` ergaenzen, ohne `assistant.py` oder die
