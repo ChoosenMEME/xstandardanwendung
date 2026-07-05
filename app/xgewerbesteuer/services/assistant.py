@@ -202,6 +202,18 @@ def _has_value(value):
     return value not in [None, "", []]
 
 
+def _can_explain_trade_tax_calculation(result_context, current_bescheid):
+    calculation_explanation = result_context.get("calculation_explanation") or {}
+
+    if "can_calculate" in calculation_explanation:
+        return bool(calculation_explanation["can_calculate"])
+
+    return (
+        _has_value(current_bescheid.get("trade_tax_assessment_amount"))
+        and _has_value(current_bescheid.get("assessment_rate"))
+    )
+
+
 def get_assistant_example_questions(result_context=None):
     """Liefert datensparsame Beispiel-Fragen passend zum sichtbaren Modus."""
 
@@ -211,11 +223,7 @@ def get_assistant_example_questions(result_context=None):
     current_bescheid = result_context.get("current_bescheid", {})
     questions = list(RESULT_BASE_EXAMPLE_QUESTIONS)
 
-    if (
-        _has_value(current_bescheid.get("amount_due"))
-        and _has_value(current_bescheid.get("trade_tax_assessment_amount"))
-        and _has_value(current_bescheid.get("assessment_rate"))
-    ):
+    if _can_explain_trade_tax_calculation(result_context, current_bescheid):
         questions.insert(
             1,
             "Wie setzt sich der Gewerbesteuerbetrag zusammen?",

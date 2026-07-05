@@ -40,6 +40,7 @@ FIXTURES_BY_KIND = {
     / "GEWST-0021-12345678-1234567890000-2023-01-15_"
     "00000000-0000-0000-0000-000000000213.xml",
 }
+TRADE_TAX_CALCULATION_QUESTION = "Wie setzt sich der Gewerbesteuerbetrag zusammen?"
 
 
 def uploaded_xml(path):
@@ -65,6 +66,12 @@ def assistant_result_context(**current_overrides):
 
     return {
         "current_bescheid": current_bescheid,
+        "calculation_explanation": {
+            "can_calculate": (
+                bool(current_bescheid.get("trade_tax_assessment_amount"))
+                and bool(current_bescheid.get("assessment_rate"))
+            ),
+        },
         "payment_classification": {"type": "Nachzahlung"},
         "plausibility_check": {
             "label": "Plausibel",
@@ -125,10 +132,40 @@ class AssistantServiceTests(SimpleTestCase):
         questions = get_assistant_example_questions(assistant_result_context())
 
         self.assertIn("Was sind die wichtigsten Angaben in diesem Bescheid?", questions)
+        self.assertIn(TRADE_TAX_CALCULATION_QUESTION, questions)
         self.assertIn("Welche Zahlungen sind wann faellig?", questions)
         self.assertIn("Was bedeutet die Plausibilitaetspruefung?", questions)
         self.assertIn("Was hat sich gegenueber dem vorherigen Bescheid geaendert?", questions)
         self.assertNotIn("Wie funktioniert der Upload?", questions)
+
+    def test_result_example_questions_show_calculation_question_without_amount_due(self):
+        questions = get_assistant_example_questions(
+            assistant_result_context(amount_due=None)
+        )
+
+        self.assertIn(TRADE_TAX_CALCULATION_QUESTION, questions)
+
+    def test_result_example_questions_hide_calculation_question_without_basis(self):
+        cases = [
+            {"trade_tax_assessment_amount": None},
+            {"assessment_rate": None},
+        ]
+
+        for overrides in cases:
+            with self.subTest(overrides=overrides):
+                questions = get_assistant_example_questions(
+                    assistant_result_context(**overrides)
+                )
+
+                self.assertNotIn(TRADE_TAX_CALCULATION_QUESTION, questions)
+
+    def test_result_example_questions_fall_back_to_calculation_basis(self):
+        context = assistant_result_context(amount_due=None)
+        context.pop("calculation_explanation")
+
+        questions = get_assistant_example_questions(context)
+
+        self.assertIn(TRADE_TAX_CALCULATION_QUESTION, questions)
 
     def test_result_example_questions_omit_unavailable_topics(self):
         context = assistant_result_context(due_dates=None)
