@@ -170,7 +170,9 @@ body {
 }
 
 .nav-link--button {
-    background: none;
+    appearance: none;
+    margin: 0;
+    background: transparent;
     border: none;
     cursor: pointer;
     font-family: inherit;
@@ -1764,13 +1766,6 @@ body {
 
 .assistant-card {
     border-left: 4px solid var(--color-info);
-}
-
-.nav-link--button {
-    font: inherit;
-    cursor: pointer;
-    background: transparent;
-    border: 0;
 }
 
 .assistant-panel {

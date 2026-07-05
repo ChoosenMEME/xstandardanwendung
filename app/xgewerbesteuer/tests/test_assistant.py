@@ -311,6 +311,18 @@ class AssistantViewTests(TestCase):
                 self.assertContains(response, "assistant-panel")
                 self.assertContains(response, "Allgemeine Hilfe")
 
+    def test_assistant_nav_button_keeps_accessible_button_contract(self):
+        response = self.client.get(reverse("xgewerbesteuer_dashboard"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'class="nav-link nav-link--button"')
+        self.assertContains(response, 'type="button"')
+        self.assertContains(response, 'id="assistant-toggle"')
+        self.assertContains(response, 'aria-expanded="false"')
+        self.assertContains(response, 'aria-controls="assistant-panel"')
+        self.assertContains(response, "var toggle = document.getElementById('assistant-toggle');")
+        self.assertContains(response, "toggle.addEventListener('click'")
+
     def test_assistant_panel_is_global_and_not_duplicated_on_results(self):
         response = self.upload_fixture(FIXTURES_BY_KIND["gewerbesteuerbescheid"])
 
@@ -404,6 +416,27 @@ class AssistantViewTests(TestCase):
         self.assertIn(".assistant-suggestions__list", css_content)
         self.assertIn("flex-wrap: wrap", css_content)
         self.assertIn("appearance: none", css_content)
+
+    def test_nav_button_style_is_single_reset_without_overriding_nav_typography(self):
+        css_path = (
+            Path(__file__).resolve().parents[1]
+            / "static"
+            / "xgewerbesteuer"
+            / "app.css"
+        )
+        css_content = css_path.read_text(encoding="utf-8")
+        nav_button_block_start = css_content.index(".nav-link--button {")
+        nav_button_block_end = css_content.index("}", nav_button_block_start)
+        nav_button_block = css_content[nav_button_block_start:nav_button_block_end]
+
+        self.assertEqual(css_content.count(".nav-link--button {"), 1)
+        self.assertIn("appearance: none", nav_button_block)
+        self.assertIn("background: transparent", nav_button_block)
+        self.assertIn("border: none", nav_button_block)
+        self.assertIn("cursor: pointer", nav_button_block)
+        self.assertNotIn("font:", nav_button_block)
+        self.assertNotIn("font-size", nav_button_block)
+        self.assertNotIn("font-weight", nav_button_block)
 
     def test_general_mode_rejects_concrete_bescheid_question_without_provider(self):
         response = self.client.post(
