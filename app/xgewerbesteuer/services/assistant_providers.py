@@ -1,11 +1,16 @@
 """Provider-Schnittstellen fuer den optionalen KI-Assistenten."""
 
+import http.client
 import json
 import socket
 import urllib.error
 import urllib.request
 
 from django.conf import settings
+
+# Obergrenze fuer die Antwortgroesse des Providers: schuetzt den Worker vor
+# unbegrenzt grossen (fehlerhaften) Antworten.
+MAX_PROVIDER_RESPONSE_BYTES = 1_000_000
 
 
 class AssistantProviderError(Exception):
@@ -72,12 +77,26 @@ class OllamaAssistantProvider(AssistantProvider):
                 request,
                 timeout=self.timeout_seconds,
             ) as response:
-                payload = json.loads(response.read().decode("utf-8"))
+                raw_response = response.read(MAX_PROVIDER_RESPONSE_BYTES + 1)
+
+                if len(raw_response) > MAX_PROVIDER_RESPONSE_BYTES:
+                    raise AssistantProviderError(
+                        "Die Antwort des KI-Assistenten war zu gross."
+                    )
+
+                payload = json.loads(raw_response.decode("utf-8"))
         except socket.timeout as exc:
             raise AssistantProviderError(
                 "Der KI-Assistent hat nicht rechtzeitig geantwortet."
             ) from exc
         except urllib.error.URLError as exc:
+            raise AssistantProviderError(
+                "Der KI-Assistent ist aktuell nicht erreichbar."
+            ) from exc
+        # Fehler beim Lesen des Antwortkoerpers (IncompleteRead,
+        # Verbindungsabbrueche) wickelt urllib nicht in URLError ein und
+        # wuerden sonst als 500er beim Nutzer landen.
+        except (http.client.HTTPException, OSError) as exc:
             raise AssistantProviderError(
                 "Der KI-Assistent ist aktuell nicht erreichbar."
             ) from exc

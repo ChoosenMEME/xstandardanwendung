@@ -3,9 +3,9 @@
 from django.conf import settings
 
 from .calculations import build_plausibility_check
+from .constants import RESULT_SESSION_KEY
 from .services.assistant import build_assistant_ui_context
 from .services.bescheid import build_due_date_calendar
-from .views import RESULT_SESSION_KEY
 
 
 def login_enabled(request):

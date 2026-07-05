@@ -36,7 +36,7 @@ def format_date_de(value):
 @register.filter
 def format_percent(value):
     """Formatiert Dezimalwert als '12,5 %'."""
-    parsed = parse_decimal_value(str(value)) if not isinstance(value, type(None)) else None
+    parsed = parse_decimal_value(str(value)) if value is not None else None
 
     if parsed is None:
         return "Nicht verfügbar"

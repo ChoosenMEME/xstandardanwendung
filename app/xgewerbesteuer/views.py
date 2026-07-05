@@ -11,6 +11,7 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 
 from .calculations import build_plausibility_check
+from .ratelimit import rate_limit
 from .comparisons import (
     build_change_comparison,
     build_historical_development,
@@ -19,7 +20,9 @@ from .comparisons import (
     build_period_comparison_notice,
     sort_bescheid_records_chronologically,
 )
+from .constants import RESULT_SESSION_KEY
 from .forms import SignupForm
+from .models import SavedBescheidUpload
 from .services.bescheid import (
     build_due_date_calendar,
     build_liquidity_impact,
@@ -50,7 +53,6 @@ from .services.export import (
 )
 from .services.privacy import anonymize_result_context
 
-RESULT_SESSION_KEY = "xgewerbesteuer_result"
 # Die Demo-Dateien liegen bewusst ausserhalb von tests/, weil das
 # Test-Verzeichnis per .dockerignore nicht ins Release-Image gelangt.
 DEMO_FIXTURE_DIR = Path(__file__).resolve().parent / "demo_data"
@@ -124,6 +126,34 @@ def _build_result_session_data(results, upload_errors=None, is_demo=False, demo_
     return session_data
 
 
+def _process_uploaded_files(uploaded_files):
+    """Verarbeitet Uploads zu (gueltige Bescheide, Fehlerliste).
+
+    Gemeinsame Fehlerbehandlung fuer Upload- und Demo-View: Auch unerwartete
+    Fehler werden als kontrollierte Fehlerantwort mit Fehler-ID gemeldet.
+    """
+    results = []
+    upload_errors = []
+
+    for uploaded_file in uploaded_files:
+        try:
+            result = process_uploaded_bescheid(uploaded_file)
+        except Exception as error:
+            result = build_unexpected_import_error_result(error)
+
+        if result["is_valid"]:
+            results.append(result["bescheid"])
+        else:
+            upload_errors.append({
+                "file_name": uploaded_file.name,
+                "message": result["message"],
+                "error_id": result.get("error_id"),
+                "details": result.get("details", []),
+            })
+
+    return results, upload_errors
+
+
 def xgewerbesteuer_upload(request):
     if request.method != "POST":
         return render(request, "xgewerbesteuer/upload.html")
@@ -143,24 +173,7 @@ def xgewerbesteuer_upload(request):
             "upload_error": "Bitte wählen Sie mindestens eine XML-Datei aus.",
         })
 
-    results = []
-    upload_errors = []
-
-    for uploaded_file in uploaded_files:
-        try:
-            result = process_uploaded_bescheid(uploaded_file)
-        except Exception as error:
-            result = build_unexpected_import_error_result(error)
-
-        if result["is_valid"]:
-            results.append(result["bescheid"])
-        else:
-            upload_errors.append({
-                "file_name": uploaded_file.name,
-                "message": result["message"],
-                "error_id": result.get("error_id"),
-                "details": result.get("details", []),
-            })
+    results, upload_errors = _process_uploaded_files(uploaded_files)
 
     if not results:
         return render(request, "xgewerbesteuer/upload.html", {
@@ -194,7 +207,7 @@ def xgewerbesteuer_upload(request):
 
 
 def xgewerbesteuer_demo(request):
-    results = []
+    uploaded_files = []
     upload_errors = []
 
     for fixture_name in DEMO_FIXTURE_FILES:
@@ -210,21 +223,16 @@ def xgewerbesteuer_demo(request):
             })
             continue
 
-        uploaded_file = SimpleUploadedFile(
-            fixture_name,
-            fixture_content,
-            content_type="application/xml",
+        uploaded_files.append(
+            SimpleUploadedFile(
+                fixture_name,
+                fixture_content,
+                content_type="application/xml",
+            )
         )
-        result = process_uploaded_bescheid(uploaded_file)
 
-        if result["is_valid"]:
-            results.append(result["bescheid"])
-        else:
-            upload_errors.append({
-                "file_name": fixture_name,
-                "message": result["message"],
-                "details": result.get("details", []),
-            })
+    results, processing_errors = _process_uploaded_files(uploaded_files)
+    upload_errors.extend(processing_errors)
 
     if not results:
         return render(request, "xgewerbesteuer/upload.html", {
@@ -363,6 +371,10 @@ def _build_result_context(session_data):
     return context
 
 
+# Jede Assistant-Anfrage blockiert einen Worker fuer bis zu
+# AI_ASSISTANT_TIMEOUT_SECONDS; ohne Limit liesse sich der Worker-Pool
+# guenstig lahmlegen und der LLM-Endpunkt anonym fluten.
+@rate_limit("assistant", max_requests=20, window_seconds=300)
 def xgewerbesteuer_assistant(request):
     if request.method != "POST":
         return redirect("xgewerbesteuer_dashboard")
@@ -445,21 +457,31 @@ def xgewerbesteuer_assistant(request):
     return render(request, "xgewerbesteuer/dashboard.html", context)
 
 
+def _parse_saved_upload_id(request):
+    """Liest die Upload-ID aus dem POST; None bei fehlendem/ungueltigem Wert.
+
+    Ohne diese Pruefung wuerde ein nicht-numerischer Wert im ORM-Filter einen
+    ValueError und damit einen 500er ausloesen.
+    """
+    try:
+        return int(request.POST.get("saved_upload_id", ""))
+    except (TypeError, ValueError):
+        return None
+
+
 @login_required
 def xgewerbesteuer_load_saved(request):
     if request.method != "POST":
         return redirect("xgewerbesteuer_dashboard")
 
-    saved_upload_id = request.POST.get("saved_upload_id")
+    saved_upload_id = _parse_saved_upload_id(request)
 
-    if not saved_upload_id:
+    if saved_upload_id is None:
         messages.error(
             request,
             "Die gespeicherte Auswertung konnte nicht gefunden werden.",
         )
         return redirect("xgewerbesteuer_dashboard")
-
-    from .models import SavedBescheidUpload
 
     saved_upload = SavedBescheidUpload.objects.filter(
         id=saved_upload_id,
@@ -500,16 +522,14 @@ def xgewerbesteuer_delete_saved(request):
     if request.method != "POST":
         return redirect("xgewerbesteuer_dashboard")
 
-    saved_upload_id = request.POST.get("saved_upload_id")
+    saved_upload_id = _parse_saved_upload_id(request)
 
-    if not saved_upload_id:
+    if saved_upload_id is None:
         messages.error(
             request,
             "Die gespeicherte Auswertung konnte nicht gefunden werden.",
         )
         return redirect("xgewerbesteuer_dashboard")
-
-    from .models import SavedBescheidUpload
 
     deleted_count, _ = SavedBescheidUpload.objects.filter(
         id=saved_upload_id,

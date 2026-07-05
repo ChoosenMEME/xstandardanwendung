@@ -105,10 +105,6 @@ def split_due_dates(due_dates):
     ]
 
 
-def split_due_date_values(due_dates):
-    return split_due_dates(due_dates)
-
-
 def is_missing_value(value):
     return value is None or value == ""
 

@@ -3,11 +3,11 @@ from django.db import models
 
 
 class SavedBescheidUpload(models.Model):
-    session_key = models.CharField(max_length=80, db_index=True)
+    # Gespeicherte Auswertungen sind seit dem Nutzerkonten-Feature immer
+    # einem Konto zugeordnet; die View lehnt anonyme Speicherversuche ab.
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        null=True,
         related_name="saved_bescheid_uploads",
     )
     file_name = models.CharField(max_length=255)

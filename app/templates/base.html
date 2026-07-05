@@ -10,8 +10,11 @@
     <link rel="icon" href="{% static 'branding/favicon.svg' %}" type="image/svg+xml"/>
     <link rel="alternate icon" href="{% static 'branding/favicon.ico' %}"/>
     <link rel="apple-touch-icon" href="{% static 'branding/apple-touch-icon.png' %}"/>
-    <link href="https://cdn.jsdelivr.net/npm/@kern-ux/native@2.6.2/dist/kern.min.css" rel="stylesheet"/>
-    <link href="https://cdn.jsdelivr.net/npm/@kern-ux/native@2.6.2/dist/fonts/fira-sans.css" rel="stylesheet"/>
+    {# KERN-UX (@kern-ux/native 2.6.2) und Fira Sans werden lokal aus #}
+    {# static/vendor/kern ausgeliefert: kein CDN-Zugriff (Datenschutz, #}
+    {# Offline-Faehigkeit) und keine Manipulationsgefahr durch Dritte. #}
+    <link href="{% static 'vendor/kern/kern.min.css' %}" rel="stylesheet"/>
+    <link href="{% static 'vendor/kern/fonts/fira-sans.css' %}" rel="stylesheet"/>
     <link href="{% static 'xgewerbesteuer/app.css' %}" rel="stylesheet"/>
     {% block extra_head %}{% endblock %}
 </head>

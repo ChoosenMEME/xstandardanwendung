@@ -1,6 +1,7 @@
 """Regressionstests fuer XML-Upload, Extraktion und Validierung."""
 
 import csv
+from datetime import datetime, timezone
 from decimal import Decimal
 from io import StringIO
 from pathlib import Path
@@ -20,7 +21,7 @@ from xgewerbesteuer.calculations import (
     build_plausibility_check,
     calculate_expected_trade_tax,
     compare_plausibility_amounts,
-    split_due_date_values,
+    split_due_dates,
 )
 from xgewerbesteuer.comparisons import (
     build_change_comparison,
@@ -1210,9 +1211,9 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
         self.assertEqual(entries[0]["payment_type"], "Nachzahlung")
         self.assertEqual(entries[0]["label"], "Nachzahlung am 15.02.2025")
 
-    def test_split_due_date_values_removes_empty_parts(self):
+    def test_split_due_dates_removes_empty_parts(self):
         self.assertEqual(
-            split_due_date_values("2025-02-15, , 2025-03-15"),
+            split_due_dates("2025-02-15, , 2025-03-15"),
             ["2025-02-15", "2025-03-15"],
         )
 
@@ -1434,11 +1435,14 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
                 "payment_type": "Nachzahlung",
             },
             1,
+            datetime(2025, 1, 10, 12, 30, 0, tzinfo=timezone.utc),
         )
         event_content = "\r\n".join(event)
 
         self.assertIn("BEGIN:VEVENT", event)
         self.assertIn("DTSTART;VALUE=DATE:20250215", event)
+        # DTSTAMP ist der Erstellungszeitpunkt der Datei, nicht der Termin.
+        self.assertIn("DTSTAMP:20250110T123000Z", event)
         self.assertIn("SUMMARY:Gewerbesteuer: Nachzahlung", event)
         self.assertIn("DESCRIPTION:", event_content)
         self.assertIn("UID:", event_content)
@@ -1897,8 +1901,7 @@ class SavedBescheidUploadTests(TestCase):
 
     def create_saved_upload(self, user=None, **overrides):
         defaults = {
-            "session_key": "irrelevant-legacy-session",
-            "user": user,
+            "user": user or self.create_user("upload-besitzerin"),
             "file_name": "bescheid.xml",
             "file_size": 128,
             "municipality": "Stadt Musterhausen",
@@ -2319,7 +2322,10 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertContains(response, "melden Sie sich bitte an")
         self.assertContains(response, 'name="viewport"')
         self.assertContains(response, "app.css")
-        self.assertContains(response, "@kern-ux/native")
+        # KERN wird lokal ausgeliefert; es darf kein CDN-Verweis mehr
+        # im Markup stehen (Datenschutz/Offline-Betrieb).
+        self.assertContains(response, "vendor/kern/kern.min.css")
+        self.assertNotContains(response, "cdn.jsdelivr.net")
         self.assertContains(response, "page-header")
         self.assertContains(response, "card")
         self.assertContains(response, "form-group")

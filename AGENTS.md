@@ -66,18 +66,14 @@ Aktuelle Struktur:
     │   ├── asgi.py
     │   └── wsgi.py
     ├── static/
-    │   └── branding/
+    │   ├── branding/
+    │   └── vendor/kern/        # Lokal ausgeliefertes KERN-UX inkl. Fira Sans
     ├── staticfiles/
     ├── templates/
     │   ├── base.html
     │   ├── partials/
     │   │   ├── header.html
-    │   │   ├── footer.html
-    │   │   ├── messages.html
-    │   │   ├── card_metric.html
-    │   │   ├── alert.html
-    │   │   ├── upload_form.html
-    │   │   └── table_summary.html
+    │   │   └── footer.html
     │   └── registration/
     │       ├── login.html
     │       ├── signup.html
@@ -86,7 +82,8 @@ Aktuelle Struktur:
         ├── models.py
         ├── views.py
         ├── urls.py
-        ├── admin.py
+        ├── constants.py
+        ├── ratelimit.py
         ├── forms.py
         ├── extractors.py
         ├── validators.py

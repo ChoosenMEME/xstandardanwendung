@@ -110,19 +110,20 @@ Details zur technischen Umsetzung stehen in [`docs/architektur.md`](docs/archite
     │   ├── asgi.py / wsgi.py
     │   └── __init__.py
     ├── static/                 # eigene statische Dateien
-    │   └── branding/           # Logo/Favicon (logo.svg, favicon.svg/.ico, apple-touch-icon.png)
+    │   ├── branding/           # Logo/Favicon (logo.svg, favicon.svg/.ico, apple-touch-icon.png)
+    │   └── vendor/kern/        # Lokal ausgeliefertes KERN-UX inkl. Fira Sans (kein CDN)
     ├── staticfiles/            # Ergebnis von collectstatic (generiert)
     ├── templates/
     │   ├── base.html           # Basistemplate inkl. KERN-UX-Einbindung
-    │   ├── partials/           # projektweite Partials (Header, Footer, Meldungen, Cards, ...)
+    │   ├── partials/           # projektweite Partials (Header, Footer)
     │   └── registration/       # Login, Registrierung, Passwort-Reset-Flow
     └── xgewerbesteuer/         # Fachliche App
         ├── models.py           # SavedBescheidUpload
         ├── views.py
         ├── urls.py
-        ├── admin.py
-        ├── apps.py
+        ├── apps.py             # inkl. System-Check fuer das SQLite-Verzeichnis
         ├── forms.py            # Upload- und Registrierungsformular
+        ├── ratelimit.py        # Anfragebegrenzung für Login/Registrierung/Reset/KI-Assistent
         ├── extractors.py       # Nachrichtentyp-Erkennung und XML-Datenextraktion
         ├── validators.py       # Datei-, XML- und XSD-Validierung
         ├── calculations.py     # Formatierung, Formelerklärung, Plausibilitätsprüfung
@@ -251,6 +252,7 @@ Defaults; `SECRET_KEY` muss gesetzt werden. Die echte `.env`-Datei wird
 | `TZ` | Zeitzone des Containers | `Europe/Berlin` |
 | `PUID` / `PGID` | UID/GID, unter der der Container-Prozess läuft | `1000` |
 | `LOGIN_ENABLED` | Erzwingt Login/Registrierung/Passwort-Reset an (`1`) oder aus (`0`); ohne Wert gilt `DEBUG or EMAIL_SERVER_CONFIGURED` | – (Heuristik) |
+| `SESSION_COOKIE_AGE` | Session-Lebensdauer in Sekunden; die Bescheid-Auswertung liegt in der Session, kurze Werte begrenzen die Verweildauer von Steuerdaten in der Datenbank. Abgelaufene Sessions räumt der Entrypoint per `clearsessions` auf | `86400` (24 h) |
 | `EMAIL_HOST` | SMTP-Host für Passwort-Reset-Mails; ein Wert ≠ `localhost` schaltet Login automatisch frei | `localhost` |
 | `EMAIL_PORT` / `EMAIL_HOST_USER` / `EMAIL_HOST_PASSWORD` / `EMAIL_USE_TLS` | SMTP-Zugangsdaten | `25` / – / – / `0` |
 | `DEFAULT_FROM_EMAIL` | Absenderadresse für Passwort-Reset-Mails | `webmaster@localhost` |
@@ -295,8 +297,11 @@ Nach dem Start stehen folgende Routen zur Verfügung (jeweils relativ zu einem o
 | `/pdf-bericht/`, `/csv-export/`, `/fristdatei.ics` | Export der aktuellen Auswertung |
 | `/gespeichert/laden/`, `/gespeichert/loeschen/` | Gespeicherte Auswertung öffnen/löschen (Login erforderlich) |
 | `/login/`, `/logout/`, `/registrieren/`, `/passwort-vergessen/` | Benutzerkonto (siehe unten) |
-| `/admin/` | Django Admin |
 | `/healthz/` | Health-Check-Endpunkt (liefert `{"status": "ok"}`), wird auch vom Docker-`HEALTHCHECK` verwendet |
+
+Der Django-Admin ist bewusst nicht installiert (keine registrierten Modelle, weniger
+Angriffsfläche). Login, Registrierung, Passwort-Reset und der KI-Assistent sind pro
+Client-IP ratenbegrenzt (HTTP 429 bei zu vielen Anfragen).
 
 Login, Registrierung und Passwort-Reset sind nur erreichbar, wenn `LOGIN_ENABLED` aktiv
 ist (siehe [Konfiguration](#konfiguration)); ohne echten Mailserver bleiben sie außerhalb

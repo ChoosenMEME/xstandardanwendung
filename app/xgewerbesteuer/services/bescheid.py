@@ -1,12 +1,12 @@
 """Orchestrierung der Bescheidverarbeitung."""
 
-from datetime import date
 from decimal import Decimal
 from xml.etree.ElementTree import ParseError
 
 from defusedxml import ElementTree
 from defusedxml.common import DefusedXmlException
 from django.db import DatabaseError
+from django.utils import timezone
 
 from ..calculations import (
     build_calculation_explanation,
@@ -16,7 +16,6 @@ from ..calculations import (
     normalize_comparison_value,
     parse_date_value,
     parse_decimal_value,
-    split_due_date_values,
     split_due_dates,
 )
 from ..extractors import (
@@ -378,7 +377,9 @@ def build_liquidity_payment_items(current_bescheid, reference_date):
 
 def build_liquidity_impact(current_bescheid, reference_date=None):
     if reference_date is None:
-        reference_date = date.today()
+        # localdate() statt date.today(): respektiert TIME_ZONE aus den
+        # Settings statt der OS-Zeitzone des Servers.
+        reference_date = timezone.localdate()
 
     items = build_liquidity_payment_items(current_bescheid, reference_date)
     grouped_items = {period["key"]: [] for period in LIQUIDITY_PERIODS}
@@ -469,7 +470,7 @@ def build_calendar_entry(amount, due_date, payment_type):
 
 def build_due_date_calendar_entries(current_bescheid):
     entries = []
-    due_dates = split_due_date_values(current_bescheid.get("due_dates"))
+    due_dates = split_due_dates(current_bescheid.get("due_dates"))
     payment_classification = current_bescheid.get("payment_classification", {})
     payment_type = payment_classification.get("type")
 
@@ -909,13 +910,6 @@ def build_status_indicator(current_bescheid, notice_items=None, change_compariso
 # --- Saved-Upload-Funktionen ---
 
 
-def ensure_session_key(request):
-    if not request.session.session_key:
-        request.session.save()
-
-    return request.session.session_key
-
-
 def get_saved_uploads_for_request(request):
     if not request.user.is_authenticated:
         return SavedBescheidUpload.objects.none()
@@ -970,11 +964,9 @@ def build_saved_upload_payload(bescheid, context_data):
 
 
 def create_saved_upload(request, bescheid, context_data):
-    session_key = ensure_session_key(request)
     payload = build_saved_upload_payload(bescheid, context_data)
 
     return SavedBescheidUpload.objects.create(
-        session_key=session_key,
         user=request.user,
         **payload,
     )
