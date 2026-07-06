@@ -5,9 +5,11 @@ from django.test import SimpleTestCase
 
 from xgewerbesteuer.services.glossary import (
     CORE_GLOSSARY_TERMS,
+    GLOSSARY_ALIASES,
     GLOSSARY_TERMS,
     get_glossary_definition,
     get_missing_core_terms,
+    normalize_glossary_term,
 )
 
 
@@ -35,14 +37,30 @@ class GlossaryDefinitionTests(SimpleTestCase):
             get_glossary_definition("Fälligkeit"),
         )
 
-    def test_no_core_term_is_defined_with_conflicting_text(self):
+    def test_core_terms_do_not_share_duplicate_definition_text(self):
         descriptions_by_term = {
             term: get_glossary_definition(term)["description"]
             for term in CORE_GLOSSARY_TERMS
         }
 
         self.assertEqual(len(descriptions_by_term), len(CORE_GLOSSARY_TERMS))
-        self.assertEqual(len(GLOSSARY_TERMS), len(set(GLOSSARY_TERMS)))
+        self.assertEqual(
+            len(set(descriptions_by_term.values())),
+            len(CORE_GLOSSARY_TERMS),
+        )
+
+    def test_all_aliases_resolve_to_known_central_terms(self):
+        for alias, canonical_term in GLOSSARY_ALIASES.items():
+            with self.subTest(alias=alias):
+                self.assertEqual(normalize_glossary_term(alias), canonical_term)
+                self.assertIn(canonical_term, GLOSSARY_TERMS)
+
+    def test_payment_type_label_resolves_independently_from_dynamic_value(self):
+        self.assertIsNotNone(get_glossary_definition("Zahlungsart"))
+        self.assertEqual(
+            get_glossary_definition("Nachzahlung"),
+            get_glossary_definition("Zahlungsart"),
+        )
 
 
 class GlossaryTemplateTagTests(SimpleTestCase):
