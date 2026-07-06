@@ -6,7 +6,7 @@ from unittest import mock
 from django.core.exceptions import ImproperlyConfigured
 from django.test import SimpleTestCase
 
-from config.settings import env_int
+from config.settings import env_int, select_email_backend
 
 
 class EnvIntTests(SimpleTestCase):
@@ -32,3 +32,17 @@ class EnvIntTests(SimpleTestCase):
 
         self.assertIn("XGEWST_TEST_INT", str(raised.exception))
         self.assertIn("10s", str(raised.exception))
+
+
+class EmailBackendTests(SimpleTestCase):
+    def test_configured_smtp_server_is_used_in_debug_mode(self):
+        self.assertEqual(
+            select_email_backend(debug=True, email_host="smtp.example.com"),
+            "django.core.mail.backends.smtp.EmailBackend",
+        )
+
+    def test_debug_without_smtp_server_uses_console(self):
+        self.assertEqual(
+            select_email_backend(debug=True, email_host="localhost"),
+            "django.core.mail.backends.console.EmailBackend",
+        )

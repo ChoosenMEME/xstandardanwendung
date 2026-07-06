@@ -41,6 +41,13 @@ def env_int(name, default):
         )
 
 
+def select_email_backend(debug, email_host):
+    """Nutze die Konsole nur in Entwicklung ohne konfigurierten SMTP-Server."""
+    if debug and email_host == "localhost":
+        return "django.core.mail.backends.console.EmailBackend"
+    return "django.core.mail.backends.smtp.EmailBackend"
+
+
 # SECURITY WARNING: keep the secret key used in production secret!
 # SECURITY WARNING: don't run with debug turned on in production!
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
@@ -98,12 +105,8 @@ LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "xgewerbesteuer_dashboard"
 LOGOUT_REDIRECT_URL = "xgewerbesteuer_dashboard"
 
-EMAIL_BACKEND = (
-    "django.core.mail.backends.console.EmailBackend"
-    if DEBUG
-    else "django.core.mail.backends.smtp.EmailBackend"
-)
 EMAIL_HOST = os.getenv("EMAIL_HOST", "localhost")
+EMAIL_BACKEND = select_email_backend(DEBUG, EMAIL_HOST)
 EMAIL_PORT = env_int("EMAIL_PORT", 25)
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")

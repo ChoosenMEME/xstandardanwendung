@@ -267,6 +267,12 @@ Defaults; `SECRET_KEY` muss gesetzt werden. Die echte `.env`-Datei wird
 | `SECURE_HSTS_INCLUDE_SUBDOMAINS` / `SECURE_HSTS_PRELOAD` | HSTS auf Subdomains ausweiten bzw. Preload-Flag setzen (`1` = an) | `0` / `0` |
 | `SECURE_SSL_REDIRECT` | `1` = HTTP-Anfragen serverseitig auf HTTPS umleiten (meist erledigt das der Proxy) | `0` |
 
+Die konfigurierte Mailanbindung lässt sich direkt testen:
+
+```bash
+docker compose exec web python manage.py send_test_email admin@example.com
+```
+
 Für den Betrieb hinter einem HTTPS-Reverse-Proxy sind typischerweise
 `CSRF_TRUSTED_ORIGINS`, `USE_X_FORWARDED_PROTO=1` und `COOKIES_SECURE=1` nötig.
 `python manage.py check --deploy` listet verbleibende Härtungsempfehlungen auf.

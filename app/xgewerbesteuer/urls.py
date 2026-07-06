@@ -5,6 +5,7 @@ from django.contrib.auth import views as auth_views
 from django.http import Http404
 from django.urls import path
 
+from .forms import LoggingPasswordResetForm
 from .ratelimit import rate_limit
 from .views import (
     xgewerbesteuer_assistant,
@@ -89,6 +90,7 @@ urlpatterns = [
             rate_limit("password-reset", max_requests=5, window_seconds=900)(
                 auth_views.PasswordResetView.as_view(
                     template_name="registration/password_reset_form.html",
+                    form_class=LoggingPasswordResetForm,
                     email_template_name="registration/password_reset_email.html",
                     subject_template_name="registration/password_reset_subject.txt",
                 )
