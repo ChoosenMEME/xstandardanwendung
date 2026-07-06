@@ -1,8 +1,12 @@
+"""Datenmodelle fuer gespeicherte Bescheid-Auswertungen."""
+
 from django.conf import settings
 from django.db import models
 
 
 class SavedBescheidUpload(models.Model):
+    """Gespeicherte, bereits aufbereitete Auswertung eines Nutzers (kein Roh-XML)."""
+
     # Gespeicherte Auswertungen sind seit dem Nutzerkonten-Feature immer
     # einem Konto zugeordnet; die View lehnt anonyme Speicherversuche ab.
     user = models.ForeignKey(

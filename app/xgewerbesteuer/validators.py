@@ -35,6 +35,7 @@ class UploadValidationIssue:
 
 
 def build_validation_issue(code, detail=""):
+    """Erzeugt den nutzerverstaendlichen Fehler zu einem Validierungscode."""
     issue_definitions = {
         "invalid_file_type": {
             "group": "Falscher Dateityp",
@@ -112,6 +113,7 @@ def build_validation_issue(code, detail=""):
 
 
 def get_upload_issue(uploaded_file):
+    """Prueft Dateiendung und -groesse vor dem Parsen; None wenn in Ordnung."""
     if not uploaded_file.name.lower().endswith(".xml"):
         return build_validation_issue("invalid_file_type")
 
@@ -137,6 +139,11 @@ def _load_compiled_schema(schema_file_name):
 
 
 def validate_xml_against_xsd(xml_data):
+    """Validiert das XML gegen die XGewerbesteuer-XSDs.
+
+    Liefert (is_valid, schema_name, fehlermeldung); der Parser ist gegen
+    XXE, DTDs und Netzwerkzugriffe abgesichert.
+    """
     validation_errors = []
 
     xml_parser = etree.XMLParser(

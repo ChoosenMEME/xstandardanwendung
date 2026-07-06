@@ -29,6 +29,7 @@ UNKNOWN_SORT_YEAR = 9999
 
 
 def build_period_comparison_notice(current_tax_period, previous_tax_period):
+    """Hinweistext zum Vergleich der Steuerzeitraeume zweier Bescheide."""
     if is_missing_value(current_tax_period) or is_missing_value(previous_tax_period):
         return (
             "Die Steuerjahre konnten nicht vollständig verglichen werden. "
@@ -48,6 +49,7 @@ def build_period_comparison_notice(current_tax_period, previous_tax_period):
 
 
 def build_message_type_comparison_notice(current_bescheid, previous_bescheid):
+    """Hinweistext, wenn die Nachrichtentypen keinen direkten Vergleich erlauben."""
     current_type = current_bescheid.get("message_type")
     previous_type = previous_bescheid.get("message_type")
     current_label = current_bescheid.get("message_type_label")
@@ -71,6 +73,7 @@ def build_message_type_comparison_notice(current_bescheid, previous_bescheid):
 
 
 def compare_decimal_values(current_value, previous_value):
+    """Vergleicht zwei Betraege: Differenz, Prozentaenderung und Aenderungsart."""
     current_decimal = parse_decimal_value(current_value)
     previous_decimal = parse_decimal_value(previous_value)
 
@@ -113,6 +116,7 @@ def compare_decimal_values(current_value, previous_value):
 
 
 def compare_text_values(current_value, previous_value):
+    """Vergleicht zwei Textwerte (unveraendert, geaendert, nicht vergleichbar)."""
     if is_missing_value(current_value) or is_missing_value(previous_value):
         return {
             "difference": "Nicht vergleichbar",
@@ -202,6 +206,11 @@ def classify_change_importance(change_type, difference=None, percentage=None):
 
 
 def build_change_comparison(current_bescheid, previous_bescheid):
+    """Baut den feldweisen Vorjahresvergleich mit Wichtigkeits-Einordnung.
+
+    Leer, wenn die Nachrichtentypen keinen direkten Vergleich erlauben
+    (dann erklaert build_message_type_comparison_notice den Grund).
+    """
     if build_message_type_comparison_notice(current_bescheid, previous_bescheid):
         return []
 
@@ -268,6 +277,7 @@ def build_change_comparison(current_bescheid, previous_bescheid):
 
 
 def extract_sort_year(tax_period):
+    """Extrahiert das vierstellige Jahr fuer die chronologische Sortierung."""
     if is_missing_value(tax_period):
         return UNKNOWN_SORT_YEAR
 
@@ -280,6 +290,7 @@ def extract_sort_year(tax_period):
 
 
 def format_advance_payments_for_comparison(advance_payments):
+    """Fasst Vorauszahlungen zu einem Anzeigetext der Vergleichstabelle zusammen."""
     if not advance_payments:
         return None
 
@@ -368,6 +379,7 @@ def sort_bescheid_records_chronologically(records):
 
 
 def group_bescheide_by_tax_period(records):
+    """Gruppiert Vergleichszeilen nach Steuerzeitraum (fuer die Duplikaterkennung)."""
     groups = {}
 
     for record in records:
@@ -378,6 +390,7 @@ def group_bescheide_by_tax_period(records):
 
 
 def build_multi_bescheid_comparison(bescheide):
+    """Baut die Mehrjahresvergleichstabelle inkl. Duplikat- und Typ-Hinweisen."""
     records = [
         build_multi_bescheid_record(bescheid)
         for bescheid in bescheide
@@ -437,6 +450,7 @@ def build_multi_bescheid_comparison(bescheide):
 
 
 def calculate_historical_change(current_value, previous_value):
+    """Formatiert die Differenz zweier Jahreswerte; 'Nicht berechenbar' ohne Rohwerte."""
     current_decimal = parse_decimal_value(current_value)
     previous_decimal = parse_decimal_value(previous_value)
 
@@ -447,6 +461,7 @@ def calculate_historical_change(current_value, previous_value):
 
 
 def get_main_due_date(due_dates):
+    """Liefert die erste (wichtigste) Faelligkeit eines Bescheids."""
     parsed_due_dates = split_due_dates(due_dates)
 
     if not parsed_due_dates:
@@ -456,6 +471,7 @@ def get_main_due_date(due_dates):
 
 
 def build_historical_development_row(record, previous_record=None):
+    """Baut eine Jahreszeile der historischen Entwicklung inkl. Vorjahresdifferenzen."""
     notes = list(record.get("notes", []))
 
     if previous_record is None:
@@ -497,6 +513,7 @@ def build_historical_development_row(record, previous_record=None):
 
 
 def _compute_bar_widths(rows, key):
+    """Skaliert Betraege auf Balkenbreiten in Prozent (Maximum = 100)."""
     parsed = []
 
     for row in rows:
@@ -519,6 +536,7 @@ def _compute_bar_widths(rows, key):
 
 
 def build_historical_chart_data(rows):
+    """Baut die Balkendiagramm-Daten fuer die Entwicklung des Zahlbetrags."""
     numeric_rows = []
 
     for row in rows:
@@ -551,6 +569,7 @@ def build_historical_chart_data(rows):
 
 
 def build_multi_metric_chart_data(rows):
+    """Baut Diagrammzeilen fuer Zahlbetrag, Messbetrag und Hebesatz je Jahr."""
     if len(rows) < 2:
         return None
 
@@ -577,6 +596,7 @@ def build_multi_metric_chart_data(rows):
 
 
 def build_historical_development(records):
+    """Baut die historische Entwicklung ueber alle chronologisch sortierten Bescheide."""
     sorted_records = sort_bescheid_records_chronologically(records)
 
     if len(sorted_records) < 2:

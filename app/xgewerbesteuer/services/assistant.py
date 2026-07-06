@@ -195,6 +195,7 @@ def get_assistant_mode(result_context=None):
 
 
 def get_assistant_mode_label(result_context=None):
+    """Anzeigename des aktuellen Assistant-Modus (allgemein/Auswertung)."""
     return ASSISTANT_MODE_LABELS[get_assistant_mode(result_context)]
 
 

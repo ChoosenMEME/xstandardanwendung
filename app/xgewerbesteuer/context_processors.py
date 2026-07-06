@@ -9,6 +9,7 @@ from .services.bescheid import build_due_date_calendar
 
 
 def login_enabled(request):
+    """Stellt LOGIN_ENABLED fuer Navigation und Templates bereit."""
     return {"LOGIN_ENABLED": settings.LOGIN_ENABLED}
 
 

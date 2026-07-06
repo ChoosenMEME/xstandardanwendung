@@ -1,3 +1,5 @@
+"""URL-Routen der XGewerbesteuer-App inkl. Login-Gate und Rate-Limits."""
+
 from functools import wraps
 
 from django.conf import settings

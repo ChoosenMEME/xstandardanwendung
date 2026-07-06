@@ -17,6 +17,11 @@ _THOUSANDS_GROUPING_PATTERN = re.compile(r"[+-]?[1-9]\d{0,2}(\.\d{3})+")
 
 
 def parse_decimal_value(value):
+    """Parst Betraege in deutscher oder englischer Schreibweise zu Decimal.
+
+    Entfernt Einheiten (EUR, %, Leerzeichen) und erkennt Tausender- und
+    Dezimaltrennzeichen; None bei nicht lesbaren Werten.
+    """
     if value is None or value == "":
         return None
 
@@ -50,11 +55,13 @@ def parse_decimal_value(value):
 
 
 def format_decimal_value(value):
+    """Rundet kaufmaennisch auf zwei Nachkommastellen und formatiert als Text."""
     rounded_value = value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     return f"{rounded_value:.2f}"
 
 
 def parse_date_value(value):
+    """Parst ISO- (JJJJ-MM-TT) und deutsches Datumsformat (TT.MM.JJJJ) zu date."""
     if isinstance(value, date):
         return value
 
@@ -73,6 +80,7 @@ def parse_date_value(value):
 
 
 def format_german_date(value):
+    """Formatiert ein Datum als TT.MM.JJJJ; None bei nicht lesbaren Werten."""
     parsed_date = parse_date_value(value)
 
     if parsed_date is None:
@@ -82,6 +90,7 @@ def format_german_date(value):
 
 
 def format_euro_value(value):
+    """Formatiert einen Betrag im deutschen Zahlenformat als '1.234,56 EUR'."""
     parsed_value = value if isinstance(value, Decimal) else parse_decimal_value(value)
 
     if parsed_value is None:
@@ -95,6 +104,7 @@ def format_euro_value(value):
 
 
 def split_due_dates(due_dates):
+    """Zerlegt die kommaseparierte Faelligkeitsliste in einzelne Termine."""
     if due_dates is None or due_dates == "":
         return []
 
@@ -106,10 +116,12 @@ def split_due_dates(due_dates):
 
 
 def is_missing_value(value):
+    """True fuer None oder leeren String (im Bescheid fehlender Wert)."""
     return value is None or value == ""
 
 
 def normalize_comparison_value(value):
+    """Vereinheitlicht fehlende Werte zu None fuer Vergleich und Anzeige."""
     if is_missing_value(value):
         return None
 
@@ -117,6 +129,7 @@ def normalize_comparison_value(value):
 
 
 def format_signed_decimal_value(value):
+    """Formatiert eine Differenz immer mit Vorzeichen (z. B. '+5.00')."""
     if value > Decimal("0"):
         return f"+{format_decimal_value(value)}"
 
@@ -124,6 +137,12 @@ def format_signed_decimal_value(value):
 
 
 def build_calculation_explanation(trade_tax_assessment_amount, assessment_rate):
+    """Baut die nutzerverstaendliche Erklaerung der Grundformel.
+
+    Grundformel: Gewerbesteuer = Gewerbesteuermessbetrag x Hebesatz / 100.
+    Fehlen Messbetrag oder Hebesatz, wird ein erklaerender Hinweis statt der
+    Rechnung geliefert (can_calculate=False).
+    """
     parsed_trade_tax_assessment_amount = parse_decimal_value(trade_tax_assessment_amount)
     parsed_assessment_rate = parse_decimal_value(assessment_rate)
 
@@ -157,6 +176,7 @@ def build_calculation_explanation(trade_tax_assessment_amount, assessment_rate):
 
 
 def calculate_expected_trade_tax(trade_tax_assessment_amount, assessment_rate):
+    """Berechnet den rechnerisch erwarteten Steuerbetrag aus Messbetrag und Hebesatz."""
     parsed_trade_tax_assessment_amount = parse_decimal_value(trade_tax_assessment_amount)
     parsed_assessment_rate = parse_decimal_value(assessment_rate)
 
@@ -171,6 +191,7 @@ def compare_plausibility_amounts(
     expected_amount,
     tolerance=PLAUSIBILITY_TOLERANCE,
 ):
+    """Vergleicht Ist- und Erwartungsbetrag innerhalb der Rundungstoleranz."""
     parsed_actual_amount = parse_decimal_value(actual_amount)
 
     if parsed_actual_amount is None or expected_amount is None:
@@ -197,6 +218,7 @@ def compare_plausibility_amounts(
 
 
 def build_plausibility_item(label, value):
+    """Erzeugt eine Anzeigezeile (Label/Wert) der Plausibilitaetspruefung."""
     return {
         "label": label,
         "value": normalize_comparison_value(value),
@@ -204,6 +226,11 @@ def build_plausibility_item(label, value):
 
 
 def build_plausibility_check(current_bescheid):
+    """Prueft den Zahlbetrag gegen die Grundformel und baut den Anzeigeblock.
+
+    Ergebnisstatus: 'plausible', 'warning' oder 'not_checkable' (fehlende
+    oder nicht verwertbare Werte, negative Betraege).
+    """
     actual_amount = current_bescheid.get("amount_due")
     trade_tax_assessment_amount = current_bescheid.get("trade_tax_assessment_amount")
     assessment_rate = current_bescheid.get("assessment_rate")

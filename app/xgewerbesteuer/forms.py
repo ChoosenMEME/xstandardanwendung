@@ -47,6 +47,8 @@ class LoggingPasswordResetForm(PasswordResetForm):
 
 
 class SignupForm(UserCreationForm):
+    """Selbstregistrierung mit Pflicht-E-Mail fuer den Passwort-Reset."""
+
     email = forms.EmailField(
         label="E-Mail-Adresse",
         required=True,

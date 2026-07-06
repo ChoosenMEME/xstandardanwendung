@@ -24,6 +24,7 @@ RATE_LIMIT_MESSAGE = (
 
 
 def get_client_identifier(request):
+    """Client-IP als Zaehlschluessel (REMOTE_ADDR, siehe Modul-Docstring)."""
     return request.META.get("REMOTE_ADDR") or "unknown"
 
 
@@ -47,6 +48,7 @@ def is_rate_limited(request, scope, max_requests, window_seconds):
 
 
 def build_rate_limit_response(request):
+    """429-Antwort als JSON oder Text, passend zum anfragenden Client."""
     wants_json = (
         request.headers.get("x-requested-with") == "XMLHttpRequest"
         or "application/json" in request.headers.get("accept", "")
