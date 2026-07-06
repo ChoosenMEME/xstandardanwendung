@@ -29,12 +29,19 @@ Die Oberflaeche soll nicht wie ein technischer Prototyp wirken, sondern wie eine
 
 ## 3. KERN-UX als verbindlicher Designstandard
 
-KERN-UX wird ueber CDN in `app/templates/base.html` eingebunden:
+KERN-UX (`@kern-ux/native` 2.6.2) wird lokal aus `app/static/vendor/kern/` in
+`app/templates/base.html` eingebunden — bewusst ohne CDN (Datenschutz:
+IP-Weitergabe an Dritte; Offline-/Intranet-Betrieb; keine Manipulationsgefahr
+durch Dritte):
 
 ```html
-<link href="https://cdn.jsdelivr.net/npm/@kern-ux/native@2.6.2/dist/kern.min.css" rel="stylesheet"/>
-<link href="https://cdn.jsdelivr.net/npm/@kern-ux/native@2.6.2/dist/fonts/fira-sans.css" rel="stylesheet"/>
+<link href="{% static 'vendor/kern/kern.min.css' %}" rel="stylesheet"/>
+<link href="{% static 'vendor/kern/fonts/fira-sans.css' %}" rel="stylesheet"/>
 ```
+
+Fuer ein Versions-Update werden `kern.min.css`, `fonts/fira-sans.css` und die
+`fonts/fira-sans/*.woff2`-Dateien aus dem npm-Paket `@kern-ux/native`
+uebernommen und `THIRD-PARTY-NOTICES.md` aktualisiert.
 
 Fuer Layout, Typografie, Buttons, Formulare, Hinweise, Navigation, Tabellen, Cards und Statusdarstellungen sind bevorzugt KERN-UX-Komponenten und KERN-UX-Klassen zu verwenden.
 
@@ -688,7 +695,27 @@ Icons duerfen verwendet werden, wenn sie die Verstaendlichkeit erhoehen.
 
 ---
 
-## 24. Farben
+## 24. Logo und Favicon
+
+Logo und Favicon liegen als versionierte Quelldateien unter `app/static/branding/`
+(projektweites `STATICFILES_DIRS`, nicht das generierte `app/staticfiles/`):
+
+* `logo.svg` – Logo, eingebunden im Header (`partials/header.html`) neben dem
+  Anwendungsnamen. Da der Anwendungsname direkt daneben steht, bekommt das Bild
+  `alt=""`.
+* `favicon.svg` – bevorzugtes Favicon fuer moderne Browser (`base.html`,
+  `rel="icon"`).
+* `favicon.ico` – Mehrgroessen-ICO (16/32/48 px) als Fallback fuer Browser ohne
+  SVG-Favicon-Unterstuetzung (`rel="alternate icon"`).
+* `apple-touch-icon.png` – 180×180 px PNG mit deckendem Hintergrund fuer
+  iOS-Home-Bildschirm und Lesezeichen (`rel="apple-touch-icon"`).
+
+Alle Dateien werden ausschliesslich ueber Django Static Files ausgeliefert, es
+werden keine extern nachgeladenen Bildressourcen verwendet.
+
+---
+
+## 25. Farben
 
 Farben werden grundsaetzlich durch KERN-UX vorgegeben.
 
@@ -706,7 +733,7 @@ Wichtige Informationen duerfen nicht ausschliesslich ueber Farbe vermittelt werd
 
 ---
 
-## 25. Abstaende und visuelle Hierarchie
+## 26. Abstaende und visuelle Hierarchie
 
 Die Oberflaeche muss mit klaren Abstaenden arbeiten.
 
@@ -720,7 +747,7 @@ Die Oberflaeche muss mit klaren Abstaenden arbeiten.
 
 ---
 
-## 26. Akzeptanzkriterien fuer UI-Aenderungen
+## 27. Akzeptanzkriterien fuer UI-Aenderungen
 
 Eine UI-Aenderung gilt nur als fertig, wenn folgende Punkte erfuellt sind:
 
@@ -737,7 +764,7 @@ Eine UI-Aenderung gilt nur als fertig, wenn folgende Punkte erfuellt sind:
 
 ---
 
-## 27. Konkrete Anweisung fuer KI-Agenten
+## 28. Konkrete Anweisung fuer KI-Agenten
 
 Wenn ein KI-Agent an dieser Anwendung arbeitet, muss er diese Designrichtlinie beachten.
 
@@ -756,7 +783,7 @@ Wenn bestehende Seiten uneinheitlich oder unfertig wirken, soll der Agent sie ko
 
 ---
 
-## 28. Zielbild
+## 29. Zielbild
 
 Die Anwendung soll am Ende wirken wie eine sachliche, moderne und verlaessliche Verwaltungssoftware.
 

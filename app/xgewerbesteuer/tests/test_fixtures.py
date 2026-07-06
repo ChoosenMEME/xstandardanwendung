@@ -8,6 +8,10 @@ from django.test import SimpleTestCase
 from lxml import etree
 
 FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
+# Die Demo-Dateien der /demo/-Ansicht liegen ausserhalb von tests/, damit sie
+# ins Release-Image gelangen. Sie gehoeren fachlich zum selben Beispiel-Set
+# und werden hier mitvalidiert.
+DEMO_DATA_DIR = Path(__file__).resolve().parents[1] / "demo_data"
 SCHEMAS_DIR = Path(__file__).resolve().parents[1] / "schemas"
 SCHEMA_PATH = SCHEMAS_DIR / "gewerbesteuer.xsd"
 
@@ -23,7 +27,10 @@ ERWARTETE_NACHRICHTENARTEN = {
 
 
 def fixture_paths():
-    return sorted(FIXTURES_DIR.glob("*.xml"))
+    return sorted(
+        list(FIXTURES_DIR.glob("*.xml")) + list(DEMO_DATA_DIR.glob("*.xml")),
+        key=lambda path: path.name,
+    )
 
 
 def load_schema():

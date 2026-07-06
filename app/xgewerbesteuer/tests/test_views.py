@@ -101,3 +101,23 @@ class AppPathConfigurationTests(SimpleTestCase):
         response = self.client.get(route)
 
         self.assertEqual(response.status_code, 302)
+
+    def test_dashboard_page_references_favicon_static_files(self):
+        route = "/" + normalize_route_prefix(settings.APP_PATH)
+
+        response = self.client.get(route)
+
+        self.assertContains(response, 'rel="icon"')
+        self.assertContains(response, "branding/favicon.svg")
+        self.assertContains(response, 'rel="alternate icon"')
+        self.assertContains(response, "branding/favicon.ico")
+        self.assertContains(response, 'rel="apple-touch-icon"')
+        self.assertContains(response, "branding/apple-touch-icon.png")
+
+    def test_dashboard_page_renders_logo_with_redundant_empty_alt_text(self):
+        route = "/" + normalize_route_prefix(settings.APP_PATH)
+
+        response = self.client.get(route)
+
+        self.assertContains(response, "branding/logo.svg")
+        self.assertContains(response, 'alt="" class="site-logo__image"')

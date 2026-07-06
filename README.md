@@ -68,6 +68,9 @@ Details zur technischen Umsetzung stehen in [`docs/architektur.md`](docs/archite
 - **[lxml](https://lxml.de/)** / **[defusedxml](https://github.com/tiran/defusedxml)** für
   sicheres XML-Parsing und XSD-Validierung
 - **[reportlab](https://www.reportlab.com/)** für den PDF-Export
+- **[gunicorn](https://gunicorn.org/)** als WSGI-Server und
+  **[WhiteNoise](https://whitenoise.readthedocs.io/)** für die Auslieferung
+  statischer Dateien im Container-Betrieb
 - **[Ollama](https://ollama.com/)** (optional, extern) als lokaler Provider für den
   KI-Assistenten – ohne Konfiguration bleibt der Assistent deaktiviert
 
@@ -107,18 +110,20 @@ Details zur technischen Umsetzung stehen in [`docs/architektur.md`](docs/archite
     │   ├── asgi.py / wsgi.py
     │   └── __init__.py
     ├── static/                 # eigene statische Dateien
+    │   ├── branding/           # Logo/Favicon (logo.svg, favicon.svg/.ico, apple-touch-icon.png)
+    │   └── vendor/kern/        # Lokal ausgeliefertes KERN-UX inkl. Fira Sans (kein CDN)
     ├── staticfiles/            # Ergebnis von collectstatic (generiert)
     ├── templates/
     │   ├── base.html           # Basistemplate inkl. KERN-UX-Einbindung
-    │   ├── partials/           # projektweite Partials (Header, Footer, Meldungen, Cards, ...)
+    │   ├── partials/           # projektweite Partials (Header, Footer)
     │   └── registration/       # Login, Registrierung, Passwort-Reset-Flow
     └── xgewerbesteuer/         # Fachliche App
         ├── models.py           # SavedBescheidUpload
         ├── views.py
         ├── urls.py
-        ├── admin.py
-        ├── apps.py
+        ├── apps.py             # inkl. System-Check fuer das SQLite-Verzeichnis
         ├── forms.py            # Upload- und Registrierungsformular
+        ├── ratelimit.py        # Anfragebegrenzung für Login/Registrierung/Reset/KI-Assistent
         ├── extractors.py       # Nachrichtentyp-Erkennung und XML-Datenextraktion
         ├── validators.py       # Datei-, XML- und XSD-Validierung
         ├── calculations.py     # Formatierung, Formelerklärung, Plausibilitätsprüfung
@@ -247,6 +252,7 @@ Defaults; `SECRET_KEY` muss gesetzt werden. Die echte `.env`-Datei wird
 | `TZ` | Zeitzone des Containers | `Europe/Berlin` |
 | `PUID` / `PGID` | UID/GID, unter der der Container-Prozess läuft | `1000` |
 | `LOGIN_ENABLED` | Erzwingt Login/Registrierung/Passwort-Reset an (`1`) oder aus (`0`); ohne Wert gilt `DEBUG or EMAIL_SERVER_CONFIGURED` | – (Heuristik) |
+| `SESSION_COOKIE_AGE` | Session-Lebensdauer in Sekunden; die Bescheid-Auswertung liegt in der Session, kurze Werte begrenzen die Verweildauer von Steuerdaten in der Datenbank. Abgelaufene Sessions räumt der Entrypoint per `clearsessions` auf | `86400` (24 h) |
 | `EMAIL_HOST` | SMTP-Host für Passwort-Reset-Mails; ein Wert ≠ `localhost` schaltet Login automatisch frei | `localhost` |
 | `EMAIL_PORT` / `EMAIL_HOST_USER` / `EMAIL_HOST_PASSWORD` / `EMAIL_USE_TLS` | SMTP-Zugangsdaten | `25` / – / – / `0` |
 | `DEFAULT_FROM_EMAIL` | Absenderadresse für Passwort-Reset-Mails | `webmaster@localhost` |
@@ -254,6 +260,16 @@ Defaults; `SECRET_KEY` muss gesetzt werden. Die echte `.env`-Datei wird
 | `AI_ASSISTANT_PROVIDER` | KI-Provider; aktuell unterstützt: `ollama` | `disabled` |
 | `AI_ASSISTANT_MODEL` / `AI_ASSISTANT_BASE_URL` | Modellname und Basis-URL des Ollama-Servers | – |
 | `AI_ASSISTANT_TIMEOUT_SECONDS` | Timeout für Anfragen an den KI-Provider | `10` |
+| `CSRF_TRUSTED_ORIGINS` | Leerzeichen-getrennte Liste vollständiger Origins (z. B. `https://steuer.example.de`) für den CSRF-Origin-Check hinter einem HTTPS-Reverse-Proxy; ohne diesen Wert liefern POSTs hinter TLS-Terminierung 403 | – |
+| `USE_X_FORWARDED_PROTO` | `1` = Django vertraut dem `X-Forwarded-Proto`-Header des Proxys (`SECURE_PROXY_SSL_HEADER`). Nur setzen, wenn der Proxy den Header selbst setzt/überschreibt | `0` |
+| `COOKIES_SECURE` | `1` = Session- und CSRF-Cookie nur über HTTPS ausliefern | `0` |
+| `SECURE_HSTS_SECONDS` | HSTS-Laufzeit in Sekunden (`0` = aus); erst aktivieren, wenn die Domain dauerhaft per HTTPS erreichbar ist | `0` |
+| `SECURE_HSTS_INCLUDE_SUBDOMAINS` / `SECURE_HSTS_PRELOAD` | HSTS auf Subdomains ausweiten bzw. Preload-Flag setzen (`1` = an) | `0` / `0` |
+| `SECURE_SSL_REDIRECT` | `1` = HTTP-Anfragen serverseitig auf HTTPS umleiten (meist erledigt das der Proxy) | `0` |
+
+Für den Betrieb hinter einem HTTPS-Reverse-Proxy sind typischerweise
+`CSRF_TRUSTED_ORIGINS`, `USE_X_FORWARDED_PROTO=1` und `COOKIES_SECURE=1` nötig.
+`python manage.py check --deploy` listet verbleibende Härtungsempfehlungen auf.
 
 Im DEBUG-Modus (Bare-Metal- und Docker-Dev-Setup) werden E-Mails standardmäßig auf der
 Konsole ausgegeben (`EmailBackend` = console) – Registrierungs- und
@@ -281,8 +297,11 @@ Nach dem Start stehen folgende Routen zur Verfügung (jeweils relativ zu einem o
 | `/pdf-bericht/`, `/csv-export/`, `/fristdatei.ics` | Export der aktuellen Auswertung |
 | `/gespeichert/laden/`, `/gespeichert/loeschen/` | Gespeicherte Auswertung öffnen/löschen (Login erforderlich) |
 | `/login/`, `/logout/`, `/registrieren/`, `/passwort-vergessen/` | Benutzerkonto (siehe unten) |
-| `/admin/` | Django Admin |
 | `/healthz/` | Health-Check-Endpunkt (liefert `{"status": "ok"}`), wird auch vom Docker-`HEALTHCHECK` verwendet |
+
+Der Django-Admin ist bewusst nicht installiert (keine registrierten Modelle, weniger
+Angriffsfläche). Login, Registrierung, Passwort-Reset und der KI-Assistent sind pro
+Client-IP ratenbegrenzt (HTTP 429 bei zu vielen Anfragen).
 
 Login, Registrierung und Passwort-Reset sind nur erreichbar, wenn `LOGIN_ENABLED` aktiv
 ist (siehe [Konfiguration](#konfiguration)); ohne echten Mailserver bleiben sie außerhalb

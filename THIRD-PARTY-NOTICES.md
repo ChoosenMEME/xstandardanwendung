@@ -13,7 +13,10 @@ Urheberrechtshinweise gelten unverändert weiter.
 | [lxml](https://lxml.de/) | 5.x–6.x | `BSD-3-Clause` (siehe auch mitgelieferte `LICENSES.txt` des Pakets) | Abhängigkeit (`requirements.txt`), im Docker-Image |
 | [defusedxml](https://github.com/tiran/defusedxml) | latest | `PSF-2.0` (Python Software Foundation License) | Abhängigkeit (`requirements.txt`), im Docker-Image |
 | [reportlab](https://www.reportlab.com/) | 4.x | `BSD-3-Clause`-artige ReportLab Software License | Abhängigkeit (`requirements.txt`), im Docker-Image |
-| [KERN UX (`@kern-ux/native`)](https://www.kern-ux.de/) | latest (CDN) | EUPL 1.2 | via jsDelivr-CDN (nicht mitausgeliefert) |
+| [gunicorn](https://gunicorn.org/) | 23.x | `MIT` | Abhängigkeit (`requirements.txt`), im Docker-Image |
+| [WhiteNoise](https://whitenoise.readthedocs.io/) | 6.x | `MIT` | Abhängigkeit (`requirements.txt`), im Docker-Image |
+| [KERN UX (`@kern-ux/native`)](https://www.kern-ux.de/) | 2.6.2 | EUPL 1.2 | lokal mitgeliefert (`app/static/vendor/kern/`) |
+| [Fira Sans](https://github.com/mozilla/Fira) | via `@kern-ux/native` 2.6.2 | `OFL-1.1` (SIL Open Font License) | lokal mitgeliefert (`app/static/vendor/kern/fonts/`) |
 
 ## Hinweise und Urheberrechte
 
@@ -27,5 +30,15 @@ Urheberrechtshinweise gelten unverändert weiter.
   siehe <https://github.com/tiran/defusedxml/blob/main/LICENSE>.
 - **reportlab** – Copyright © ReportLab Europe Ltd. ReportLab Software License
   (BSD-artig), siehe <https://www.reportlab.com/dist/rl-toolkit/licence.txt>.
-- **KERN UX** – UI-/Designsystem; wird per CDN eingebunden (nicht im Repository/Image
-  enthalten). Lizenz: EUROPÄISCHE UNION PUBLIC LICENCE v. 1.2
+- **gunicorn** – Copyright © Benoît Chesneau und Contributors. MIT-Lizenz,
+  siehe <https://github.com/benoitc/gunicorn/blob/master/LICENSE>.
+- **WhiteNoise** – Copyright © David Evans und Contributors. MIT-Lizenz,
+  siehe <https://github.com/evansd/whitenoise/blob/main/LICENSE>.
+- **KERN UX** – UI-/Designsystem; Version 2.6.2 wird lokal aus
+  `app/static/vendor/kern/` ausgeliefert (kein CDN-Zugriff aus Datenschutz- und
+  Verfügbarkeitsgründen). Lizenz: EUROPÄISCHE UNION PUBLIC LICENCE v. 1.2
+- **Fira Sans** – Copyright © The Mozilla Foundation and Telefonica S.A.
+  SIL Open Font License 1.1, siehe
+  <https://github.com/mozilla/Fira/blob/master/LICENSE>. Die Schriftdateien
+  stammen aus dem Paket `@kern-ux/native` 2.6.2 und liegen unter
+  `app/static/vendor/kern/fonts/`.

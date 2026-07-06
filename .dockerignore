@@ -33,6 +33,8 @@ data
 # Namensschema: test<endung>.<agent>.<dateiname>.<endung>
 test*.*.*.*
 
-# Tests gehoeren nicht ins Release-Image
+# Tests gehoeren nicht ins Release-Image. Die Beispieldateien der
+# /demo/-Ansicht liegen deshalb unter app/xgewerbesteuer/demo_data/
+# und muessen im Image enthalten bleiben.
 **/tests.py
 **/tests/

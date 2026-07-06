@@ -1,0 +1,16 @@
+# Exakt aufgeloeste Versionen zu requirements.txt (inkl. transitiver
+# Abhaengigkeiten) fuer reproduzierbare Docker-Builds. Aktualisieren mit:
+#   python -m venv .lockenv && .lockenv/bin/pip install -r requirements.txt
+#   .lockenv/bin/pip freeze > requirements.lock  (Kommentarkopf erhalten)
+asgiref==3.11.1
+charset-normalizer==3.4.7
+defusedxml==0.7.1
+Django==6.0.6
+gunicorn==23.0.0
+lxml==6.1.1
+packaging==26.2
+pillow==12.3.0
+reportlab==4.5.1
+sqlparse==0.5.5
+tzdata==2026.2
+whitenoise==6.12.0

@@ -7,6 +7,7 @@ from ..calculations import (
     format_german_date,
     parse_decimal_value,
 )
+from ..services.glossary import get_glossary_definition
 
 register = template.Library()
 
@@ -35,7 +36,7 @@ def format_date_de(value):
 @register.filter
 def format_percent(value):
     """Formatiert Dezimalwert als '12,5 %'."""
-    parsed = parse_decimal_value(str(value)) if not isinstance(value, type(None)) else None
+    parsed = parse_decimal_value(str(value)) if value is not None else None
 
     if parsed is None:
         return "Nicht verfügbar"
@@ -43,3 +44,11 @@ def format_percent(value):
     formatted = str(parsed).replace(".", ",")
 
     return f"{formatted} %"
+
+
+@register.inclusion_tag("xgewerbesteuer/partials/term_help.html")
+def term_help(label):
+    """Rendert eine zentrale Begriffserklaerung, falls das Label bekannt ist."""
+    return {
+        "definition": get_glossary_definition(label),
+    }

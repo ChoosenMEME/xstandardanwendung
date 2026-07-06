@@ -14,7 +14,6 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
-from django.contrib import admin
 from django.conf import settings
 from django.http import JsonResponse
 from django.urls import path, include
@@ -25,7 +24,6 @@ def healthz(request):
     return JsonResponse({'status': 'ok'})
 
 urlpatterns = [
-    path(normalize_route_prefix(settings.APP_PATH) + 'admin/', admin.site.urls),
     path(normalize_route_prefix(settings.APP_PATH) + 'healthz/', healthz, name='healthz'),
     path(normalize_route_prefix(settings.APP_PATH), include('xgewerbesteuer.urls')),
 ]

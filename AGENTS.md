@@ -66,17 +66,14 @@ Aktuelle Struktur:
     │   ├── asgi.py
     │   └── wsgi.py
     ├── static/
+    │   ├── branding/
+    │   └── vendor/kern/        # Lokal ausgeliefertes KERN-UX inkl. Fira Sans
     ├── staticfiles/
     ├── templates/
     │   ├── base.html
     │   ├── partials/
     │   │   ├── header.html
-    │   │   ├── footer.html
-    │   │   ├── messages.html
-    │   │   ├── card_metric.html
-    │   │   ├── alert.html
-    │   │   ├── upload_form.html
-    │   │   └── table_summary.html
+    │   │   └── footer.html
     │   └── registration/
     │       ├── login.html
     │       ├── signup.html
@@ -85,7 +82,8 @@ Aktuelle Struktur:
         ├── models.py
         ├── views.py
         ├── urls.py
-        ├── admin.py
+        ├── constants.py
+        ├── ratelimit.py
         ├── forms.py
         ├── extractors.py
         ├── validators.py
@@ -345,6 +343,13 @@ AI_ASSISTANT_PROVIDER=disabled
 AI_ASSISTANT_MODEL=
 AI_ASSISTANT_BASE_URL=
 AI_ASSISTANT_TIMEOUT_SECONDS=10
+CSRF_TRUSTED_ORIGINS=
+USE_X_FORWARDED_PROTO=0
+COOKIES_SECURE=0
+SECURE_HSTS_SECONDS=0
+SECURE_HSTS_INCLUDE_SUBDOMAINS=0
+SECURE_HSTS_PRELOAD=0
+SECURE_SSL_REDIRECT=0
 ```
 
 `LOGIN_ENABLED` steuert, ob Login/Registrierung/Passwort-Reset erreichbar sind (siehe
