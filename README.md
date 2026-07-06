@@ -327,8 +327,7 @@ Demo-Beispielfall. Ergänzend wurden ein optionales Nutzerkonto zum Speichern vo
 Auswertungen und ein optionaler, lokal konfigurierbarer KI-Assistent hinzugefügt.
 
 Offene Punkte (siehe [`docs/architektur.md`](docs/architektur.md#11-bekannte-technische-schulden--ausblick)):
-optionale OIDC-Anbindung (Stufe 3), Registrierung von `SavedBescheidUpload` im
-Django-Admin.
+optionale OIDC-Anbindung (Stufe 3).
 
 Der laufende Fortschritt wird im
 [GitHub Project](https://github.com/users/ChoosenMEME/projects/1) getrackt. Die
@@ -343,26 +342,18 @@ XGewerbesteuer u. a.) sind in [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md)
 
 ## Mitwirkende & Einsatz von KI-Tools
 
-> **Hinweis:** Die folgenden Tabellen sind aus der Git-Historie abgeleitet (Autor:innen,
-> Commit-Themen). Bitte vor der Abgabe prüfen und ergänzen – insbesondere echte Namen,
-> Rollen in eigenen Worten und der tatsächliche Einsatz von KI-Tools je Person/Aufgabe
-> (siehe Prüfungshinweise, Dimension „Transparenz").
-
 ### Mitwirkende
 
-| Person (GitHub) | Schwerpunkt laut Commit-Historie |
+| Person | Schwerpunkt |
 | --- | --- |
-| `ChoosenMEME` / `ChoosenMeme` | Projekt-Setup (Django/Docker), CI/CD (GitHub Actions, Docker-Hub-Publish), Konfiguration (`APP_PATH`, Healthcheck), KERN-UX-Einbindung, laufende Pflege von README/AGENTS.md |
+| Tim Jankowski | Projekt-Setup (Django/Docker), CI/CD (GitHub Actions, Docker-Hub-Publish), Konfiguration (`APP_PATH`, Healthcheck), KERN-UX-Einbindung, laufende Pflege von README/AGENTS.md |
 | Alexander Bahlmann | Kernfunktionen: Upload/Extraktion, Nachrichtentyp-Unterscheidung, Vorjahres- und Mehrjahresvergleich, Plausibilitätsprüfung, PDF-/CSV-/ICS-Export, KI-Assistent, responsives KERN-UX-Layout |
 | Sören Schulzke | Demo-Beispielfall, Datenschutz-/Anonymisierungsmodus, supportfreundliche Fehler-IDs, Healthcheck-/Static-URL-Stabilisierung, Validierungsdetails |
 
 ### Einsatz von KI-Tools
 
-| Tool | Zweck | Status |
-| --- | --- | --- |
-| Claude Code (Anthropic) | Unterstützung bei Implementierung, Refactoring und Dokumentationspflege | im Projekt genutzt (u. a. `.claude` bewusst in `.gitignore`) |
-| ChatGPT / Codex (OpenAI) | Unterstützung bei Implementierung | Hinweise im Projekt vorhanden (`openai.chatgpt`-Erweiterung in `.vscode/extensions.json`, Agent-Namenskonvention „codex" in `AGENTS.md`) – **bitte konkretisieren, wofür genau** |
-
-KI-Tools wurden gemäß Aufgabenstellung ausschließlich unterstützend eingesetzt; die
-fachliche Konzeption (Design-Thinking-Prozess, siehe [`docs/design-thinking.md`](docs/design-thinking.md))
-sowie die Abnahme aller Beiträge liegen bei den Gruppenmitgliedern.
+| Person | Eingesetzte KI-Tools und Modelle |
+| --- | --- |
+| Alexander Bahlmann | ChatGPT/Codex 5.5 |
+| Sören Schulzke | ChatGPT/Codex 5.5 |
+| Tim Jankowski | ChatGPT/Codex 5.5 und Claude Code (Sonnet 4.6, Sonnet 5, Opus 4.8, Fable 5) |
