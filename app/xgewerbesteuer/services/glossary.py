@@ -47,6 +47,13 @@ GLOSSARY_TERMS = {
             "endgueltigen Festsetzung abgeglichen."
         ),
     },
+    "Zahlungsart": {
+        "term": "Zahlungsart",
+        "description": (
+            "Einordnung, ob ein Betrag zum Beispiel als Vorauszahlung, Nachzahlung "
+            "oder Erstattung angezeigt wird."
+        ),
+    },
     "Fälligkeit": {
         "term": "Fälligkeit",
         "description": (
@@ -82,6 +89,9 @@ GLOSSARY_ALIASES = {
     "Ausgelesener Zahlbetrag": "Gewerbesteuerbetrag",
     "Rechnerisch erwarteter Betrag": "Gewerbesteuerbetrag",
     "Vorauszahlungen": "Vorauszahlung",
+    "Nachzahlung": "Zahlungsart",
+    "Erstattung": "Zahlungsart",
+    "Zahlungsart": "Zahlungsart",
     "Änderung": "Änderungsbescheid",
     "Aenderung": "Änderungsbescheid",
 }

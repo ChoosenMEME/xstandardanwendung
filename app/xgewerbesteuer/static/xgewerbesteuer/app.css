@@ -368,6 +368,11 @@ body {
     line-height: 1.5;
 }
 
+.card__title-help {
+    margin-top: -0.25rem;
+    margin-bottom: 0.5rem;
+}
+
 /* ===== METRIC CARDS ===== */
 
 .metric-grid {
