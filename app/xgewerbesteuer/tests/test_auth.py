@@ -1,5 +1,7 @@
 """Tests fuer Login, Logout, Registrierung und Passwort-Reset."""
 
+from unittest import mock
+
 from django.contrib.auth.models import User
 from django.core import mail
 from django.core.cache import cache
@@ -290,15 +292,40 @@ class PasswordResetTests(RateLimitedEndpointTestCase):
             password="Test-Passwort-1234",
         )
 
-        response = self.client.post(
-            reverse("password_reset"),
-            data={"email": "nutzerin@example.com"},
-            follow=True,
-        )
+        with self.assertLogs("xgewerbesteuer.forms", level="INFO") as logs:
+            response = self.client.post(
+                reverse("password_reset"),
+                data={"email": "nutzerin@example.com"},
+                follow=True,
+            )
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(mail.outbox), 1)
         self.assertNotIn("Traceback", mail.outbox[0].body)
+        self.assertIn("Passwort-Reset-Mail wurde versendet", logs.output[0])
+        self.assertNotIn("nutzerin@example.com", logs.output[0])
+
+    def test_password_reset_mail_failure_is_logged_without_email_address(self):
+        User.objects.create_user(
+            username="nutzerin",
+            email="nutzerin@example.com",
+            password="Test-Passwort-1234",
+        )
+
+        with mock.patch(
+            "django.core.mail.message.EmailMultiAlternatives.send",
+            side_effect=RuntimeError("SMTP nicht erreichbar"),
+        ):
+            with self.assertLogs("xgewerbesteuer.forms", level="ERROR") as logs:
+                response = self.client.post(
+                    reverse("password_reset"),
+                    data={"email": "nutzerin@example.com"},
+                    follow=True,
+                )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Passwort-Reset-Mail konnte nicht versendet werden", logs.output[0])
+        self.assertNotIn("nutzerin@example.com", logs.output[0])
 
 
 @override_settings(LOGIN_ENABLED=True)
