@@ -184,7 +184,7 @@ Adress-, Code- und Datentyp-Schemas).
 Weitere nützliche Befehle:
 
 ```bash
-docker compose pull          # Neueste Image-Version holen
+docker compose pull           # Neueste Image-Version holen
 docker compose up -d          # Mit aktualisiertem Image neu starten
 docker compose logs -f        # Logs verfolgen
 docker compose ps             # Status der Container anzeigen
@@ -346,9 +346,9 @@ XGewerbesteuer u. a.) sind in [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md)
 
 | Person | Schwerpunkt |
 | --- | --- |
-| Tim Jankowski | Projekt-Setup (Django/Docker), CI/CD (GitHub Actions, Docker-Hub-Publish), Konfiguration (`APP_PATH`, Healthcheck), KERN-UX-Einbindung, laufende Pflege von README/AGENTS.md |
 | Alexander Bahlmann | Kernfunktionen: Upload/Extraktion, Nachrichtentyp-Unterscheidung, Vorjahres- und Mehrjahresvergleich, Plausibilitätsprüfung, PDF-/CSV-/ICS-Export, KI-Assistent, responsives KERN-UX-Layout |
 | Sören Schulzke | Demo-Beispielfall, Datenschutz-/Anonymisierungsmodus, supportfreundliche Fehler-IDs, Healthcheck-/Static-URL-Stabilisierung, Validierungsdetails |
+| Tim Jankowski | Projekt-Setup (Django/Docker), CI/CD (GitHub Actions, Docker-Hub-Publish), Konfiguration (`APP_PATH`, Healthcheck), KERN-UX-Einbindung, laufende Pflege von README/AGENTS.md |
 
 ### Einsatz von KI-Tools
 
