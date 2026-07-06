@@ -49,6 +49,7 @@ CSV_EXPORT_COLUMNS = [
 
 
 def build_pdf_report_data(context):
+    """Reduziert den Anzeigekontext auf die session-speicherbaren Berichtsdaten."""
     return {
         "uploaded_file_name": context.get("uploaded_file_name"),
         "message_type": context.get("message_type"),
@@ -67,11 +68,13 @@ def build_pdf_report_data(context):
 
 
 def add_pdf_heading(elements, styles, text):
+    """Fuegt eine Zwischenueberschrift mit Abstand in den PDF-Bericht ein."""
     elements.append(Paragraph(text, styles["Heading2"]))
     elements.append(Spacer(1, 8))
 
 
 def add_pdf_paragraph(elements, styles, text):
+    """Fuegt einen escapten Textabsatz in den PDF-Bericht ein."""
     # Paragraph interpretiert seinen Text als Markup. Dateinamen und aus dem
     # XML ausgelesene Werte sind nutzerkontrolliert; ohne Escaping fuehrt ein
     # "<" im Dateinamen zu einem Absturz und Tags wie <b> zu Markup-Injection.
@@ -81,10 +84,12 @@ def add_pdf_paragraph(elements, styles, text):
 
 
 def build_pdf_table(rows):
+    """Linksbuendige Tabelle fuer den PDF-Bericht."""
     return Table(rows, hAlign="LEFT")
 
 
 def create_pdf_report(report_data):
+    """Erzeugt den vollstaendigen PDF-Bericht als Bytes (reportlab platypus)."""
     buffer = BytesIO()
     document = SimpleDocTemplate(buffer, pagesize=A4)
     styles = getSampleStyleSheet()
@@ -213,6 +218,7 @@ def create_pdf_report(report_data):
 
 
 def normalize_csv_value(value):
+    """Neutralisiert formelartige Werte gegen CSV-Injection (siehe Kommentar)."""
     if value is None:
         return ""
 
@@ -232,6 +238,7 @@ def normalize_csv_value(value):
 
 
 def get_summary_value(report_data, label):
+    """Liest einen Wert per Label aus den Zusammenfassungszeilen."""
     for item in report_data.get("summary_items", []):
         if item.get("label") == label:
             return item.get("value", "")
@@ -240,6 +247,7 @@ def get_summary_value(report_data, label):
 
 
 def build_base_csv_row(report_data):
+    """Basiszeile mit den Kernwerten, die jede CSV-Zeile wiederholt."""
     return {
         "Nachrichtentyp": get_summary_value(report_data, "Nachrichtentyp"),
         "Steuerjahr / Erhebungszeitraum": get_summary_value(
@@ -259,6 +267,7 @@ def build_base_csv_row(report_data):
 
 
 def build_csv_export_rows(report_data):
+    """Baut alle CSV-Zeilen (Zusammenfassung, Status, Faelligkeiten, Hinweise usw.)."""
     rows = []
     base_row = build_base_csv_row(report_data)
 
@@ -324,6 +333,7 @@ def build_csv_export_rows(report_data):
 
 
 def create_csv_export(report_data):
+    """Erzeugt den semikolon-getrennten CSV-Export aus den Berichtsdaten."""
     output = StringIO()
     writer = csv.DictWriter(
         output,
@@ -362,6 +372,7 @@ def escape_ics_text(value):
 
 
 def format_ics_date(value):
+    """Formatiert ein Datum als ICS-Datumswert (JJJJMMTT)."""
     parsed_date = parse_date_value(value)
 
     if parsed_date is None:
@@ -371,6 +382,7 @@ def format_ics_date(value):
 
 
 def format_ics_timestamp(value):
+    """Formatiert einen UTC-Zeitstempel im ICS-Format."""
     return value.strftime("%Y%m%dT%H%M%SZ")
 
 
@@ -409,6 +421,7 @@ def fold_ics_line(line, limit=75):
 
 
 def build_ics_event(entry, index, timestamp):
+    """Baut ein VEVENT je Faelligkeit mit stabiler, nicht-sensibler UID."""
     ics_date = format_ics_date(entry.get("date"))
 
     if ics_date is None:

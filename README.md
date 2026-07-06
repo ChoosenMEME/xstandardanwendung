@@ -45,6 +45,8 @@ aufbereitet.
 - Automatischer Vorjahres- und Mehrjahresvergleich inkl. historischer Entwicklung, sobald
   mehrere Bescheide vorliegen
 - Fälligkeitskalender und Liquiditätswirkung anstehender Zahlungen
+- Begriffserklärungen direkt in der Auswertung (Tooltips über ein zentrales Glossar)
+  sowie eine Hilfe- und Glossarseite (`/hilfe/`)
 - Demo-Beispielfall (`/demo/`) mit fiktiven Testdaten zum Ausprobieren ohne eigenen Upload
 - Export der Auswertung als PDF-Bericht, CSV-Datei oder ICS-Kalenderdatei
 - Optionales Nutzerkonto (Registrierung/Login), um Auswertungen zu speichern und später
@@ -81,20 +83,26 @@ Details zur technischen Umsetzung stehen in [`docs/architektur.md`](docs/archite
 ├── compose.yaml                # Produktion: zieht das fertige Image von Docker Hub
 ├── compose.dev.yaml            # Entwicklung: baut lokal und mountet ./app
 ├── Dockerfile                  # Image-Definition (Python/Django)
-├── docker-entrypoint.sh        # Migrationen, collectstatic, Start des Dev-Servers
-├── requirements.txt            # Python-Abhängigkeiten
+├── docker-entrypoint.sh        # Migrationen, clearsessions, collectstatic, Start von gunicorn
+├── requirements.txt            # Python-Abhängigkeiten (Versionsspannen)
+├── requirements.lock           # Exakt aufgelöste Versionen für reproduzierbare Builds
 ├── .env.example                # Beispiel-Konfiguration (siehe Konfiguration)
 ├── .editorconfig               # editorübergreifende Formatierungsregeln (Einrückung, Zeilenenden)
+├── .github/workflows/          # CI/CD (siehe unten)
+│   ├── docker-image.yml        # PR-/Main-Check "docker-ci": Build, check, Tests, Healthcheck
+│   ├── tests.yml               # PR-/Main-Check: Django-Tests ohne Docker (Bare-Metal)
+│   └── docker-publish.yml      # Release: Image bauen und zu Docker Hub pushen (bei vX.Y.Z-Tags)
 ├── .vscode/                    # empfohlene Einrichtung für Visual Studio Code
 │   ├── extensions.json         # empfohlene Erweiterungen (Installations-Hinweis beim Öffnen)
 │   └── settings.json           # Workspace-Einstellungen (Formatierung, Django-HTML, Suche)
 ├── data/                       # lokale Runtime-Daten der produktiven Compose (ignoriert)
 ├── docs/
 │   ├── architektur.md          # Architektur, Module, Services, Sicherheit, Tests
-│   ├── design.md                # Verbindliche UI-/Designrichtlinie (KERN-UX)
+│   ├── design.md               # Verbindliche UI-/Designrichtlinie (KERN-UX)
 │   ├── design-thinking.md      # Dokumentation des Design-Thinking-Prozesses
 │   ├── datenstandard.md        # Erläuterung des XGewerbesteuer-Datenstandards
-│   └── testdaten.md            # Übersicht der XGewerbesteuer-Beispieldateien (Tests)
+│   ├── testdaten.md            # Übersicht der XGewerbesteuer-Beispieldateien (Tests/Demo)
+│   └── xunternehmen-gewerbesteuer-1.4.pdf  # Offizielle Spezifikation des Standards
 ├── README.md
 ├── LICENSE                     # MIT-Lizenz des Projekts
 ├── THIRD-PARTY-NOTICES.md      # Lizenzen der Drittanbieter-Komponenten
@@ -122,7 +130,8 @@ Details zur technischen Umsetzung stehen in [`docs/architektur.md`](docs/archite
         ├── views.py
         ├── urls.py
         ├── apps.py             # inkl. System-Check fuer das SQLite-Verzeichnis
-        ├── forms.py            # Upload- und Registrierungsformular
+        ├── constants.py        # Zentrale Konstanten (u. a. Session-Key der Auswertung)
+        ├── forms.py            # Registrierungsformular, Passwort-Reset mit Logging
         ├── ratelimit.py        # Anfragebegrenzung für Login/Registrierung/Reset/KI-Assistent
         ├── extractors.py       # Nachrichtentyp-Erkennung und XML-Datenextraktion
         ├── validators.py       # Datei-, XML- und XSD-Validierung
@@ -130,24 +139,33 @@ Details zur technischen Umsetzung stehen in [`docs/architektur.md`](docs/archite
         ├── comparisons.py      # Vorjahres-/Mehrjahresvergleich, historische Entwicklung
         ├── password_validators.py   # Eigene Passwort-Komplexitätsregeln
         ├── context_processors.py    # Globale Template-Kontexte (Login-Status, KI-Assistent)
+        ├── management/commands/
+        │   └── send_test_email.py   # manage.py send_test_email (Mailanbindung testen)
         ├── services/
         │   ├── bescheid.py     # Upload-Orchestrierung, Notices, gespeicherte Auswertungen
         │   ├── export.py       # PDF-, CSV- und ICS-Export
         │   ├── privacy.py      # Anonymisierungsmodus
         │   ├── assistant.py    # Kontextaufbereitung für den KI-Assistenten
         │   ├── assistant_providers.py  # Austauschbare KI-Provider (Ollama, deaktiviert)
-        │   └── support_errors.py       # Supportfreundliche Fehler-IDs ohne sensible Daten
-        ├── templatetags/       # Template-Filter (Währung, Datum, Prozent, Platzhalter)
+        │   ├── support_errors.py       # Supportfreundliche Fehler-IDs ohne sensible Daten
+        │   └── glossary.py     # Zentrale Begriffserklärungen (Tooltips, Hilfe)
+        ├── templatetags/       # Template-Filter (Währung, Datum, Prozent) und term_help-Tag
         ├── migrations/
         ├── schemas/            # XGewerbesteuer-XSD-Dateien fuer XML-Validierung
-        ├── templates/xgewerbesteuer/  # dashboard.html, upload.html, results.html, help.html, ...
+        ├── demo_data/          # Fiktive Demo-Dateien für den /demo/-Beispielfall
+        ├── templates/xgewerbesteuer/  # dashboard.html, upload.html, results.html, help.html, partials/
         └── tests/
             ├── test_views.py       # Routing- und View-Tests
             ├── test_xml_uploads.py # Extraktions-, Validierungs- und Upload-Tests
-            ├── test_fixtures.py    # Schema-/Smoke-Tests der Beispieldateien
+            ├── test_fixtures.py    # Schema-/Smoke-Tests der Beispieldateien (inkl. demo_data)
             ├── test_models.py      # Model-Tests
             ├── test_auth.py        # Login, Registrierung, Passwort-Reset, Zugriffsschutz
             ├── test_assistant.py   # KI-Assistent: Kontext, Provider, Fehlerfälle
+            ├── test_calculations.py # Parsing-, Format- und Plausibilitätslogik
+            ├── test_commands.py    # Management-Command send_test_email
+            ├── test_glossary.py    # Begriffserklärungen und term_help-Tag
+            ├── test_review_fixes.py # Regressionstests zu Code-Review-Findings
+            ├── test_settings.py    # Settings-Verhalten (z. B. Umgebungsvariablen)
             └── fixtures/       # XGewerbesteuer-1.4-Beispieldateien (siehe docs/testdaten.md)
 ```
 
@@ -227,9 +245,17 @@ Beim Pushen eines Versions-Tags (`vX.Y.Z`) wird das Image gebaut und nach Docker
 Hub gepusht. Dafür müssen die Repository-Secrets `DOCKERHUB_USERNAME` und
 `DOCKERHUB_TOKEN` gesetzt sein.
 
+Zusätzlich laufen bei jedem Push und Pull Request zwei CI-Workflows: der
+Status-Check `docker-ci` ([`docker-image.yml`](.github/workflows/docker-image.yml)
+– Compose-Build, `manage.py check`, Tests und HTTP-Healthcheck) sowie
+[`tests.yml`](.github/workflows/tests.yml) (Django-Tests ohne Docker). Details
+zum PR-Ablauf stehen in [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
 Der Entrypoint (`docker-entrypoint.sh`) führt beim Start automatisch
-`migrate --noinput` und `collectstatic --noinput` aus, bevor der
-Django-Entwicklungsserver gestartet wird.
+`migrate --noinput`, `clearsessions` und `collectstatic --noinput` aus und
+startet anschließend **gunicorn** (WSGI-Server, statische Dateien über
+WhiteNoise). Nur die Entwicklungs-Compose setzt `USE_DEV_SERVER=1` und
+startet stattdessen den Django-Entwicklungsserver mit Auto-Reload.
 
 ## Konfiguration
 
@@ -246,8 +272,9 @@ Defaults; `SECRET_KEY` muss gesetzt werden. Die echte `.env`-Datei wird
 | `SECRET_KEY` | Django Secret Key, muss gesetzt sein; für Entwicklung siehe `.env.example` | – |
 | `DJANGO_ALLOWED_HOSTS` | Leerzeichen-getrennte Liste erlaubter Hosts | – in `compose.yaml`, `localhost 127.0.0.1 [::1]` in `compose.dev.yaml` |
 | `APP_PATH` | Optionaler URL-Präfix, unter dem die App eingebunden wird (z. B. hinter einem Reverse Proxy) | `""` |
-| `WEB_HOST` | Bind-Adresse des Entwicklungsservers | `0.0.0.0` |
-| `WEB_PORT` | Port des Entwicklungsservers | `8000` |
+| `WEB_HOST` | Bind-Adresse des Anwendungsservers (gunicorn bzw. Dev-Server) | `0.0.0.0` |
+| `WEB_PORT` | Port des Anwendungsservers | `8000` |
+| `WEB_CONCURRENCY` | Anzahl der gunicorn-Worker im Produktivbetrieb | `3` |
 | `LANGUAGE_CODE` | Django-Sprachcode | `de-de` |
 | `TZ` | Zeitzone des Containers | `Europe/Berlin` |
 | `PUID` / `PGID` | UID/GID, unter der der Container-Prozess läuft | `1000` |
@@ -298,6 +325,7 @@ Nach dem Start stehen folgende Routen zur Verfügung (jeweils relativ zu einem o
 | `/upload/` | Ein oder mehrere XGewerbesteuer-Bescheide hochladen |
 | `/demo/` | Demo-Beispielfall mit fiktiven Testdaten laden |
 | `/ergebnis/` | Auswertung, Vergleich und Historie der aktuellen Session |
+| `/ergebnis/datenschutzmodus/` | Datenschutz-/Anonymisierungsmodus umschalten (nur POST) |
 | `/ki-assistent/` | Fragen an den optionalen KI-Assistenten stellen |
 | `/hilfe/` | Hilfe- und Glossarseite |
 | `/pdf-bericht/`, `/csv-export/`, `/fristdatei.ics` | Export der aktuellen Auswertung |

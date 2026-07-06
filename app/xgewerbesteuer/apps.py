@@ -1,3 +1,5 @@
+"""App-Konfiguration und System-Checks der XGewerbesteuer-App."""
+
 from pathlib import Path
 
 from django.apps import AppConfig
@@ -38,4 +40,6 @@ def check_sqlite_directory_exists(app_configs, **kwargs):
 
 
 class XGewerbesteuerConfig(AppConfig):
+    """Django-App-Konfiguration der fachlichen XGewerbesteuer-App."""
+
     name = 'xgewerbesteuer'

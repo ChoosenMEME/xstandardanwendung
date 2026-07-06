@@ -40,6 +40,7 @@ from .support_errors import generate_error_id, log_upload_issue
 
 
 def classify_payment_type(amount_due, advance_payments):
+    """Ordnet den Zahlbetrag als Nachzahlung, Erstattung, Vorauszahlung o. ae. ein."""
     if advance_payments:
         return {
             "type": "Vorauszahlung",
@@ -91,6 +92,11 @@ def adapt_payment_classification_for_message_type(
     payment_classification,
     message_type_summary,
 ):
+    """Ueberschreibt die Zahlungsart fuer Nachrichtentypen mit Sonderregeln.
+
+    Zins-, Berechnungs- und Vorauszahlungsnachrichten erhalten eine eigene
+    fachliche Einordnung statt der generischen Zahlbetrag-Klassifikation.
+    """
     category = message_type_summary["message_type_category"]
 
     if category == "interest":
@@ -124,6 +130,7 @@ def adapt_payment_classification_for_message_type(
 
 
 def build_bescheid_data(uploaded_file, root, schema_name):
+    """Baut die vollstaendige Auswertungsstruktur eines validierten Bescheids auf."""
     message_type = detect_message_type(root)
     message_type_summary = build_message_type_summary(message_type)
     municipality = extract_municipality(root)
@@ -197,6 +204,12 @@ def build_invalid_upload_result(
 
 
 def process_uploaded_bescheid(uploaded_file):
+    """Validiert, parst und extrahiert eine hochgeladene Datei.
+
+    Liefert entweder {'is_valid': True, 'bescheid': ...} oder eine
+    kontrollierte Fehlerstruktur mit Fehler-ID (siehe
+    build_invalid_upload_result).
+    """
     upload_issue = get_upload_issue(uploaded_file)
 
     if upload_issue:
@@ -248,6 +261,7 @@ def process_uploaded_bescheid(uploaded_file):
 
 
 def build_unexpected_import_error_result(exception):
+    """Fehlerantwort mit Fehler-ID fuer nicht abgefangene Importfehler."""
     issue = build_validation_issue("unexpected_import_error")
     return build_invalid_upload_result(
         issue,
@@ -272,6 +286,7 @@ LIQUIDITY_PERIOD_BY_KEY = {period["key"]: period for period in LIQUIDITY_PERIODS
 
 
 def classify_liquidity_period(due_date, reference_date):
+    """Ordnet eine Faelligkeit einem Zeitraum zu (sofort, 30/90 Tage, spaeter)."""
     parsed_due_date = parse_date_value(due_date)
 
     if parsed_due_date is None:
@@ -292,6 +307,11 @@ def classify_liquidity_period(due_date, reference_date):
 
 
 def build_liquidity_payment_item(amount, due_date, payment_type, reference_date):
+    """Baut eine Zahlungsposition mit Belastungs-/Entlastungs-Einordnung.
+
+    Positive Betraege gelten als Belastung, negative als Entlastung;
+    fehlende Betraege oder Faelligkeiten werden neutral mit Hinweis angezeigt.
+    """
     parsed_amount = parse_decimal_value(amount)
     parsed_due_date = parse_date_value(due_date)
     period = classify_liquidity_period(parsed_due_date, reference_date)
@@ -334,6 +354,7 @@ def build_liquidity_payment_item(amount, due_date, payment_type, reference_date)
 
 
 def build_liquidity_payment_items(current_bescheid, reference_date):
+    """Sammelt alle liquiditaetsrelevanten Zahlungen aus Zahlbetrag und Vorauszahlungen."""
     items = []
     amount_due = current_bescheid.get("amount_due")
     due_dates = split_due_dates(current_bescheid.get("due_dates"))
@@ -376,6 +397,7 @@ def build_liquidity_payment_items(current_bescheid, reference_date):
 
 
 def build_liquidity_impact(current_bescheid, reference_date=None):
+    """Gruppiert Zahlungen nach Zeitraum und summiert die moegliche Belastung."""
     if reference_date is None:
         # localdate() statt date.today(): respektiert TIME_ZONE aus den
         # Settings statt der OS-Zeitzone des Servers.
@@ -435,6 +457,7 @@ def build_liquidity_impact(current_bescheid, reference_date=None):
 
 
 def build_calendar_entry(amount, due_date, payment_type):
+    """Baut einen Kalendereintrag je Faelligkeit inkl. Hinweisen zu fehlenden Angaben."""
     parsed_date = parse_date_value(due_date)
     notes = []
 
@@ -469,6 +492,7 @@ def build_calendar_entry(amount, due_date, payment_type):
 
 
 def build_due_date_calendar_entries(current_bescheid):
+    """Sammelt Kalendereintraege aus Bescheid-Faelligkeiten und Vorauszahlungen."""
     entries = []
     due_dates = split_due_dates(current_bescheid.get("due_dates"))
     payment_classification = current_bescheid.get("payment_classification", {})
@@ -496,6 +520,7 @@ def build_due_date_calendar_entries(current_bescheid):
 
 
 def get_calendar_month_label(value):
+    """Deutscher Monatsname mit Jahr fuer die Kalendergruppierung."""
     parsed_date = parse_date_value(value)
 
     if parsed_date is None:
@@ -520,6 +545,7 @@ def get_calendar_month_label(value):
 
 
 def group_calendar_entries_by_month(calendar_entries):
+    """Gruppiert datierte Kalendereintraege chronologisch nach Monat."""
     dated_entries = [
         entry
         for entry in calendar_entries
@@ -549,6 +575,7 @@ def group_calendar_entries_by_month(calendar_entries):
 
 
 def build_due_date_calendar(current_bescheid):
+    """Baut den Faelligkeitskalender inkl. undatierter Eintraege und Leerzustand."""
     calendar_entries = build_due_date_calendar_entries(current_bescheid)
     dated_entries = [
         entry
@@ -590,6 +617,7 @@ NOTICE_SEVERITY_LABELS = {
 
 
 def build_notice(title, message, severity="info", recommendation=None, source_rule=""):
+    """Erzeugt einen einheitlichen Hinweis-Datensatz fuer den Hinweisbereich."""
     return {
         "title": title,
         "message": message,
@@ -601,6 +629,7 @@ def build_notice(title, message, severity="info", recommendation=None, source_ru
 
 
 def build_missing_value_notices(current_bescheid):
+    """Hinweise fuer fehlende Kernwerte (Zahlbetrag, Steuerjahr, Gemeinde)."""
     notices = []
 
     if is_missing_value(current_bescheid.get("amount_due")):
@@ -646,6 +675,7 @@ def build_missing_value_notices(current_bescheid):
 
 
 def build_payment_notices(current_bescheid):
+    """Hinweise passend zur erkannten Zahlungsart."""
     payment_classification = current_bescheid.get("payment_classification", {})
     payment_type = payment_classification.get("type")
     amount_due = current_bescheid.get("amount_due")
@@ -712,6 +742,7 @@ def build_payment_notices(current_bescheid):
 
 
 def build_comparison_notices(change_comparison_items):
+    """Hinweise zu wichtigen und weiteren Aenderungen aus dem Vorjahresvergleich."""
     if not change_comparison_items:
         return []
 
@@ -767,6 +798,7 @@ def build_comparison_notices(change_comparison_items):
 
 
 def sort_notice_items(notices):
+    """Sortiert Hinweise nach Schweregrad (Warnung vor Info vor Neutral)."""
     return sorted(
         notices,
         key=lambda notice: NOTICE_SEVERITY_ORDER.get(notice["severity"], 99),
@@ -774,6 +806,7 @@ def sort_notice_items(notices):
 
 
 def build_notice_area(current_bescheid, change_comparison_items=None):
+    """Baut den zusammengefassten Hinweisbereich; neutraler Hinweis, wenn nichts auffiel."""
     notices = []
 
     notices.extend(build_missing_value_notices(current_bescheid))
@@ -847,6 +880,11 @@ STATUS_DEFINITIONS = {
 
 
 def build_status_indicator(current_bescheid, notice_items=None, change_comparison_items=None):
+    """Ermittelt die Statusampel aus fehlenden Daten, Warnungen, Fristen und Aenderungen.
+
+    Bei mehreren Kandidaten gewinnt der Status mit der hoechsten Prioritaet
+    (STATUS_PRIORITY, kleinster Wert zuerst).
+    """
     status_candidates = []
     notice_items = notice_items or []
     change_comparison_items = change_comparison_items or []
@@ -911,6 +949,7 @@ def build_status_indicator(current_bescheid, notice_items=None, change_compariso
 
 
 def get_saved_uploads_for_request(request):
+    """Gespeicherte Auswertungen des angemeldeten Nutzers (leer fuer anonyme)."""
     if not request.user.is_authenticated:
         return SavedBescheidUpload.objects.none()
 
@@ -918,6 +957,7 @@ def get_saved_uploads_for_request(request):
 
 
 def build_saved_upload_payload(bescheid, context_data):
+    """Reduziert Bescheid- und Kontextdaten auf die zu speichernden DB-Felder."""
     result_keys = [
         "current_bescheid",
         "message_type",
@@ -964,6 +1004,7 @@ def build_saved_upload_payload(bescheid, context_data):
 
 
 def create_saved_upload(request, bescheid, context_data):
+    """Speichert die aktuelle Auswertung fuer den angemeldeten Nutzer."""
     payload = build_saved_upload_payload(bescheid, context_data)
 
     return SavedBescheidUpload.objects.create(
@@ -973,6 +1014,7 @@ def create_saved_upload(request, bescheid, context_data):
 
 
 def prepare_download_sessions(request, context):
+    """Legt PDF-/CSV-/ICS-Exportdaten passend zum Anzeigekontext in die Session."""
     from .export import (
         ICS_EXPORT_SESSION_KEY,
         PDF_REPORT_SESSION_KEY,

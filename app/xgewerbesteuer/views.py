@@ -69,6 +69,7 @@ DEMO_FIXTURE_FILES = [
 
 
 def xgewerbesteuer_dashboard(request):
+    """Startseite mit Kurzeinstieg und gespeicherten Auswertungen."""
     saved_uploads = get_saved_uploads_for_request(request)
     return render(request, "xgewerbesteuer/dashboard.html", {
         "saved_uploads": saved_uploads,
@@ -76,6 +77,11 @@ def xgewerbesteuer_dashboard(request):
 
 
 def _build_result_session_data(results, upload_errors=None, is_demo=False, demo_notice=None):
+    """Baut die Session-Datenstruktur aus allen erfolgreich gelesenen Bescheiden.
+
+    Ab zwei Bescheiden werden Vorjahres-, Mehrjahresvergleich und
+    historische Entwicklung ergaenzt.
+    """
     # Gemeinsame Sortierregel mit der Mehrjahrestabelle (siehe comparisons):
     # unbekannte Zeitraeume vorn, letzter Eintrag = aktuellster Bescheid.
     sorted_bescheide = sort_bescheid_records_chronologically(results)
@@ -155,6 +161,7 @@ def _process_uploaded_files(uploaded_files):
 
 
 def xgewerbesteuer_upload(request):
+    """Nimmt XML-Uploads entgegen, verarbeitet sie und speichert optional."""
     if request.method != "POST":
         return render(request, "xgewerbesteuer/upload.html")
 
@@ -207,6 +214,7 @@ def xgewerbesteuer_upload(request):
 
 
 def xgewerbesteuer_demo(request):
+    """Laedt den Demo-Beispielfall aus den mitgelieferten fiktiven Dateien."""
     uploaded_files = []
     upload_errors = []
 
@@ -257,6 +265,7 @@ def xgewerbesteuer_demo(request):
 
 
 def xgewerbesteuer_results(request):
+    """Zeigt die Auswertung der aktuellen Session an."""
     session_data = request.session.get(RESULT_SESSION_KEY)
 
     if not session_data:
@@ -311,6 +320,7 @@ def _build_display_context(session_data):
 
 
 def _build_result_context(session_data):
+    """Baut den vollstaendigen Anzeigekontext aus den Session-Daten."""
     current_bescheid = session_data["current_bescheid"]
     change_comparison_items = session_data.get("change_comparison_items")
 
@@ -376,6 +386,7 @@ def _build_result_context(session_data):
 # guenstig lahmlegen und der LLM-Endpunkt anonym fluten.
 @rate_limit("assistant", max_requests=20, window_seconds=300)
 def xgewerbesteuer_assistant(request):
+    """Beantwortet Fragen an den KI-Assistenten (HTML- oder JSON-Antwort)."""
     if request.method != "POST":
         return redirect("xgewerbesteuer_dashboard")
 
@@ -471,6 +482,7 @@ def _parse_saved_upload_id(request):
 
 @login_required
 def xgewerbesteuer_load_saved(request):
+    """Stellt eine gespeicherte Auswertung des Nutzers wieder in die Session."""
     if request.method != "POST":
         return redirect("xgewerbesteuer_dashboard")
 
@@ -519,6 +531,7 @@ def xgewerbesteuer_load_saved(request):
 
 @login_required
 def xgewerbesteuer_delete_saved(request):
+    """Loescht eine gespeicherte Auswertung des angemeldeten Nutzers."""
     if request.method != "POST":
         return redirect("xgewerbesteuer_dashboard")
 
@@ -551,6 +564,7 @@ def xgewerbesteuer_delete_saved(request):
 
 
 def xgewerbesteuer_signup(request):
+    """Selbstregistrierung mit automatischem Login nach Erfolg."""
     if request.user.is_authenticated:
         return redirect("xgewerbesteuer_dashboard")
 
@@ -572,10 +586,12 @@ def xgewerbesteuer_signup(request):
 
 
 def xgewerbesteuer_help(request):
+    """Hilfe- und Glossarseite."""
     return render(request, "xgewerbesteuer/help.html")
 
 
 def xgewerbesteuer_pdf_report(request):
+    """Liefert den PDF-Bericht der aktuellen Auswertung als Download."""
     report_data = request.session.get(PDF_REPORT_SESSION_KEY)
 
     if not report_data:
@@ -597,6 +613,7 @@ def xgewerbesteuer_pdf_report(request):
 
 
 def xgewerbesteuer_csv_export(request):
+    """Liefert den CSV-Export der aktuellen Auswertung als Download."""
     export_data = request.session.get(CSV_EXPORT_SESSION_KEY)
 
     if not export_data:
@@ -618,6 +635,7 @@ def xgewerbesteuer_csv_export(request):
 
 
 def xgewerbesteuer_ics_export(request):
+    """Liefert die ICS-Fristdatei der aktuellen Auswertung als Download."""
     ics_content = request.session.get(ICS_EXPORT_SESSION_KEY)
 
     if not ics_content:

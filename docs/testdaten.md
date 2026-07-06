@@ -4,9 +4,12 @@ Diese Übersicht beschreibt die Testdaten, die für die automatisierten Tests de
 GewSt-Bescheidassistenten verwendet werden (siehe auch [README.md](../README.md) und
 [CONTRIBUTING.md](../CONTRIBUTING.md)).
 
-Im Verzeichnis [`app/xgewerbesteuer/tests/fixtures/`](../app/xgewerbesteuer/tests/fixtures/)
-liegen 15 rein fiktive XGewerbesteuer-1.4-Beispieldateien: 5 Nachrichtenarten mit je 3
-Dateien für die Bezugsjahre 2021, 2022 und 2023. Alle Dateien beziehen sich auf denselben
+Das Beispiel-Set umfasst 15 rein fiktive XGewerbesteuer-1.4-Beispieldateien: 5
+Nachrichtenarten mit je 3 Dateien für die Bezugsjahre 2021, 2022 und 2023. Davon liegen
+13 Dateien in [`app/xgewerbesteuer/tests/fixtures/`](../app/xgewerbesteuer/tests/fixtures/);
+die beiden `GEWST-0010`-Dateien für 2022 und 2023 liegen als Demo-Beispielfall in
+[`app/xgewerbesteuer/demo_data/`](../app/xgewerbesteuer/demo_data/) (außerhalb von
+`tests/`, damit sie ins Release-Image gelangen). Alle Dateien beziehen sich auf denselben
 fiktiven Steuerfall (Musterbetrieb, Stadt Musterhausen) und eignen sich dadurch für Tests
 rund um Upload, Import, Berechnungserklärung sowie Vorjahres- und Mehrjahresvergleich:
 
@@ -15,7 +18,7 @@ rund um Upload, Import, Berechnungserklärung sowie Vorjahres- und Mehrjahresver
 | `bescheide.gewerbesteuer.0001` | `GEWST-0001-...` | GV (Gewerbesteuer-Veranlagung) | 2021–2023 | Regulärer Gewerbesteuerbescheid |
 | `bescheide.zinsen.0002` | `GEWST-0002-...` | ZS (Zinsen) | 2021–2023 | Zinsbescheid |
 | `bescheide.vorauszahlung.0003` | `GEWST-0003-...` | VZ (Vorauszahlung) | 2021–2023 | Vorauszahlungsbescheid |
-| `bescheide.gewerbesteuer.generisch.0010` | `GEWST-0010-...` | GV (Gewerbesteuer-Veranlagung) | 2021–2023 | Generischer Bescheid; die Jahre 2022 und 2023 werden als **Demo-Beispielfall** (`/demo/`) geladen |
+| `bescheide.gewerbesteuer.generisch.0010` | `GEWST-0010-...` | GV (Gewerbesteuer-Veranlagung) | 2021–2023 | Generischer Bescheid; die Jahre 2022 und 2023 liegen in `demo_data/` und werden als **Demo-Beispielfall** (`/demo/`) geladen |
 | `berechnung.gewerbesteuer.0021` | `GEWST-0021-...` | GV (Gewerbesteuer-Veranlagung) | 2021–2023 | Berechnungsnachricht (kein Bescheid) mit Insolvenzeröffnung in allen drei Jahren |
 
 Alle Dateien verwenden dieselben fiktiven Stammdaten: Kommune „Stadt Musterhausen"
@@ -41,14 +44,15 @@ Suffix der jeweiligen Nachrichtenart aus dem XGewerbesteuer-Standard (siehe Tabe
 Die Dateien werden verwendet in:
 
 - [`app/xgewerbesteuer/tests/test_fixtures.py`](../app/xgewerbesteuer/tests/test_fixtures.py) –
-  prüft, dass alle 5 Nachrichtenarten mit je 3 Dateien vorhanden, wohlgeformt, XSD-valide
-  und rechnerisch konsistent (Messbetrag × Hebesatz / 100) sind.
+  prüft über `fixtures/` und `demo_data/` hinweg, dass alle 5 Nachrichtenarten mit je 3
+  Dateien vorhanden, wohlgeformt, XSD-valide und rechnerisch konsistent
+  (Messbetrag × Hebesatz / 100) sind.
 - [`app/xgewerbesteuer/tests/test_xml_uploads.py`](../app/xgewerbesteuer/tests/test_xml_uploads.py) –
   Extraktions-, Validierungs- und Upload-Tests auf Basis einzelner Fixtures.
 - [`app/xgewerbesteuer/views.py`](../app/xgewerbesteuer/views.py) (`xgewerbesteuer_demo`) –
-  lädt die Dateien `GEWST-0010-...-2022-...` und `GEWST-0010-...-2023-...` als
-  Demo-Beispielfall, um die Anwendung inklusive Vorjahresvergleich ohne eigenen Upload
-  vorzuführen.
+  lädt die Dateien `GEWST-0010-...-2022-...` und `GEWST-0010-...-2023-...` aus
+  `app/xgewerbesteuer/demo_data/` als Demo-Beispielfall, um die Anwendung inklusive
+  Vorjahresvergleich ohne eigenen Upload vorzuführen.
 
 ## Herkunft der Daten
 

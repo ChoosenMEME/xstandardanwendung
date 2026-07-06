@@ -35,6 +35,7 @@ SUPPORTED_MESSAGE_TYPES = {
 
 
 def get_local_name(tag):
+    """Entfernt den Namespace-Anteil aus einem XML-Tag-Namen."""
     if "}" in tag:
         return tag.split("}", 1)[1]
     return tag
@@ -46,14 +47,17 @@ def detect_message_type(root):
 
 
 def get_message_type_config(message_type):
+    """Liefert die Konfiguration eines unterstuetzten Nachrichtentyps oder None."""
     return SUPPORTED_MESSAGE_TYPES.get(message_type)
 
 
 def is_supported_message_type(message_type):
+    """True, wenn der Nachrichtentyp von der Anwendung verarbeitet werden kann."""
     return message_type in SUPPORTED_MESSAGE_TYPES
 
 
 def build_message_type_summary(message_type):
+    """Baut Anzeigedaten (Label, Kategorie, Vergleichsfaehigkeit) zum Nachrichtentyp."""
     config = get_message_type_config(message_type)
 
     if not config:
@@ -77,6 +81,7 @@ def build_message_type_summary(message_type):
 
 
 def clean_text(text):
+    """Normalisiert Whitespace in Elementtexten; None fuer leere Inhalte."""
     if text and text.strip():
         return " ".join(text.split())
     return None
@@ -112,6 +117,7 @@ def iter_elements_excluding_containers(root, excluded_container_tags):
 
 
 def find_first_text_by_tag_names(root, tag_names, exclude_container_tags=None):
+    """Sucht namespace-unabhaengig den ersten nicht-leeren Text zu den Tag-Namen."""
     normalized_tag_names = {tag_name.lower() for tag_name in tag_names}
 
     if exclude_container_tags:
@@ -132,6 +138,7 @@ def find_first_text_by_tag_names(root, tag_names, exclude_container_tags=None):
 
 
 def extract_municipality(root):
+    """Liest die Gemeinde/Kommune aus (bevorzugt aus dem Kommune-Element)."""
     for element in root.iter():
         tag_name = get_local_name(element.tag).lower()
 
@@ -164,6 +171,11 @@ def extract_municipality(root):
 
 
 def extract_tax_period(root):
+    """Liest das Steuerjahr bzw. den Erhebungszeitraum aus.
+
+    Bevorzugt strukturierte Zeitraum-Elemente (Bezugsjahr, Quartal,
+    Beginn/Ende); faellt sonst auf einzelne Jahres-Tags zurueck.
+    """
     for element in root.iter():
         tag_name = get_local_name(element.tag).lower()
 
@@ -211,6 +223,7 @@ def extract_tax_period(root):
 
 
 def extract_amount_due(root):
+    """Liest den Zahlbetrag des Bescheids aus (ohne Vorauszahlungs-Teilbaeume)."""
     return find_first_text_by_tag_names(
         root,
         [
@@ -229,6 +242,7 @@ def extract_amount_due(root):
 
 
 def extract_trade_tax_assessment_amount(root):
+    """Liest den Gewerbesteuermessbetrag aus."""
     return find_first_text_by_tag_names(
         root,
         [
@@ -242,6 +256,7 @@ def extract_trade_tax_assessment_amount(root):
 
 
 def extract_assessment_rate(root):
+    """Liest den kommunalen Hebesatz aus."""
     return find_first_text_by_tag_names(
         root,
         [
@@ -255,6 +270,7 @@ def extract_assessment_rate(root):
 
 
 def extract_advance_payment_period(payment_element):
+    """Liest das Bezugsjahr einer einzelnen Vorauszahlung aus."""
     for element in payment_element.iter():
         tag_name = get_local_name(element.tag).lower()
         value = clean_text(element.text)
@@ -269,6 +285,7 @@ def extract_advance_payment_period(payment_element):
 
 
 def extract_advance_payments(root):
+    """Sammelt alle Vorauszahlungen (Betrag, Faelligkeit, Zeitraum) sortiert ein."""
     advance_payments = []
 
     for element in root.iter():
@@ -320,6 +337,7 @@ def extract_advance_payments(root):
 
 
 def extract_due_dates(root):
+    """Sammelt bescheidweite Faelligkeiten als kommaseparierte Liste."""
     due_dates = []
 
     # Faelligkeiten einzelner Vorauszahlungen gehoeren zu deren Eintraegen

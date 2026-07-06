@@ -21,6 +21,7 @@ from django.urls import path, include
 from .url_paths import normalize_route_prefix
 
 def healthz(request):
+    """Health-Check-Endpunkt fuer Docker-HEALTHCHECK und Monitoring."""
     return JsonResponse({'status': 'ok'})
 
 urlpatterns = [

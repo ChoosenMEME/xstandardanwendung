@@ -42,12 +42,19 @@ Aktuelle Struktur:
 ├── Dockerfile
 ├── docker-entrypoint.sh
 ├── requirements.txt
+├── requirements.lock
 ├── .env.example
 ├── .editorconfig
+├── .github/workflows/
+│   ├── docker-image.yml
+│   ├── tests.yml
+│   └── docker-publish.yml
 ├── .vscode/
 │   ├── extensions.json
 │   └── settings.json
 ├── README.md
+├── LICENSE
+├── THIRD-PARTY-NOTICES.md
 ├── CONTRIBUTING.md
 ├── AGENTS.md
 ├── docs/
@@ -55,7 +62,8 @@ Aktuelle Struktur:
 │   ├── design.md
 │   ├── design-thinking.md
 │   ├── datenstandard.md
-│   └── testdaten.md
+│   ├── testdaten.md
+│   └── xunternehmen-gewerbesteuer-1.4.pdf
 ├── data/
 └── app/
     ├── manage.py
@@ -82,6 +90,7 @@ Aktuelle Struktur:
         ├── models.py
         ├── views.py
         ├── urls.py
+        ├── apps.py
         ├── constants.py
         ├── ratelimit.py
         ├── forms.py
@@ -91,6 +100,9 @@ Aktuelle Struktur:
         ├── comparisons.py
         ├── password_validators.py
         ├── context_processors.py
+        ├── management/
+        │   └── commands/
+        │       └── send_test_email.py
         ├── services/
         │   ├── __init__.py
         │   ├── bescheid.py
@@ -98,18 +110,22 @@ Aktuelle Struktur:
         │   ├── privacy.py
         │   ├── assistant.py
         │   ├── assistant_providers.py
-        │   └── support_errors.py
+        │   ├── support_errors.py
+        │   └── glossary.py
         ├── templatetags/
         │   ├── __init__.py
         │   └── xgewerbesteuer_filters.py
         ├── migrations/
         ├── schemas/
+        ├── demo_data/
         ├── templates/xgewerbesteuer/
         │   ├── dashboard.html
         │   ├── upload.html
         │   ├── results.html
         │   ├── help.html
-        │   └── partials/assistant.html
+        │   └── partials/
+        │       ├── assistant.html
+        │       └── term_help.html
         └── tests/
             ├── test_views.py
             ├── test_xml_uploads.py
@@ -117,6 +133,11 @@ Aktuelle Struktur:
             ├── test_models.py
             ├── test_auth.py
             ├── test_assistant.py
+            ├── test_calculations.py
+            ├── test_commands.py
+            ├── test_glossary.py
+            ├── test_review_fixes.py
+            ├── test_settings.py
             └── fixtures/
 ```
 
@@ -247,7 +268,7 @@ docker compose exec web python manage.py collectstatic
 
 ## Entrypoint und Laufzeit
 
-`docker-entrypoint.sh` bereitet `/app/staticfiles` vor, fuehrt Migrationen aus, sammelt statische Dateien und startet anschliessend den Django-Development-Server.
+`docker-entrypoint.sh` bereitet `/app/staticfiles` vor, fuehrt Migrationen und `clearsessions` aus, sammelt statische Dateien und startet anschliessend gunicorn (WSGI-Server; statische Dateien via WhiteNoise). Nur mit `USE_DEV_SERVER=1` (Dev-Compose) laeuft stattdessen der Django-Development-Server.
 
 Wichtige Punkte:
 
@@ -326,12 +347,14 @@ SECRET_KEY=change-me
 DJANGO_ALLOWED_HOSTS=localhost 127.0.0.1
 WEB_HOST=0.0.0.0
 WEB_PORT=8000
+WEB_CONCURRENCY=3
 LANGUAGE_CODE=de-de
 TZ=Europe/Berlin
 PUID=1000
 PGID=1000
 SQLITE_PATH=/app/dev.db.sqlite3
 LOGIN_ENABLED=1
+SESSION_COOKIE_AGE=86400
 EMAIL_HOST=localhost
 EMAIL_PORT=25
 EMAIL_HOST_USER=
@@ -396,6 +419,11 @@ app/xgewerbesteuer/tests/
 ├── test_models.py
 ├── test_auth.py
 ├── test_assistant.py
+├── test_calculations.py
+├── test_commands.py
+├── test_glossary.py
+├── test_review_fixes.py
+├── test_settings.py
 └── fixtures/
 ```
 
@@ -403,13 +431,17 @@ Bei Bedarf koennen weitere Module wie `test_services.py` ergaenzt werden.
 
 ### XGewerbesteuer-Beispieldateien (Fixtures)
 
-`app/xgewerbesteuer/tests/fixtures/` enthaelt 15 rein fiktive XGewerbesteuer-1.4-Beispieldateien:
+Das Beispiel-Set umfasst 15 rein fiktive XGewerbesteuer-1.4-Beispieldateien:
 5 Nachrichtenarten (`bescheide.gewerbesteuer.0001`, `bescheide.zinsen.0002`,
 `bescheide.vorauszahlung.0003`, `bescheide.gewerbesteuer.generisch.0010`,
-`berechnung.gewerbesteuer.0021`) mit je 3 Dateien fuer die Bezugsjahre 2021-2023. Alle
-Dateien beziehen sich auf denselben fiktiven Fall (Kommune „Stadt Musterhausen",
-Adressat „Musterbetrieb") und werden in `test_fixtures.py` fuer Schema- und Smoke-Tests
-verwendet. Details je Nachrichtenart stehen in [`docs/testdaten.md`](docs/testdaten.md).
+`berechnung.gewerbesteuer.0021`) mit je 3 Dateien fuer die Bezugsjahre 2021-2023.
+13 Dateien liegen in `app/xgewerbesteuer/tests/fixtures/`; die beiden
+`GEWST-0010`-Dateien fuer 2022/2023 liegen als Demo-Beispielfall in
+`app/xgewerbesteuer/demo_data/` (ausserhalb von `tests/`, damit sie ins
+Release-Image gelangen). Alle Dateien beziehen sich auf denselben fiktiven Fall
+(Kommune „Stadt Musterhausen", Adressat „Musterbetrieb") und werden in
+`test_fixtures.py` gemeinsam fuer Schema- und Smoke-Tests verwendet. Details je
+Nachrichtenart stehen in [`docs/testdaten.md`](docs/testdaten.md).
 
 * Dateinamen folgen dem Muster `GEWST-<Nachrichtenartcode>-<Gemeindeschluessel>-<SteuernummerBund>-<Datum>_<nachrichtenID>.xml`.
 * Neue Fixtures sollen ebenfalls rein fiktive Daten (`Muster...`, Steuernummern wie `1234567890000`) verwenden.

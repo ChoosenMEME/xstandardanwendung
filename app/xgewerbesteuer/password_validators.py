@@ -10,6 +10,8 @@ MIN_USER_INFO_FRAGMENT_LENGTH = 3
 
 
 class UppercaseValidator:
+    """Verlangt mindestens einen Grossbuchstaben."""
+
     def validate(self, password, user=None):
         if not re.search(r"[A-ZÄÖÜ]", password):
             raise ValidationError(
@@ -22,6 +24,8 @@ class UppercaseValidator:
 
 
 class LowercaseValidator:
+    """Verlangt mindestens einen Kleinbuchstaben."""
+
     def validate(self, password, user=None):
         if not re.search(r"[a-zäöü]", password):
             raise ValidationError(
@@ -34,6 +38,8 @@ class LowercaseValidator:
 
 
 class DigitValidator:
+    """Verlangt mindestens eine Ziffer."""
+
     def validate(self, password, user=None):
         if not re.search(r"[0-9]", password):
             raise ValidationError(
@@ -46,6 +52,8 @@ class DigitValidator:
 
 
 class SpecialCharacterValidator:
+    """Verlangt mindestens ein Sonderzeichen."""
+
     def validate(self, password, user=None):
         if not any(character in SPECIAL_CHARACTERS for character in password):
             raise ValidationError(

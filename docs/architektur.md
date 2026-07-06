@@ -44,8 +44,8 @@ Services.
 
 ```text
 app/xgewerbesteuer/
-  views.py                    # View-Funktionen, Request-Handling, Orchestrierung (~600 Zeilen)
-  forms.py                    # SignupForm
+  views.py                    # View-Funktionen, Request-Handling, Orchestrierung (~650 Zeilen)
+  forms.py                    # SignupForm, LoggingPasswordResetForm
   models.py                   # SavedBescheidUpload
   constants.py                # Zentrale Konstanten (u. a. RESULT_SESSION_KEY)
   ratelimit.py                # Anfragebegrenzung fuer missbrauchsanfaellige Endpunkte
@@ -55,6 +55,9 @@ app/xgewerbesteuer/
   comparisons.py                 # Vorjahres-, Mehrjahresvergleich, historische Entwicklung
   password_validators.py       # Eigene Passwort-Komplexitaetsregeln
   context_processors.py        # Globale Template-Kontexte (Login-Status, KI-Assistent)
+  management/
+    commands/
+      send_test_email.py       # manage.py send_test_email (Mailanbindung testen)
   services/
     __init__.py
     bescheid.py                 # Orchestrierung: Upload verarbeiten, Notices, gespeicherte Auswertungen
@@ -63,12 +66,15 @@ app/xgewerbesteuer/
     assistant.py                 # Kontext-/Prompt-Aufbereitung fuer den KI-Assistenten
     assistant_providers.py       # Austauschbare KI-Assistant-Provider (Ollama, deaktiviert)
     support_errors.py            # Supportfreundliche Fehler-IDs ohne sensible Daten im Log
+    glossary.py                  # Zentrale Begriffserklaerungen (Tooltips, Hilfe)
   templatetags/
     __init__.py
     xgewerbesteuer_filters.py    # Template-Filter (default_display, format_currency, ...)
+                                 # und Inclusion-Tag term_help (Begriffserklaerungen)
   urls.py
   apps.py
   schemas/                       # XSD-Dateien fuer Validierung
+  demo_data/                     # 2 fiktive Demo-Dateien fuer /demo/ (im Release-Image enthalten)
   templates/
     xgewerbesteuer/
       dashboard.html             # Startseite mit gespeicherten Auswertungen
@@ -77,14 +83,20 @@ app/xgewerbesteuer/
       help.html                   # Hilfe- und Glossarseite
       partials/
         assistant.html            # KI-Assistenten-Panel (global eingebunden)
+        term_help.html             # Begriffserklaerung (via Inclusion-Tag term_help)
   tests/
     test_views.py                 # View-, URL- und Integrationstests
     test_xml_uploads.py            # Extraktions-, Validierungs- und Upload-Tests
-    test_fixtures.py                # Fixture-Struktur- und Schema-Tests
+    test_fixtures.py                # Fixture-Struktur- und Schema-Tests (inkl. demo_data)
     test_models.py                  # Model-Tests (SavedBescheidUpload)
     test_auth.py                     # Login, Registrierung, Passwort-Reset, Zugriffsschutz
     test_assistant.py                 # KI-Assistent: Kontextaufbereitung, Provider, Fehlerfaelle
-    fixtures/                          # 15 fiktive XGewerbesteuer-XML-Dateien (siehe docs/testdaten.md)
+    test_calculations.py              # Parsen deutsch/technisch formatierter Zahlenwerte
+    test_commands.py                  # Management-Command send_test_email
+    test_glossary.py                  # Begriffserklaerungen und term_help-Tag
+    test_review_fixes.py              # Regressionstests zu Code-Review-Findings
+    test_settings.py                  # Settings-Helfer und Env-Parsing
+    fixtures/                          # 13 fiktive XGewerbesteuer-XML-Dateien (siehe docs/testdaten.md)
 ```
 
 Projektweite Templates (Basis-Layout, Partials, Registrierung/Login) liegen unter
@@ -104,9 +116,11 @@ Projektweite Templates (Basis-Layout, Partials, Registrierung/Login) liegen unte
 | `services/assistant.py` | Erlaubte Auswertungsfelder in einen Assistant-Kontext uebernehmen, Fragen validieren, Antworten aufbereiten | `services/assistant_providers` |
 | `services/assistant_providers.py` | Austauschbare KI-Provider (aktuell Ollama), sicherer deaktivierter Standard | `urllib` |
 | `services/support_errors.py` | Neutrale Fehler-IDs erzeugen, Upload-Probleme ohne Falldaten loggen | `logging`, `uuid` |
+| `services/glossary.py` | Zentrale Begriffserklaerungen fuer Tooltips (`term_help`) und Hilfeseite | -- |
 | `password_validators.py` | Gross-/Kleinbuchstabe, Ziffer, Sonderzeichen, kein Bezug zu Nutzerdaten | Django Auth |
 | `context_processors.py` | `LOGIN_ENABLED`-Status und KI-Assistent global in Templates verfuegbar machen | `services/assistant` |
-| `forms.py` | Upload-Formular (Dateityp/-groesse), Registrierungsformular | Django Forms |
+| `forms.py` | Registrierungsformular (`SignupForm`), Passwort-Reset mit datensparsamem Logging (`LoggingPasswordResetForm`) | Django Forms |
+| `management/commands/send_test_email.py` | Test-E-Mail ueber die konfigurierte Mailanbindung versenden | Django Mail |
 | `models.py` | Persistenz gespeicherter Auswertungen | Django ORM |
 | `views.py` | HTTP-Handling, Formularverarbeitung, Template-Rendering | `services`, `forms`, `comparisons` |
 | `templatetags/` | Anzeigelogik: fehlende Werte, Formatierung | -- |
@@ -148,7 +162,9 @@ Template: xgewerbesteuer/results.html (+ partials/assistant.html)
 Alternative Einstiege in denselben Ablauf:
 
 * **Demo** (`/demo/`): laedt zwei feste Beispieldateien (`GEWST-0010-...-2022-...` und
-  `-2023-...`) und zeigt dadurch direkt den Vorjahresvergleich.
+  `-2023-...`) aus `app/xgewerbesteuer/demo_data/` und zeigt dadurch direkt den
+  Vorjahresvergleich. Die Demo-Dateien liegen bewusst ausserhalb von `tests/`,
+  weil das Test-Verzeichnis per `.dockerignore` nicht ins Release-Image gelangt.
 * **Gespeicherte Auswertung laden** (`/gespeichert/laden/`, Login erforderlich): stellt
   eine einzelne zuvor gespeicherte Auswertung wieder in die Session ein (ohne erneuten
   Mehrjahresvergleich, da nur die gespeicherten Ergebnisdaten vorliegen).
@@ -210,6 +226,7 @@ Alle Routen liegen unter dem konfigurierbaren `APP_PATH`-Prefix
 /upload/                       -> Bescheid(e) hochladen
 /demo/                         -> Demo-Beispielfall laden
 /ergebnis/                     -> Auswertung der aktuellen Session
+/ergebnis/datenschutzmodus/    -> Datenschutzmodus umschalten (nur POST)
 /ki-assistent/                 -> KI-Assistent (POST, HTML- oder JSON-Antwort)
 /hilfe/                        -> Hilfe- und Glossarseite
 /gespeichert/laden/             -> Gespeicherte Auswertung oeffnen (Login erforderlich)
@@ -416,6 +433,21 @@ Nutzer:innen erhalten bei Upload-Fehlern eine Fehler-ID, die im Support-Fall
 zurueckverfolgt werden kann, ohne dass dafuer vertrauliche Bescheiddaten geloggt
 werden muessten.
 
+### 6.6 Glossar-Service
+
+```python
+# services/glossary.py
+
+def get_glossary_definition(label):
+    """Gibt die zentrale Erklaerung zu einem UI-Label zurueck, falls vorhanden."""
+```
+
+Zentrale, kurz gehaltene Begriffserklaerungen (Messbetrag, Hebesatz,
+Faelligkeit usw.). Die Templates binden sie ueber das Inclusion-Tag
+`{% term_help label %}` (`templatetags/xgewerbesteuer_filters.py`,
+`partials/term_help.html`) als Tooltip ein; UI-Label-Varianten werden ueber
+Aliasse auf denselben Glossarbegriff abgebildet.
+
 ---
 
 ## 7. Authentifizierung und Zugriffsschutz
@@ -565,11 +597,16 @@ app/xgewerbesteuer/tests/
   __init__.py
   test_views.py              # View-, URL- und Integrationstests
   test_xml_uploads.py         # Upload-, Extraktions- und Validierungstests
-  test_fixtures.py            # Fixture-Struktur- und Schema-Tests (XSD, Grundformel)
+  test_fixtures.py            # Fixture-Struktur- und Schema-Tests (XSD, Grundformel, inkl. demo_data)
   test_models.py              # Model-Tests (SavedBescheidUpload)
   test_auth.py                # Login, Registrierung, Passwort-Reset, Zugriffsschutz
   test_assistant.py           # KI-Assistent: Kontext, Provider, Fehlerfaelle
-  fixtures/                   # 15 fiktive XGewerbesteuer-XML-Dateien (siehe docs/testdaten.md)
+  test_calculations.py        # Parsen deutsch/technisch formatierter Zahlenwerte
+  test_commands.py            # Management-Command send_test_email
+  test_glossary.py            # Begriffserklaerungen und term_help-Tag
+  test_review_fixes.py        # Regressionstests zu Code-Review-Findings
+  test_settings.py            # Settings-Helfer und Env-Parsing
+  fixtures/                   # 13 fiktive XGewerbesteuer-XML-Dateien (siehe docs/testdaten.md)
 ```
 
 ### Testprinzipien

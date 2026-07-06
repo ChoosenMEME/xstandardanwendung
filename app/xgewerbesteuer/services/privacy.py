@@ -55,6 +55,7 @@ def anonymize_value(value):
 
 
 def is_sensitive_label(label):
+    """True, wenn ein Anzeige-Label auf einen sensiblen Wert hindeutet."""
     normalized = str(label or "").casefold()
 
     return any(part in normalized for part in SENSITIVE_LABEL_PARTS)
