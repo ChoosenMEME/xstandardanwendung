@@ -65,8 +65,20 @@ class AppPathConfigurationTests(SimpleTestCase):
         self.assertContains(response, 'data-upload-dropzone')
         self.assertContains(response, 'data-upload-file-input')
         self.assertContains(response, 'data-upload-file-list')
+        self.assertContains(response, 'data-empty-text="Noch keine Datei ausgewählt."')
+        self.assertContains(response, 'data-selected-text="Ausgewählt"')
+        self.assertContains(response, "Nur XML-Dateien können hier abgelegt werden.")
+        self.assertContains(response, "filter(isXmlFile)")
+        self.assertContains(response, "new DataTransfer()")
         self.assertContains(response, 'name="bescheide"')
         self.assertContains(response, "multiple")
+        self.assertContains(
+            response,
+            'aria-labelledby="bescheide-label upload-dropzone-title"',
+        )
+        self.assertNotContains(response, "ausgewaehlt")
+        self.assertNotContains(response, 'role="button"')
+        self.assertNotContains(response, 'tabindex="0"')
 
     def test_demo_page_route_redirects_to_results_or_upload(self):
         route = "/" + normalize_route_prefix(settings.APP_PATH) + "demo/"

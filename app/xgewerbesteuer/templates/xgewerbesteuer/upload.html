@@ -93,10 +93,7 @@
             </label>
             <div class="upload-dropzone"
                  data-upload-dropzone
-                 role="button"
-                 tabindex="0"
-                 aria-labelledby="bescheide-label upload-dropzone-title"
-                 aria-describedby="upload-dropzone-hint upload-file-list">
+                 data-invalid-type-text="{% trans 'Nur XML-Dateien können hier abgelegt werden.' %}">
                 <input type="file"
                        class="upload-dropzone__input"
                        id="bescheide"
@@ -104,6 +101,8 @@
                        accept=".xml"
                        multiple
                        required
+                       aria-labelledby="bescheide-label upload-dropzone-title"
+                       aria-describedby="upload-dropzone-hint upload-file-list"
                        data-upload-file-input>
                 <div class="upload-dropzone__content">
                     <span class="upload-dropzone__icon" aria-hidden="true">+</span>
@@ -115,7 +114,12 @@
                     </p>
                 </div>
             </div>
-            <p class="upload-file-list" id="upload-file-list" data-upload-file-list aria-live="polite">
+            <p class="upload-file-list"
+               id="upload-file-list"
+               data-upload-file-list
+               data-empty-text="{% trans 'Noch keine Datei ausgewählt.' %}"
+               data-selected-text="{% trans 'Ausgewählt' %}"
+               aria-live="polite">
                 {% trans "Noch keine Datei ausgewählt." %}
             </p>
         </div>
@@ -166,36 +170,48 @@
 
     if (!dropzone || !input || !fileList) return;
 
-    function renderSelectedFiles(files) {
+    function getFiles(files) {
+        return Array.prototype.slice.call(files || []);
+    }
+
+    function isXmlFile(file) {
+        return /\.xml$/i.test(file.name || '');
+    }
+
+    function buildFileList(files) {
+        if (typeof DataTransfer === 'undefined') return null;
+
+        var dataTransfer = new DataTransfer();
+        files.forEach(function(file) {
+            dataTransfer.items.add(file);
+        });
+        return dataTransfer.files;
+    }
+
+    function renderSelectedFiles(files, rejectedCount) {
         if (!files || files.length === 0) {
-            fileList.textContent = 'Noch keine Datei ausgewaehlt.';
+            fileList.textContent = rejectedCount
+                ? dropzone.dataset.invalidTypeText
+                : fileList.dataset.emptyText;
             return;
         }
 
-        var names = Array.prototype.map.call(files, function(file) {
+        var names = getFiles(files).map(function(file) {
             return file.name;
         });
-        fileList.textContent = names.length === 1
-            ? 'Ausgewaehlt: ' + names[0]
-            : 'Ausgewaehlt (' + names.length + '): ' + names.join(', ');
+        var selectedText = fileList.dataset.selectedText;
+        var message = names.length === 1
+            ? selectedText + ': ' + names[0]
+            : selectedText + ' (' + names.length + '): ' + names.join(', ');
+
+        fileList.textContent = rejectedCount
+            ? message + ' · ' + dropzone.dataset.invalidTypeText
+            : message;
     }
 
     function setDragging(isDragging) {
         dropzone.classList.toggle('upload-dropzone--dragging', isDragging);
     }
-
-    dropzone.addEventListener('click', function(event) {
-        if (event.target !== input) {
-            input.click();
-        }
-    });
-
-    dropzone.addEventListener('keydown', function(event) {
-        if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            input.click();
-        }
-    });
 
     input.addEventListener('change', function() {
         renderSelectedFiles(input.files);
@@ -217,8 +233,19 @@
 
     dropzone.addEventListener('drop', function(event) {
         if (!event.dataTransfer || !event.dataTransfer.files.length) return;
-        input.files = event.dataTransfer.files;
-        renderSelectedFiles(input.files);
+
+        var droppedFiles = getFiles(event.dataTransfer.files);
+        var acceptedFiles = droppedFiles.filter(isXmlFile);
+        var rejectedCount = droppedFiles.length - acceptedFiles.length;
+        var filteredFiles = buildFileList(acceptedFiles);
+
+        if (!filteredFiles) {
+            renderSelectedFiles(input.files, rejectedCount);
+            return;
+        }
+
+        input.files = filteredFiles;
+        renderSelectedFiles(input.files, rejectedCount);
     });
 })();
 </script>
