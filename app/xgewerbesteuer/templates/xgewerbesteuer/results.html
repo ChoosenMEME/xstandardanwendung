@@ -37,15 +37,20 @@
             {% endif %}
         </p>
     </div>
-    {% if privacy_mode_enabled %}
-        <a class="btn btn--secondary btn--sm" href="?privacy=0">
-            {% trans "Klartext anzeigen" %}
-        </a>
-    {% else %}
-        <a class="btn btn--secondary btn--sm" href="?privacy=1">
-            {% trans "Daten maskieren" %}
-        </a>
-    {% endif %}
+    <form method="post" action="{% url 'xgewerbesteuer_toggle_privacy' %}">
+        {% csrf_token %}
+        {% if privacy_mode_enabled %}
+            <input type="hidden" name="privacy" value="0"/>
+            <button class="btn btn--secondary btn--sm" type="submit">
+                {% trans "Klartext anzeigen" %}
+            </button>
+        {% else %}
+            <input type="hidden" name="privacy" value="1"/>
+            <button class="btn btn--secondary btn--sm" type="submit">
+                {% trans "Daten maskieren" %}
+            </button>
+        {% endif %}
+    </form>
 </div>
 
 {% if saved_upload_success %}
@@ -187,7 +192,24 @@
             {% trans "Die wichtigsten Informationen aus dem aktuellsten Bescheid." %}
         </p>
 
-        {% include "partials/table_summary.html" %}
+        <div class="table-wrapper mt-2">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th scope="col">{% trans "Information" %}</th>
+                        <th scope="col">{% trans "Wert" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in summary_items %}
+                        <tr>
+                            <th scope="row">{{ item.label }}{% term_help item.label %}</th>
+                            <td><strong>{{ item.value|default_display }}</strong></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </section>
 {% endif %}
 

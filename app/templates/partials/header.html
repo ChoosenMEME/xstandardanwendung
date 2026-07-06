@@ -1,7 +1,8 @@
-{% load i18n %}
+{% load i18n static %}
 <header class="site-header">
     <div class="site-header__inner">
         <a href="{% url 'xgewerbesteuer_dashboard' %}" class="site-logo">
+            <img src="{% static 'branding/logo.svg' %}" alt="" class="site-logo__image">
             {% trans "Gewerbesteuer-Assistent" %}
         </a>
 

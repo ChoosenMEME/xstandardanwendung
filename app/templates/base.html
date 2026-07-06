@@ -7,8 +7,14 @@
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
     <title>{% block title %}Gewerbesteuer-Assistent{% endblock %}</title>
-    <link href="https://cdn.jsdelivr.net/npm/@kern-ux/native@2.6.2/dist/kern.min.css" rel="stylesheet"/>
-    <link href="https://cdn.jsdelivr.net/npm/@kern-ux/native@2.6.2/dist/fonts/fira-sans.css" rel="stylesheet"/>
+    <link rel="icon" href="{% static 'branding/favicon.svg' %}" type="image/svg+xml"/>
+    <link rel="alternate icon" href="{% static 'branding/favicon.ico' %}"/>
+    <link rel="apple-touch-icon" href="{% static 'branding/apple-touch-icon.png' %}"/>
+    {# KERN-UX (@kern-ux/native 2.6.2) und Fira Sans werden lokal aus #}
+    {# static/vendor/kern ausgeliefert: kein CDN-Zugriff (Datenschutz, #}
+    {# Offline-Faehigkeit) und keine Manipulationsgefahr durch Dritte. #}
+    <link href="{% static 'vendor/kern/kern.min.css' %}" rel="stylesheet"/>
+    <link href="{% static 'vendor/kern/fonts/fira-sans.css' %}" rel="stylesheet"/>
     <link href="{% static 'xgewerbesteuer/app.css' %}" rel="stylesheet"/>
     {% block extra_head %}{% endblock %}
 </head>
@@ -63,6 +69,7 @@
         var history = document.getElementById('assistant-history');
         var clearButton = document.getElementById('assistant-clear-history');
         var status = document.getElementById('assistant-status');
+        var exampleQuestionButtons = document.querySelectorAll('[data-assistant-example-question]');
         var storageKey = 'xgewerbesteuer.assistant.history';
 
         if (!panel || !toggle || !form || !question || !history) return;
@@ -133,6 +140,17 @@
                 }
             });
         }
+
+        exampleQuestionButtons.forEach(function(button) {
+            button.addEventListener('click', function() {
+                var selectedQuestion = button.getAttribute('data-assistant-example-question') || '';
+                question.value = selectedQuestion;
+                question.focus();
+                if (status) {
+                    status.textContent = 'Die Beispielfrage wurde in das Eingabefeld uebernommen.';
+                }
+            });
+        });
 
         form.addEventListener('submit', function(event) {
             event.preventDefault();

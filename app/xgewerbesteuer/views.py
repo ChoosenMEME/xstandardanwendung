@@ -11,15 +11,18 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 
 from .calculations import build_plausibility_check
+from .ratelimit import rate_limit
 from .comparisons import (
     build_change_comparison,
     build_historical_development,
     build_message_type_comparison_notice,
     build_multi_bescheid_comparison,
     build_period_comparison_notice,
-    extract_sort_year,
+    sort_bescheid_records_chronologically,
 )
+from .constants import RESULT_SESSION_KEY
 from .forms import SignupForm
+from .models import SavedBescheidUpload
 from .services.bescheid import (
     build_due_date_calendar,
     build_liquidity_impact,
@@ -50,8 +53,9 @@ from .services.export import (
 )
 from .services.privacy import anonymize_result_context
 
-RESULT_SESSION_KEY = "xgewerbesteuer_result"
-DEMO_FIXTURE_DIR = Path(__file__).resolve().parent / "tests" / "fixtures"
+# Die Demo-Dateien liegen bewusst ausserhalb von tests/, weil das
+# Test-Verzeichnis per .dockerignore nicht ins Release-Image gelangt.
+DEMO_FIXTURE_DIR = Path(__file__).resolve().parent / "demo_data"
 DEMO_FIXTURE_FILES = [
     (
         "GEWST-0010-12345678-1234567890000-2022-01-15_"
@@ -71,28 +75,10 @@ def xgewerbesteuer_dashboard(request):
     })
 
 
-def _sort_bescheide_chronologically(bescheide):
-    def sort_key(bescheid):
-        tax_period = bescheid.get("tax_period", "")
-        sort_year = extract_sort_year(tax_period)
-
-        # Unknown periods come first so the last entry remains the newest
-        # reliably dated Bescheid selected for summaries and exports.
-        return (
-            sort_year != 9999,
-            sort_year,
-            tax_period,
-            bescheid.get("file_name", ""),
-        )
-
-    return sorted(
-        bescheide,
-        key=sort_key,
-    )
-
-
 def _build_result_session_data(results, upload_errors=None, is_demo=False, demo_notice=None):
-    sorted_bescheide = _sort_bescheide_chronologically(results)
+    # Gemeinsame Sortierregel mit der Mehrjahrestabelle (siehe comparisons):
+    # unbekannte Zeitraeume vorn, letzter Eintrag = aktuellster Bescheid.
+    sorted_bescheide = sort_bescheid_records_chronologically(results)
     current_bescheid = sorted_bescheide[-1]
 
     session_data = {
@@ -140,6 +126,34 @@ def _build_result_session_data(results, upload_errors=None, is_demo=False, demo_
     return session_data
 
 
+def _process_uploaded_files(uploaded_files):
+    """Verarbeitet Uploads zu (gueltige Bescheide, Fehlerliste).
+
+    Gemeinsame Fehlerbehandlung fuer Upload- und Demo-View: Auch unerwartete
+    Fehler werden als kontrollierte Fehlerantwort mit Fehler-ID gemeldet.
+    """
+    results = []
+    upload_errors = []
+
+    for uploaded_file in uploaded_files:
+        try:
+            result = process_uploaded_bescheid(uploaded_file)
+        except Exception as error:
+            result = build_unexpected_import_error_result(error)
+
+        if result["is_valid"]:
+            results.append(result["bescheid"])
+        else:
+            upload_errors.append({
+                "file_name": uploaded_file.name,
+                "message": result["message"],
+                "error_id": result.get("error_id"),
+                "details": result.get("details", []),
+            })
+
+    return results, upload_errors
+
+
 def xgewerbesteuer_upload(request):
     if request.method != "POST":
         return render(request, "xgewerbesteuer/upload.html")
@@ -159,24 +173,7 @@ def xgewerbesteuer_upload(request):
             "upload_error": "Bitte wählen Sie mindestens eine XML-Datei aus.",
         })
 
-    results = []
-    upload_errors = []
-
-    for uploaded_file in uploaded_files:
-        try:
-            result = process_uploaded_bescheid(uploaded_file)
-        except Exception as error:
-            result = build_unexpected_import_error_result(error)
-
-        if result["is_valid"]:
-            results.append(result["bescheid"])
-        else:
-            upload_errors.append({
-                "file_name": uploaded_file.name,
-                "message": result["message"],
-                "error_id": result.get("error_id"),
-                "details": result.get("details", []),
-            })
+    results, upload_errors = _process_uploaded_files(uploaded_files)
 
     if not results:
         return render(request, "xgewerbesteuer/upload.html", {
@@ -210,26 +207,32 @@ def xgewerbesteuer_upload(request):
 
 
 def xgewerbesteuer_demo(request):
-    results = []
+    uploaded_files = []
     upload_errors = []
 
     for fixture_name in DEMO_FIXTURE_FILES:
         fixture_path = DEMO_FIXTURE_DIR / fixture_name
-        uploaded_file = SimpleUploadedFile(
-            fixture_name,
-            fixture_path.read_bytes(),
-            content_type="application/xml",
-        )
-        result = process_uploaded_bescheid(uploaded_file)
 
-        if result["is_valid"]:
-            results.append(result["bescheid"])
-        else:
+        try:
+            fixture_content = fixture_path.read_bytes()
+        except OSError:
             upload_errors.append({
                 "file_name": fixture_name,
-                "message": result["message"],
-                "details": result.get("details", []),
+                "message": "Die Demo-Datei konnte nicht gelesen werden.",
+                "details": [],
             })
+            continue
+
+        uploaded_files.append(
+            SimpleUploadedFile(
+                fixture_name,
+                fixture_content,
+                content_type="application/xml",
+            )
+        )
+
+    results, processing_errors = _process_uploaded_files(uploaded_files)
+    upload_errors.extend(processing_errors)
 
     if not results:
         return render(request, "xgewerbesteuer/upload.html", {
@@ -259,18 +262,52 @@ def xgewerbesteuer_results(request):
     if not session_data:
         return redirect("xgewerbesteuer_upload")
 
-    if "privacy" in request.GET:
-        session_data["privacy_mode_enabled"] = request.GET.get("privacy") == "1"
-        request.session[RESULT_SESSION_KEY] = session_data
+    context = _build_display_context(session_data)
 
+    prepare_download_sessions(request, context)
+
+    return render(request, "xgewerbesteuer/results.html", context)
+
+
+def xgewerbesteuer_toggle_privacy(request):
+    """Schaltet den Datenschutzmodus um — bewusst nur per POST.
+
+    Ein GET-Parameter waere weder CSRF-geschuetzt noch frei von
+    Seiteneffekten (Prefetching/Link-Vorschau koennte den Modus umschalten),
+    deshalb aendert diese View den Session-Zustand nur auf POST und leitet
+    danach per Post/Redirect/Get zurueck auf die Ergebnisseite.
+    """
+    if request.method != "POST":
+        return redirect("xgewerbesteuer_results")
+
+    session_data = request.session.get(RESULT_SESSION_KEY)
+
+    if not session_data:
+        return redirect("xgewerbesteuer_upload")
+
+    session_data["privacy_mode_enabled"] = request.POST.get("privacy") == "1"
+    request.session[RESULT_SESSION_KEY] = session_data
+
+    # Export-Daten sofort neu aufbauen, damit Downloads nicht bis zum
+    # naechsten Aufruf der Ergebnisseite den alten Maskierungszustand behalten.
+    prepare_download_sessions(request, _build_display_context(session_data))
+
+    return redirect("xgewerbesteuer_results")
+
+
+def _build_display_context(session_data):
+    """Baut den Anzeigenkontext und wendet den Datenschutzmodus an.
+
+    Alle Views, die Ergebnisdaten anzeigen, exportieren oder an den
+    KI-Assistenten weitergeben, muessen diesen Helper verwenden, damit der
+    Datenschutzmodus nicht durch einzelne Views umgangen werden kann.
+    """
     context = _build_result_context(session_data)
 
     if session_data.get("privacy_mode_enabled"):
         context = anonymize_result_context(context)
 
-    prepare_download_sessions(request, context)
-
-    return render(request, "xgewerbesteuer/results.html", context)
+    return context
 
 
 def _build_result_context(session_data):
@@ -334,6 +371,10 @@ def _build_result_context(session_data):
     return context
 
 
+# Jede Assistant-Anfrage blockiert einen Worker fuer bis zu
+# AI_ASSISTANT_TIMEOUT_SECONDS; ohne Limit liesse sich der Worker-Pool
+# guenstig lahmlegen und der LLM-Endpunkt anonym fluten.
+@rate_limit("assistant", max_requests=20, window_seconds=300)
 def xgewerbesteuer_assistant(request):
     if request.method != "POST":
         return redirect("xgewerbesteuer_dashboard")
@@ -347,7 +388,7 @@ def xgewerbesteuer_assistant(request):
     )
 
     if session_data:
-        result_context = _build_result_context(session_data)
+        result_context = _build_display_context(session_data)
         prepare_download_sessions(request, result_context)
 
     mode = get_assistant_mode(result_context)
@@ -416,21 +457,31 @@ def xgewerbesteuer_assistant(request):
     return render(request, "xgewerbesteuer/dashboard.html", context)
 
 
+def _parse_saved_upload_id(request):
+    """Liest die Upload-ID aus dem POST; None bei fehlendem/ungueltigem Wert.
+
+    Ohne diese Pruefung wuerde ein nicht-numerischer Wert im ORM-Filter einen
+    ValueError und damit einen 500er ausloesen.
+    """
+    try:
+        return int(request.POST.get("saved_upload_id", ""))
+    except (TypeError, ValueError):
+        return None
+
+
 @login_required
 def xgewerbesteuer_load_saved(request):
     if request.method != "POST":
         return redirect("xgewerbesteuer_dashboard")
 
-    saved_upload_id = request.POST.get("saved_upload_id")
+    saved_upload_id = _parse_saved_upload_id(request)
 
-    if not saved_upload_id:
+    if saved_upload_id is None:
         messages.error(
             request,
             "Die gespeicherte Auswertung konnte nicht gefunden werden.",
         )
         return redirect("xgewerbesteuer_dashboard")
-
-    from .models import SavedBescheidUpload
 
     saved_upload = SavedBescheidUpload.objects.filter(
         id=saved_upload_id,
@@ -444,31 +495,10 @@ def xgewerbesteuer_load_saved(request):
         )
         return redirect("xgewerbesteuer_dashboard")
 
-    current_bescheid = saved_upload.result_data.get("current_bescheid") or {
-        "file_name": saved_upload.file_name,
-        "file_size": saved_upload.file_size,
-        "schema_name": "",
-        "message_type": None,
-        "message_type_label": None,
-        "message_type_category": "unknown",
-        "message_type_summary": "",
-        "supports_comparison": False,
-        "municipality": saved_upload.municipality or None,
-        "tax_period": saved_upload.tax_period or None,
-        "amount_due": saved_upload.amount_due or None,
-        "trade_tax_assessment_amount": (
-            saved_upload.trade_tax_assessment_amount or None
-        ),
-        "assessment_rate": saved_upload.assessment_rate or None,
-        "due_dates": saved_upload.due_dates or None,
-        "advance_payments": saved_upload.advance_payments or [],
-        "summary_items": saved_upload.summary_items or [],
-        "calculation_explanation": saved_upload.result_data.get("calculation_explanation", {}),
-        "payment_classification": {
-            "type": saved_upload.payment_type or None,
-            "message": "",
-        },
-    }
+    current_bescheid = (
+        saved_upload.result_data.get("current_bescheid")
+        or saved_upload.to_bescheid_dict()
+    )
 
     request.session[RESULT_SESSION_KEY] = {
         "current_bescheid": current_bescheid,
@@ -492,16 +522,14 @@ def xgewerbesteuer_delete_saved(request):
     if request.method != "POST":
         return redirect("xgewerbesteuer_dashboard")
 
-    saved_upload_id = request.POST.get("saved_upload_id")
+    saved_upload_id = _parse_saved_upload_id(request)
 
-    if not saved_upload_id:
+    if saved_upload_id is None:
         messages.error(
             request,
             "Die gespeicherte Auswertung konnte nicht gefunden werden.",
         )
         return redirect("xgewerbesteuer_dashboard")
-
-    from .models import SavedBescheidUpload
 
     deleted_count, _ = SavedBescheidUpload.objects.filter(
         id=saved_upload_id,

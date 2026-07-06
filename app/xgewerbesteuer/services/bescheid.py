@@ -1,24 +1,21 @@
 """Orchestrierung der Bescheidverarbeitung."""
 
-import hashlib
-from datetime import date
 from decimal import Decimal
 from xml.etree.ElementTree import ParseError
 
 from defusedxml import ElementTree
 from defusedxml.common import DefusedXmlException
 from django.db import DatabaseError
+from django.utils import timezone
 
 from ..calculations import (
     build_calculation_explanation,
-    build_plausibility_check,
     format_euro_value,
     format_german_date,
     is_missing_value,
     normalize_comparison_value,
     parse_date_value,
     parse_decimal_value,
-    split_due_date_values,
     split_due_dates,
 )
 from ..extractors import (
@@ -380,7 +377,9 @@ def build_liquidity_payment_items(current_bescheid, reference_date):
 
 def build_liquidity_impact(current_bescheid, reference_date=None):
     if reference_date is None:
-        reference_date = date.today()
+        # localdate() statt date.today(): respektiert TIME_ZONE aus den
+        # Settings statt der OS-Zeitzone des Servers.
+        reference_date = timezone.localdate()
 
     items = build_liquidity_payment_items(current_bescheid, reference_date)
     grouped_items = {period["key"]: [] for period in LIQUIDITY_PERIODS}
@@ -471,7 +470,7 @@ def build_calendar_entry(amount, due_date, payment_type):
 
 def build_due_date_calendar_entries(current_bescheid):
     entries = []
-    due_dates = split_due_date_values(current_bescheid.get("due_dates"))
+    due_dates = split_due_dates(current_bescheid.get("due_dates"))
     payment_classification = current_bescheid.get("payment_classification", {})
     payment_type = payment_classification.get("type")
 
@@ -911,13 +910,6 @@ def build_status_indicator(current_bescheid, notice_items=None, change_compariso
 # --- Saved-Upload-Funktionen ---
 
 
-def ensure_session_key(request):
-    if not request.session.session_key:
-        request.session.save()
-
-    return request.session.session_key
-
-
 def get_saved_uploads_for_request(request):
     if not request.user.is_authenticated:
         return SavedBescheidUpload.objects.none()
@@ -972,117 +964,25 @@ def build_saved_upload_payload(bescheid, context_data):
 
 
 def create_saved_upload(request, bescheid, context_data):
-    session_key = ensure_session_key(request)
     payload = build_saved_upload_payload(bescheid, context_data)
 
     return SavedBescheidUpload.objects.create(
-        session_key=session_key,
         user=request.user,
         **payload,
     )
-
-
-def build_context_from_saved_upload(saved_upload):
-    context = saved_upload.result_data.copy()
-    current_bescheid = context.get("current_bescheid") or {
-        "file_name": saved_upload.file_name,
-        "file_size": saved_upload.file_size,
-        "message_type": None,
-        "message_type_label": None,
-        "message_type_category": "unknown",
-        "message_type_summary": "",
-        "supports_comparison": False,
-        "municipality": saved_upload.municipality or None,
-        "tax_period": saved_upload.tax_period or None,
-        "amount_due": saved_upload.amount_due or None,
-        "trade_tax_assessment_amount": (
-            saved_upload.trade_tax_assessment_amount or None
-        ),
-        "assessment_rate": saved_upload.assessment_rate or None,
-        "due_dates": saved_upload.due_dates or None,
-        "advance_payments": saved_upload.advance_payments,
-        "summary_items": saved_upload.summary_items,
-        "payment_classification": {
-            "type": saved_upload.payment_type or None,
-            "message": "",
-        },
-    }
-    context["current_bescheid"] = current_bescheid
-    context["uploaded_file_name"] = saved_upload.file_name
-    context["uploaded_file_size"] = saved_upload.file_size
-    context.setdefault("message_type", current_bescheid.get("message_type"))
-    context.setdefault("message_type_label", current_bescheid.get("message_type_label"))
-    context.setdefault("message_type_summary", current_bescheid.get("message_type_summary"))
-    context.setdefault("summary_items", saved_upload.summary_items)
-    context.setdefault("advance_payments", saved_upload.advance_payments)
-    context.setdefault("payment_classification", current_bescheid.get("payment_classification"))
-    context.setdefault("due_date_calendar", build_due_date_calendar(current_bescheid))
-    context.setdefault("plausibility_check", build_plausibility_check(current_bescheid))
-    context.setdefault("liquidity_impact", build_liquidity_impact(current_bescheid))
-    context.setdefault("notice_items", build_notice_area(current_bescheid))
-    context.setdefault(
-        "status_indicator",
-        build_status_indicator(current_bescheid, context.get("notice_items")),
-    )
-    context["saved_upload_success"] = (
-        "Die gespeicherte Auswertung wurde erneut geöffnet."
-    )
-
-    return context
-
-
-def handle_saved_upload_action(request):
-    action = request.POST.get("action")
-
-    if action not in ["load_saved_upload", "delete_saved_upload"]:
-        return False, {}
-
-    session_key = request.session.session_key
-    saved_upload_id = request.POST.get("saved_upload_id")
-
-    if not session_key or not saved_upload_id:
-        return True, {
-            "saved_upload_error": (
-                "Die gespeicherte Auswertung konnte nicht gefunden werden."
-            )
-        }
-
-    saved_upload = SavedBescheidUpload.objects.filter(
-        id=saved_upload_id,
-        session_key=session_key,
-    ).first()
-
-    if saved_upload is None:
-        return True, {
-            "saved_upload_error": (
-                "Die gespeicherte Auswertung konnte nicht gefunden werden."
-            )
-        }
-
-    if action == "delete_saved_upload":
-        saved_upload.delete()
-        return True, {
-            "saved_upload_success": "Die gespeicherte Auswertung wurde gelöscht."
-        }
-
-    context = build_context_from_saved_upload(saved_upload)
-    prepare_download_sessions(request, context)
-
-    return True, context
 
 
 def prepare_download_sessions(request, context):
     from .export import (
         ICS_EXPORT_SESSION_KEY,
         PDF_REPORT_SESSION_KEY,
-        CSV_EXPORT_SESSION_KEY,
         build_pdf_report_data,
         create_ics_export,
     )
 
+    # PDF und CSV teilen sich denselben Session-Datensatz (siehe export.py).
     report_data = build_pdf_report_data(context)
     request.session[PDF_REPORT_SESSION_KEY] = report_data
-    request.session[CSV_EXPORT_SESSION_KEY] = report_data
     request.session.pop(ICS_EXPORT_SESSION_KEY, None)
 
     due_date_calendar = context.get("due_date_calendar")

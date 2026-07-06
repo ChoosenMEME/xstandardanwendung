@@ -82,10 +82,44 @@ def clean_text(text):
     return None
 
 
-def find_first_text_by_tag_names(root, tag_names):
+# Container-Elemente, deren Inhalte zu einzelnen Vorauszahlungen gehoeren.
+# Bescheid-weite Werte (Zahlbetrag, Messbetrag, Hebesatz, Faelligkeiten)
+# duerfen nicht aus diesen Teilbaeumen stammen: Je nach Dokumentreihenfolge
+# wuerde sonst z. B. der Betrag einer Vorauszahlung als Zahlbetrag des
+# gesamten Bescheids angezeigt. Vorauszahlungen liest extract_advance_payments
+# separat aus.
+ADVANCE_PAYMENT_CONTAINER_TAGS = [
+    "gwstvorauszahlungen",
+    "vorauszahlungen",
+    "vorauszahlung",
+]
+
+
+def iter_elements_excluding_containers(root, excluded_container_tags):
+    """Iteriert alle Elemente, ueberspringt aber die genannten Teilbaeume."""
+    excluded_tags = {tag.lower() for tag in excluded_container_tags}
+
+    def walk(element):
+        yield element
+
+        for child in element:
+            if get_local_name(child.tag).lower() in excluded_tags:
+                continue
+
+            yield from walk(child)
+
+    yield from walk(root)
+
+
+def find_first_text_by_tag_names(root, tag_names, exclude_container_tags=None):
     normalized_tag_names = {tag_name.lower() for tag_name in tag_names}
 
-    for element in root.iter():
+    if exclude_container_tags:
+        elements = iter_elements_excluding_containers(root, exclude_container_tags)
+    else:
+        elements = root.iter()
+
+    for element in elements:
         tag_name = get_local_name(element.tag).lower()
 
         if tag_name in normalized_tag_names:
@@ -190,6 +224,7 @@ def extract_amount_due(root):
             "festsetzungaktuell",
             "berechnungaktuell",
         ],
+        exclude_container_tags=ADVANCE_PAYMENT_CONTAINER_TAGS,
     )
 
 
@@ -202,6 +237,7 @@ def extract_trade_tax_assessment_amount(root):
             "messbetrag",
             "festgesetztergewerbesteuermessbetrag",
         ],
+        exclude_container_tags=ADVANCE_PAYMENT_CONTAINER_TAGS,
     )
 
 
@@ -214,6 +250,7 @@ def extract_assessment_rate(root):
             "hebensatz",
             "kommunalerhebesatz",
         ],
+        exclude_container_tags=ADVANCE_PAYMENT_CONTAINER_TAGS,
     )
 
 
@@ -285,7 +322,13 @@ def extract_advance_payments(root):
 def extract_due_dates(root):
     due_dates = []
 
-    for element in root.iter():
+    # Faelligkeiten einzelner Vorauszahlungen gehoeren zu deren Eintraegen
+    # (extract_advance_payments) und wuerden hier zu Doppelterminen im
+    # Faelligkeitskalender fuehren.
+    for element in iter_elements_excluding_containers(
+        root,
+        ADVANCE_PAYMENT_CONTAINER_TAGS,
+    ):
         tag_name = get_local_name(element.tag).lower()
 
         if tag_name in [

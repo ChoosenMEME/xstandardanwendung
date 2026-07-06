@@ -21,6 +21,26 @@ from .url_paths import normalize_route_prefix
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
+def env_int(name, default):
+    """Liest eine Integer-Umgebungsvariable mit verstaendlicher Fehlermeldung.
+
+    Ein Tippfehler in der .env (z. B. "10s") soll den Start nicht mit einem
+    nackten ValueError-Traceback beenden, sondern klar benennen, welche
+    Variable betroffen ist. Ein leerer Wert gilt als "nicht gesetzt".
+    """
+    raw_value = os.getenv(name)
+
+    if raw_value is None or raw_value.strip() == "":
+        return default
+
+    try:
+        return int(raw_value)
+    except ValueError:
+        raise ImproperlyConfigured(
+            f"{name} muss eine ganze Zahl sein, erhalten wurde: {raw_value!r}."
+        )
+
+
 # SECURITY WARNING: keep the secret key used in production secret!
 # SECURITY WARNING: don't run with debug turned on in production!
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
@@ -31,6 +51,37 @@ if not SECRET_KEY:
 DEBUG = os.getenv("DEBUG", "0") == "1"
 ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "").split()
 APP_PATH = os.getenv("APP_PATH", "")
+
+# --- Reverse-Proxy- und HTTPS-Betrieb ---------------------------------------
+# Seit Django 4 prueft der CSRF-Schutz den Origin-Header inklusive Schema.
+# Hinter einem TLS-terminierenden Proxy (nginx, Traefik, Caddy ...) schlagen
+# POSTs ohne diese Einstellungen mit 403 fehl.
+
+# Leerzeichen-getrennte Liste vollstaendiger Origins,
+# z. B. "https://steuer.example.de".
+CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS", "").split()
+
+# Nur aktivieren, wenn der Proxy X-Forwarded-Proto selbst setzt bzw.
+# ueberschreibt — sonst koennten Clients den Header faelschen.
+if os.getenv("USE_X_FORWARDED_PROTO", "0") == "1":
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# Session- und CSRF-Cookie nur ueber HTTPS ausliefern. Relevant, weil die
+# komplette Bescheid-Auswertung in der Session liegt.
+COOKIES_SECURE = os.getenv("COOKIES_SECURE", "0") == "1"
+SESSION_COOKIE_SECURE = COOKIES_SECURE
+CSRF_COOKIE_SECURE = COOKIES_SECURE
+
+# HSTS erst aktivieren, wenn die Domain dauerhaft per HTTPS erreichbar ist
+# (mit kleinem Wert beginnen, siehe Django-Deployment-Checkliste).
+SECURE_HSTS_SECONDS = env_int("SECURE_HSTS_SECONDS", 0)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = (
+    os.getenv("SECURE_HSTS_INCLUDE_SUBDOMAINS", "0") == "1"
+)
+SECURE_HSTS_PRELOAD = os.getenv("SECURE_HSTS_PRELOAD", "0") == "1"
+
+# Optional; meist uebernimmt bereits der Reverse-Proxy die Umleitung.
+SECURE_SSL_REDIRECT = os.getenv("SECURE_SSL_REDIRECT", "0") == "1"
 DEFAULT_SQLITE_PATH = BASE_DIR / "dev.db.sqlite3" if DEBUG else Path("/data/db.sqlite3")
 AI_ASSISTANT_ENABLED = os.getenv("AI_ASSISTANT_ENABLED", "false").lower() in [
     "1",
@@ -41,7 +92,7 @@ AI_ASSISTANT_ENABLED = os.getenv("AI_ASSISTANT_ENABLED", "false").lower() in [
 AI_ASSISTANT_PROVIDER = os.getenv("AI_ASSISTANT_PROVIDER", "disabled")
 AI_ASSISTANT_MODEL = os.getenv("AI_ASSISTANT_MODEL", "")
 AI_ASSISTANT_BASE_URL = os.getenv("AI_ASSISTANT_BASE_URL", "")
-AI_ASSISTANT_TIMEOUT_SECONDS = int(os.getenv("AI_ASSISTANT_TIMEOUT_SECONDS", "10"))
+AI_ASSISTANT_TIMEOUT_SECONDS = env_int("AI_ASSISTANT_TIMEOUT_SECONDS", 10)
 
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "xgewerbesteuer_dashboard"
@@ -53,7 +104,7 @@ EMAIL_BACKEND = (
     else "django.core.mail.backends.smtp.EmailBackend"
 )
 EMAIL_HOST = os.getenv("EMAIL_HOST", "localhost")
-EMAIL_PORT = int(os.getenv("EMAIL_PORT", "25"))
+EMAIL_PORT = env_int("EMAIL_PORT", 25)
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
 EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "0") == "1"
@@ -63,10 +114,12 @@ DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "webmaster@localhost")
 # daher bleibt Login/Registrierung ausserhalb von DEBUG deaktiviert, bis
 # EMAIL_HOST auf einen echten Host gesetzt wird. Die Heuristik laesst sich
 # per LOGIN_ENABLED-Env-Var explizit uebersteuern, z.B. fuer einen lokalen
-# SMTP-Relay im selben Container.
+# SMTP-Relay im selben Container. Ein leerer Wert gilt als "nicht gesetzt",
+# damit Compose-Durchreichungen wie LOGIN_ENABLED=${LOGIN_ENABLED:-} die
+# Heuristik nicht versehentlich deaktivieren.
 EMAIL_SERVER_CONFIGURED = bool(EMAIL_HOST) and EMAIL_HOST != "localhost"
-_login_enabled_override = os.getenv("LOGIN_ENABLED")
-if _login_enabled_override is not None:
+_login_enabled_override = (os.getenv("LOGIN_ENABLED") or "").strip()
+if _login_enabled_override:
     LOGIN_ENABLED = _login_enabled_override == "1"
 else:
     LOGIN_ENABLED = DEBUG or EMAIL_SERVER_CONFIGURED
@@ -79,8 +132,10 @@ def build_static_url(app_path):
 
 # Application definition
 
+# django.contrib.admin ist bewusst nicht installiert: Es sind keine Modelle
+# im Admin registriert, und die oeffentlich erreichbare Admin-Loginseite
+# waere nur zusaetzliche Angriffsflaeche.
 INSTALLED_APPS = [
-    'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
@@ -91,6 +146,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -180,3 +236,53 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 STATIC_URL = build_static_url(APP_PATH)
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [BASE_DIR / "static"]
+
+# Whitenoise liefert die statischen Dateien direkt aus dem Anwendungsprozess
+# aus. Der Django-Devserver bedient statische Dateien nur bei DEBUG=1; ohne
+# Whitenoise waeren CSS/Logo/Favicons im Produktivbetrieb nicht erreichbar.
+# Bewusst ohne Manifest-Variante, damit Tests und Entwicklung ohne
+# vorheriges collectstatic funktionieren.
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+    },
+}
+
+
+# --- Sessions -----------------------------------------------------------------
+# Die komplette Bescheid-Auswertung liegt in der Session (DB-Backend). Eine
+# kurze Lebensdauer begrenzt, wie lange sensible Steuerdaten in der Datenbank
+# verbleiben; abgelaufene Sessions raeumt "manage.py clearsessions" im
+# Entrypoint auf. Standard: 24 Stunden statt Django-Default (2 Wochen).
+SESSION_COOKIE_AGE = env_int("SESSION_COOKIE_AGE", 60 * 60 * 24)
+
+
+# --- Logging ------------------------------------------------------------------
+# Ohne explizite Konfiguration haetten die App-Logger keinen Handler und die
+# supportfreundlichen Fehler-IDs (services/support_errors.py) wuerden nirgends
+# ausgegeben. Konsole reicht: gunicorn/Docker sammeln stdout/stderr ein.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "simple": {
+            "format": "{asctime} {levelname} {name} {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "simple",
+        },
+    },
+    "loggers": {
+        "xgewerbesteuer": {
+            "handlers": ["console"],
+            "level": "INFO",
+        },
+    },
+}

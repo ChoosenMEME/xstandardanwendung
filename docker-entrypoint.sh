@@ -49,12 +49,30 @@ fi
 # Apply SQLite-backed migrations before starting Django.
 run_as_app python manage.py migrate --noinput
 
+# Remove expired sessions: the full bescheid evaluation lives in DB-backed
+# sessions and Django never purges expired rows on its own. Running this at
+# every container start bounds how long stale tax data stays on disk.
+log "INFO" "Clearing expired sessions"
+run_as_app python manage.py clearsessions || log "WARN" "clearsessions failed"
+
 log "INFO" "Running collectstatic"
 run_as_app python manage.py collectstatic --noinput
 log "INFO" "collectstatic finished"
 
+# Standardmaessig laeuft der Produktiv-WSGI-Server (gunicorn); statische
+# Dateien liefert Whitenoise aus dem Anwendungsprozess. Der Django-Devserver
+# mit Auto-Reload laesst sich fuer die Entwicklung ueber USE_DEV_SERVER=1
+# aktivieren (siehe compose.dev.yaml).
 if [ "$#" -eq 0 ]; then
-  set -- python manage.py runserver "${WEB_HOST}:${WEB_PORT}"
+  if [ "${USE_DEV_SERVER:-0}" = "1" ]; then
+    set -- python manage.py runserver "${WEB_HOST}:${WEB_PORT}"
+  else
+    set -- gunicorn config.wsgi:application \
+      --bind "${WEB_HOST}:${WEB_PORT}" \
+      --workers "${WEB_CONCURRENCY:-3}" \
+      --access-logfile - \
+      --error-logfile -
+  fi
 fi
 
 if [ "$(id -u)" = "0" ]; then

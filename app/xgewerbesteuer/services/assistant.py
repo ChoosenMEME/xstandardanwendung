@@ -31,6 +31,20 @@ GENERAL_HELP_TOPICS = [
     "Plausibilitaetspruefung und angezeigte Hinweise",
     "allgemeine Erklaerung von Begriffen wie Hebesatz",
 ]
+GENERAL_EXAMPLE_QUESTIONS = [
+    "Wie funktioniert der Upload?",
+    "Welche XML-Datei brauche ich?",
+    "Was ist XGewerbesteuer?",
+    "Was bedeutet PDF-Export?",
+    "Was bedeutet CSV-Export?",
+    "Was ist eine Fristdatei?",
+    "Was bedeutet Plausibilitaetspruefung?",
+]
+RESULT_BASE_EXAMPLE_QUESTIONS = [
+    "Was sind die wichtigsten Angaben in diesem Bescheid?",
+    "Was sollte ich manuell pruefen?",
+    "Was bedeutet der Nachrichtentyp?",
+]
 NO_RESULT_ANSWER = (
     "Zu dieser Frage liegt noch keine konkrete Auswertung vor. Bitte laden Sie "
     "zuerst einen Bescheid hoch."
@@ -184,6 +198,55 @@ def get_assistant_mode_label(result_context=None):
     return ASSISTANT_MODE_LABELS[get_assistant_mode(result_context)]
 
 
+def _has_value(value):
+    return value not in [None, "", []]
+
+
+def _can_explain_trade_tax_calculation(result_context, current_bescheid):
+    calculation_explanation = result_context.get("calculation_explanation") or {}
+
+    if "can_calculate" in calculation_explanation:
+        return bool(calculation_explanation["can_calculate"])
+
+    return (
+        _has_value(current_bescheid.get("trade_tax_assessment_amount"))
+        and _has_value(current_bescheid.get("assessment_rate"))
+    )
+
+
+def get_assistant_example_questions(result_context=None):
+    """Liefert datensparsame Beispiel-Fragen passend zum sichtbaren Modus."""
+
+    if not _has_result_context(result_context):
+        return GENERAL_EXAMPLE_QUESTIONS
+
+    current_bescheid = result_context.get("current_bescheid", {})
+    questions = list(RESULT_BASE_EXAMPLE_QUESTIONS)
+
+    if _can_explain_trade_tax_calculation(result_context, current_bescheid):
+        questions.insert(
+            1,
+            "Wie setzt sich der Gewerbesteuerbetrag zusammen?",
+        )
+
+    if _has_value(current_bescheid.get("due_dates")) or result_context.get(
+        "due_date_calendar", {}
+    ).get("has_entries"):
+        questions.append("Welche Zahlungen sind wann faellig?")
+
+    plausibility_check = result_context.get("plausibility_check")
+    if plausibility_check:
+        if plausibility_check.get("status") == "not_checkable":
+            questions.append("Warum ist die Plausibilitaetspruefung nicht pruefbar?")
+        else:
+            questions.append("Was bedeutet die Plausibilitaetspruefung?")
+
+    if result_context.get("change_comparison_items"):
+        questions.append("Was hat sich gegenueber dem vorherigen Bescheid geaendert?")
+
+    return questions
+
+
 def is_result_specific_question(question):
     """Erkennt Fragen nach konkreten Bescheidwerten ohne Auswertung."""
 
@@ -271,13 +334,20 @@ def answer_assistant_question(question, result_context=None):
 def build_assistant_ui_context(answer="", error="", question="", result_context=None):
     """UI-Kontext ohne Provider-Endpunkte oder andere Konfigurationsdetails."""
 
+    provider_status = get_assistant_provider_status()
+
     return {
         "assistant": {
-            **get_assistant_provider_status(),
+            **provider_status,
             "mode": get_assistant_mode(result_context),
             "mode_label": get_assistant_mode_label(result_context),
             "answer": answer,
             "error": error,
             "question": question,
+            "example_questions": (
+                get_assistant_example_questions(result_context)
+                if provider_status["enabled"]
+                else []
+            ),
         }
     }

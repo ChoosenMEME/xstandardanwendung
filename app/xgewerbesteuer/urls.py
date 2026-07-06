@@ -5,6 +5,7 @@ from django.contrib.auth import views as auth_views
 from django.http import Http404
 from django.urls import path
 
+from .ratelimit import rate_limit
 from .views import (
     xgewerbesteuer_assistant,
     xgewerbesteuer_csv_export,
@@ -17,6 +18,7 @@ from .views import (
     xgewerbesteuer_pdf_report,
     xgewerbesteuer_results,
     xgewerbesteuer_signup,
+    xgewerbesteuer_toggle_privacy,
     xgewerbesteuer_upload,
 )
 
@@ -38,6 +40,11 @@ urlpatterns = [
     path("upload/", xgewerbesteuer_upload, name="xgewerbesteuer_upload"),
     path("demo/", xgewerbesteuer_demo, name="xgewerbesteuer_demo"),
     path("ergebnis/", xgewerbesteuer_results, name="xgewerbesteuer_results"),
+    path(
+        "ergebnis/datenschutzmodus/",
+        xgewerbesteuer_toggle_privacy,
+        name="xgewerbesteuer_toggle_privacy",
+    ),
     path("ki-assistent/", xgewerbesteuer_assistant, name="xgewerbesteuer_assistant"),
     path("hilfe/", xgewerbesteuer_help, name="xgewerbesteuer_help"),
     path(
@@ -56,23 +63,35 @@ urlpatterns = [
     path(
         "login/",
         require_login_enabled(
-            auth_views.LoginView.as_view(template_name="registration/login.html")
+            # Django bringt keinen eigenen Brute-Force-Schutz mit; das Limit
+            # bremst das Durchprobieren von Zugangsdaten pro Client-IP.
+            rate_limit("login", max_requests=10, window_seconds=300)(
+                auth_views.LoginView.as_view(template_name="registration/login.html")
+            )
         ),
         name="login",
     ),
     path("logout/", require_login_enabled(auth_views.LogoutView.as_view()), name="logout"),
     path(
         "registrieren/",
-        require_login_enabled(xgewerbesteuer_signup),
+        require_login_enabled(
+            rate_limit("signup", max_requests=10, window_seconds=3600)(
+                xgewerbesteuer_signup
+            )
+        ),
         name="xgewerbesteuer_signup",
     ),
     path(
         "passwort-vergessen/",
         require_login_enabled(
-            auth_views.PasswordResetView.as_view(
-                template_name="registration/password_reset_form.html",
-                email_template_name="registration/password_reset_email.html",
-                subject_template_name="registration/password_reset_subject.txt",
+            # Jeder POST verschickt eine echte E-Mail; ohne Limit liesse sich
+            # der Endpunkt als Mail-Schleuder missbrauchen.
+            rate_limit("password-reset", max_requests=5, window_seconds=900)(
+                auth_views.PasswordResetView.as_view(
+                    template_name="registration/password_reset_form.html",
+                    email_template_name="registration/password_reset_email.html",
+                    subject_template_name="registration/password_reset_subject.txt",
+                )
             )
         ),
         name="password_reset",

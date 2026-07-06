@@ -2,11 +2,28 @@
 
 from django.contrib.auth.models import User
 from django.core import mail
+from django.core.cache import cache
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
 
-class LoginTests(TestCase):
+class RateLimitedEndpointTestCase(TestCase):
+    """Basisklasse fuer Tests gegen ratenbegrenzte Endpunkte.
+
+    Die Zaehler der Anfragebegrenzung leben im prozessweiten LocMemCache
+    und wuerden sonst ueber Tests und Testklassen hinweg akkumulieren.
+    """
+
+    def setUp(self):
+        super().setUp()
+        cache.clear()
+
+
+# LOGIN_ENABLED haengt in den Settings von DEBUG bzw. EMAIL_HOST ab. Die
+# Login-Tests setzen den Wert explizit, damit die Suite unabhaengig von
+# Umgebungsvariablen laeuft.
+@override_settings(LOGIN_ENABLED=True)
+class LoginTests(RateLimitedEndpointTestCase):
     def create_user(self, username="nutzerin", password="Test-Passwort-1234"):
         return User.objects.create_user(username=username, password=password)
 
@@ -66,7 +83,8 @@ class LoginTests(TestCase):
         self.assertFalse(self.client.session.get("_auth_user_id"))
 
 
-class SignupTests(TestCase):
+@override_settings(LOGIN_ENABLED=True)
+class SignupTests(RateLimitedEndpointTestCase):
     def test_signup_page_is_reachable(self):
         response = self.client.get(reverse("xgewerbesteuer_signup"))
 
@@ -188,6 +206,49 @@ class SignupTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertFalse(User.objects.filter(username="geheimnis").exists())
 
+    def test_signup_with_already_used_email_is_rejected(self):
+        """Regression fuer #322: keine zwei Konten mit derselben Adresse."""
+        User.objects.create_user(
+            username="bestehende-nutzerin",
+            email="doppelt@example.com",
+            password="Test-Passwort-1234",
+        )
+
+        response = self.client.post(
+            reverse("xgewerbesteuer_signup"),
+            data={
+                "username": "neue-nutzerin",
+                "email": "doppelt@example.com",
+                "password1": "Sicheres-Passwort-42",
+                "password2": "Sicheres-Passwort-42",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(User.objects.filter(username="neue-nutzerin").exists())
+        self.assertContains(response, "existiert bereits ein Konto")
+
+    def test_signup_with_differently_cased_duplicate_email_is_rejected(self):
+        User.objects.create_user(
+            username="bestehende-nutzerin",
+            email="doppelt@example.com",
+            password="Test-Passwort-1234",
+        )
+
+        response = self.client.post(
+            reverse("xgewerbesteuer_signup"),
+            data={
+                "username": "neue-nutzerin",
+                "email": "Doppelt@Example.com",
+                "password1": "Sicheres-Passwort-42",
+                "password2": "Sicheres-Passwort-42",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(User.objects.filter(username="neue-nutzerin").exists())
+        self.assertContains(response, "existiert bereits ein Konto")
+
     def test_signup_password_containing_email_is_rejected(self):
         response = self.client.post(
             reverse("xgewerbesteuer_signup"),
@@ -203,7 +264,8 @@ class SignupTests(TestCase):
         self.assertFalse(User.objects.filter(username="andere-nutzerin").exists())
 
 
-class PasswordResetTests(TestCase):
+@override_settings(LOGIN_ENABLED=True)
+class PasswordResetTests(RateLimitedEndpointTestCase):
     def test_password_reset_form_is_reachable(self):
         response = self.client.get(reverse("password_reset"))
 
@@ -239,6 +301,7 @@ class PasswordResetTests(TestCase):
         self.assertNotIn("Traceback", mail.outbox[0].body)
 
 
+@override_settings(LOGIN_ENABLED=True)
 class ProtectedSavedUploadViewsRequireLoginTests(TestCase):
     def test_load_saved_redirects_anonymous_to_login(self):
         response = self.client.post(
