@@ -2373,8 +2373,33 @@ class XGewerbesteuerUploadViewTests(SimpleTestCase):
         self.assertContains(response, "Begriffserklärung: Fälligkeit")
         self.assertContains(response, "Begriffserklärung: Erhebungszeitraum")
         self.assertContains(response, "Begriffserklärung: Änderungsbescheid")
+        self.assertContains(response, "Begriffserklärung: Zahlungsart")
         self.assertContains(response, "<details", count=None)
         self.assertContains(response, "<summary", count=None)
+
+    def test_result_page_keeps_term_help_out_of_labelled_headings(self):
+        response = self.client.get(reverse("xgewerbesteuer_demo"), follow=True)
+        content = response.content.decode()
+        checked_headings = 0
+
+        for heading_id in (
+            "calculation-heading",
+            "calendar-heading",
+            "advance-payment-heading",
+            "previous-heading",
+        ):
+            with self.subTest(heading_id=heading_id):
+                heading_marker = f'id="{heading_id}"'
+                if heading_marker not in content:
+                    continue
+
+                checked_headings += 1
+                heading_start = content.index(heading_marker)
+                heading_end = content.index("</h2>", heading_start)
+
+                self.assertNotIn("<details", content[heading_start:heading_end])
+
+        self.assertGreater(checked_headings, 0)
 
     def test_demo_entry_uses_fictional_fixture_files(self):
         response = self.client.get(reverse("xgewerbesteuer_demo"), follow=True)
