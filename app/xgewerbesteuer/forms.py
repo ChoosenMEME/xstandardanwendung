@@ -1,8 +1,49 @@
 """Django-Formulare fuer Registrierung und Eingaben."""
 
+import logging
+
 from django import forms
-from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.forms import PasswordResetForm, UserCreationForm
 from django.contrib.auth.models import User
+from django.core.mail import EmailMultiAlternatives
+from django.template import loader
+
+logger = logging.getLogger(__name__)
+
+
+class LoggingPasswordResetForm(PasswordResetForm):
+    """Protokolliert den Mailversand ohne personenbezogene Daten."""
+
+    def send_mail(
+        self,
+        subject_template_name,
+        email_template_name,
+        context,
+        from_email,
+        to_email,
+        html_email_template_name=None,
+    ):
+        subject = "".join(
+            loader.render_to_string(subject_template_name, context).splitlines()
+        )
+        body = loader.render_to_string(email_template_name, context)
+        message = EmailMultiAlternatives(subject, body, from_email, [to_email])
+        if html_email_template_name:
+            message.attach_alternative(
+                loader.render_to_string(html_email_template_name, context),
+                "text/html",
+            )
+
+        try:
+            message.send()
+        except Exception as exc:
+            # SMTP-Fehler koennen Empfaengeradressen enthalten; nur den Typ loggen.
+            logger.error(
+                "Passwort-Reset-Mail konnte nicht versendet werden (%s).",
+                type(exc).__name__,
+            )
+        else:
+            logger.info("Passwort-Reset-Mail wurde versendet.")
 
 
 class SignupForm(UserCreationForm):
