@@ -28,6 +28,10 @@ Vorjahres- und Mehrjahresvergleich bis zu Export und KI-Assistent.
 
 **Eingesetzte KI-Tools:** ChatGPT/Codex 5.5
 
+> **TODO (Alexander Bahlmann):** Hier noch ergänzen, *wie* ChatGPT/Codex konkret genutzt
+> wurde (z. B. für Code-Generierung, Reviews, Debugging, Dokumentation, Tests) – analog
+> zur Aufschlüsselung unten.
+
 ## Sören Schulzke
 
 Schwerpunkt: Datenschutz- und Demo-Funktionen, Validierungsdetails sowie Bedienbarkeit
@@ -45,6 +49,10 @@ und Barrierefreiheit.
 
 **Eingesetzte KI-Tools:** ChatGPT/Codex 5.5
 
+> **TODO (Sören Schulzke):** Hier noch ergänzen, *wie* ChatGPT/Codex konkret genutzt
+> wurde (z. B. für Code-Generierung, Reviews, Debugging, Dokumentation, Tests) – analog
+> zur Aufschlüsselung unten.
+
 ## Tim Jankowski
 
 Schwerpunkt: Projekt-Setup und Betrieb (Django/Docker/CI), KERN-UX-Einbindung sowie
@@ -61,5 +69,20 @@ laufende Pflege von Dokumentation und Benutzeranmeldung.
 | Fehlerbehebungen, Sicherheit & Härtung | Behebung produktiver Bugs (u. a. Datenschutz-Leak, Demo-500, fehlende statische Dateien), umgesetzte Härtungs-Issues sowie Sicherheits-/Robustheitsfindings aus dem Code-Review | #324, #325, #329 | #311, #312, #313, #314, #315, #316, #317, #318, #319, #320, #321, #322, #323 |
 | Dokumentation & Mitwirkenden-Register | Laufende Pflege von README, CONTRIBUTING und weiteren Dokumenten sowie des Mitwirkenden- und KI-Tools-Registers | #48, #49, #52, #53, #233, #249, #302, #331, #334, #335 | #304 |
 
-**Eingesetzte KI-Tools:** ChatGPT/Codex 5.5 und Claude Code (Sonnet 4.6, Sonnet 5,
-Opus 4.8, Fable 5)
+**Eingesetzte KI-Tools:** ChatGPT/Codex 5.5 sowie Claude Code mit Sonnet 4.6,
+Sonnet 5, Opus 4.8 und Fable 5. Beide Werkzeuge wurden je nach Aufgabe ergänzend
+und im Wechsel als Pair-Programming-Unterstützung eingesetzt für:
+
+- **Implementierung und Refactoring:** Projekt-Setup, Bugfixes, kleinere Features,
+  Aufteilung der View-Logik und Entfernen ungenutzter Altlasten.
+- **Code- und Security-Reviews:** Erkennen und Beheben von Sicherheits- und
+  Robustheitsproblemen, darunter Markup-/CSV-Injection, fehlendes Rate-Limiting und
+  eine zu lange Speicherung von Bescheiddaten in Sessions (#311–#323).
+- **Tests und Fehlersuche:** Ableiten von Regressionstests, Ausführen der Testsuite und
+  Eingrenzen fehlgeschlagener Tests.
+- **Dokumentation:** Pflege von README, Architektur- und Testdaten-Dokumentation,
+  Docstrings sowie dieses Mitwirkenden-Registers (#334, #335), einschließlich des
+  Abgleichs mit bestehenden Beiträgen und der lokalen Git-Historie.
+
+Die vorgeschlagenen Änderungen wurden jeweils anhand der Diffs und automatisierten Tests
+geprüft; die fachliche Entscheidung und Freigabe lagen bei Tim Jankowski.
