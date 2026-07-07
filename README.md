@@ -102,6 +102,7 @@ Details zur technischen Umsetzung stehen in [`docs/architektur.md`](docs/archite
 │   ├── design-thinking.md      # Dokumentation des Design-Thinking-Prozesses
 │   ├── datenstandard.md        # Erläuterung des XGewerbesteuer-Datenstandards
 │   ├── testdaten.md            # Übersicht der XGewerbesteuer-Beispieldateien (Tests/Demo)
+│   ├── mitwirkende.md          # Beiträge je Person (PRs/Issues) und Einsatz von KI-Tools
 │   └── xunternehmen-gewerbesteuer-1.4.pdf  # Offizielle Spezifikation des Standards
 ├── README.md
 ├── LICENSE                     # MIT-Lizenz des Projekts
@@ -370,18 +371,7 @@ XGewerbesteuer u. a.) sind in [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md)
 
 ## Mitwirkende & Einsatz von KI-Tools
 
-### Mitwirkende
-
-| Person | Schwerpunkt |
-| --- | --- |
-| Alexander Bahlmann | Kernfunktionen: Upload/Extraktion, Nachrichtentyp-Unterscheidung, Vorjahres- und Mehrjahresvergleich, Plausibilitätsprüfung, PDF-/CSV-/ICS-Export, KI-Assistent, responsives KERN-UX-Layout |
-| Sören Schulzke | Demo-Beispielfall, Datenschutz-/Anonymisierungsmodus, supportfreundliche Fehler-IDs, Healthcheck-/Static-URL-Stabilisierung, Validierungsdetails |
-| Tim Jankowski | Projekt-Setup (Django/Docker), CI/CD (GitHub Actions, Docker-Hub-Publish), Konfiguration (`APP_PATH`, Healthcheck), KERN-UX-Einbindung, laufende Pflege von README/AGENTS.md |
-
-### Einsatz von KI-Tools
-
-| Person | Eingesetzte KI-Tools und Modelle |
-| --- | --- |
-| Alexander Bahlmann | ChatGPT/Codex 5.5 |
-| Sören Schulzke | ChatGPT/Codex 5.5 |
-| Tim Jankowski | ChatGPT/Codex 5.5 und Claude Code (Sonnet 4.6, Sonnet 5, Opus 4.8, Fable 5) |
+Alexander Bahlmann, Sören Schulzke und Tim Jankowski haben an diesem Projekt
+mitgewirkt. Eine nach Themen gegliederte Übersicht ihrer Beiträge (mit Verweisen auf die
+zugehörigen Pull Requests und Issues) sowie der jeweils eingesetzten KI-Tools findet sich
+in [`docs/mitwirkende.md`](docs/mitwirkende.md).
