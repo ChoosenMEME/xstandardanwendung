@@ -26,11 +26,31 @@ Vorjahres- und Mehrjahresvergleich bis zu Export und KI-Assistent.
 | Export & Layout | PDF-Bericht, CSV-Export, responsives Design, KERN-UX-konformes Layout, Druckansicht und Speichern der Upload-Historie | #270, #271, #272, #273, #280, #281 | #34, #35, #36, #45, #46 |
 | KI-Assistent | Auswertungsbezogener KI-Assistent, globales Assistenten-Panel, modusspezifische Beispielfragen sowie Anpassungen an Navigation und Beispielfragen-Sichtbarkeit | #294, #297, #309, #327, #328 | #287, #296, #306, #326 |
 
-**Eingesetzte KI-Tools:** ChatGPT/Codex 5.5
+### Alexander Bahlmann
 
-> **TODO (Alexander Bahlmann):** Hier noch ergänzen, *wie* ChatGPT/Codex konkret genutzt
-> wurde (z. B. für Code-Generierung, Reviews, Debugging, Dokumentation, Tests) – analog
-> zur Aufschlüsselung unten.
+*Eingesetzte KI-Tools:* ChatGPT/Codex 5.5 sowie Ollama im Rahmen des lokalen KI-Assistenten der Anwendung.
+
+Die KI-Tools wurden ergänzend und unterstützend eingesetzt. Sie dienten vor allem dazu, Arbeitsschritte zu strukturieren, Lösungsansätze zu prüfen, Fehlermeldungen besser einzuordnen und Formulierungen bzw. Codevorschläge vorzubereiten. Die fachliche Bewertung, Auswahl der passenden Lösung, Prüfung der Ergebnisse sowie die abschließende Umsetzung erfolgten eigenständig.
+
+- *Projektplanung und Aufgabenstrukturierung:* Unterstützung bei der Strukturierung von Anforderungen, User Stories, GitHub-Issues, Akzeptanzkriterien und Arbeitsschritten. Die daraus entstandenen Aufgaben wurden anschließend fachlich geprüft, angepasst und in den Projektkontext eingeordnet.
+
+- *Implementierungsunterstützung:* Unterstützung bei einzelnen Codevorschlägen, Bugfixes, Refactorings und der Erweiterung bestehender Funktionen. Die Vorschläge wurden nicht ungeprüft übernommen, sondern lokal getestet, angepasst und über die Projektstruktur eingeordnet.
+
+- *Fehlersuche und Debugging:* Unterstützung beim Einordnen von Fehlermeldungen aus Docker, Django, Git, PowerShell und der Webanwendung. Dazu gehörten unter anderem Probleme bei Migrationen, Tests, Routing, Konfigurationen und lokalen Entwicklungsumgebungen.
+
+- *Test und Qualitätssicherung:* Unterstützung beim Ableiten zusätzlicher Testfälle, beim Verstehen fehlgeschlagener Tests und bei der Überprüfung, ob neue Änderungen bestehende Funktionen beeinflussen. Die technische Absicherung erfolgte über lokale Testläufe und Django-Checks.
+
+- *Dokumentation:* Unterstützung bei der Formulierung und Strukturierung von README-Inhalten, technischen Beschreibungen, Reflexionsinhalten, Präsentationsbausteinen und Projektzusammenfassungen. Die Inhalte wurden fachlich geprüft und an die tatsächlich umgesetzten Projektbestandteile angepasst.
+
+- *KI-Assistent innerhalb der Anwendung:* Unterstützung bei der Konzeption und Umsetzung des lokalen KI-Assistenten. Dabei wurde Ollama als lokaler KI-Dienst eingebunden, um Fragen zur Auswertung verständlich zu beantworten. Der Assistent wurde bewusst fachlich begrenzt, um keine Steuerberatung zu ersetzen.
+
+- *Demo- und Infrastrukturunterstützung:* Unterstützung bei der Planung und Fehleranalyse der Live-Demo-Umgebung. Dazu gehörten die Domain-Anbindung über IONOS, die DNS-Konfiguration über Cloudflare, die Einrichtung eines Cloudflare Tunnels, der geschützte Zugriff über Cloudflare Access sowie die Anpassung lokaler Django-Konfigurationen wie ALLOWED_HOSTS und CSRF_TRUSTED_ORIGINS.
+
+- *Git- und Deployment-Unterstützung:* Unterstützung beim Umgang mit Branches, Pull Requests, lokalen Pulls, Docker-Neustarts, .env-Konfigurationen und der Vorbereitung einer stabilen Demo-Umgebung.
+
+*Weitere eingesetzte technische Dienste und Werkzeuge:* Docker, Django, Git/GitHub, Visual Studio Code, PowerShell, IONOS, Cloudflare, Cloudflare Tunnel, Cloudflare Access und Ollama.
+
+Die KI-Unterstützung hatte unterstützenden Charakter. Alle übernommenen Inhalte, Codeänderungen und Konfigurationen wurden geprüft, getestet und an die Anforderungen des Projekts angepasst.
 
 ## Sören Schulzke
 
@@ -47,11 +67,47 @@ und Barrierefreiheit.
 | Drag-and-drop-Upload | Datei-Upload per Drag-and-drop, in einer Folge-PR robuster gemacht | #307, #332 | #299 |
 | Begriffserklärungen | Tooltips/Erklärungen für Fachbegriffe, später barrierearm platziert | #308, #330 | #41 |
 
-**Eingesetzte KI-Tools:** ChatGPT/Codex 5.5
+### Sören Schulzke
 
-> **TODO (Sören Schulzke):** Hier noch ergänzen, *wie* ChatGPT/Codex konkret genutzt
-> wurde (z. B. für Code-Generierung, Reviews, Debugging, Dokumentation, Tests) – analog
-> zur Aufschlüsselung unten.
+*Eingesetzte KI-Tools:* ChatGPT/Codex 5.5.
+
+Die KI-Tools wurden ergänzend und unterstützend eingesetzt. Sie dienten vor allem dazu,
+Arbeitsschritte zu strukturieren, Lösungsansätze zu prüfen, Fehlermeldungen besser
+einzuordnen und Formulierungen bzw. Codevorschläge vorzubereiten. Die fachliche
+Bewertung, Auswahl der passenden Lösung, Prüfung der Ergebnisse sowie die abschließende
+Umsetzung erfolgten eigenständig.
+
+- *Projektplanung und Aufgabenstrukturierung:* Unterstützung bei der Strukturierung von
+  Anforderungen, Akzeptanzkriterien und Arbeitsschritten. Die daraus entstandenen
+  Aufgaben wurden anschließend fachlich geprüft und in den Projektkontext eingeordnet.
+
+- *Implementierungsunterstützung:* Unterstützung bei Codevorschlägen für den
+  Datenschutz- und Anonymisierungsmodus, den Demo-Beispielfall, die Fehlerbehandlung,
+  den Drag-and-drop-Upload und die Begriffserklärungen. Die Vorschläge wurden lokal
+  geprüft und an die bestehende Projektstruktur angepasst.
+
+- *Fehlersuche und Debugging:* Unterstützung beim Einordnen von Fehlern im XML-Import,
+  bei der Auslieferung statischer Dateien und beim Datei-Upload sowie bei der Entwicklung
+  verständlicher, supportfreundlicher Fehlermeldungen ohne sensible Daten.
+
+- *Test und Qualitätssicherung:* Unterstützung beim Ableiten zusätzlicher Testfälle,
+  beim Verstehen fehlgeschlagener Tests und beim Absichern der Änderungen durch lokale
+  Testläufe und Django-Checks.
+
+- *Bedienbarkeit und Barrierefreiheit:* Unterstützung bei der robusten Umsetzung des
+  Drag-and-drop-Uploads sowie bei der verständlichen und barrierearmen Platzierung von
+  Erklärungen zu Fachbegriffen.
+
+- *Dokumentation:* Unterstützung bei der Formulierung und Strukturierung technischer
+  Beschreibungen und nutzerverständlicher Texte. Die Inhalte wurden fachlich geprüft
+  und an die tatsächlich umgesetzten Projektbestandteile angepasst.
+
+*Weitere eingesetzte technische Dienste und Werkzeuge:* Docker, Django, Git/GitHub,
+Visual Studio Code und PowerShell.
+
+Die KI-Unterstützung hatte unterstützenden Charakter. Alle übernommenen Inhalte,
+Codeänderungen und Konfigurationen wurden geprüft, getestet und an die Anforderungen
+des Projekts angepasst.
 
 ## Tim Jankowski
 
