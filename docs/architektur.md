@@ -458,13 +458,11 @@ Aliasse auf denselben Glossarbegriff abgebildet.
 | --- | --- | --- | --- |
 | 1 | Ohne Login | Alles | Nichts |
 | 2 | Django-Auth (Issue #47, umgesetzt) | Upload, Demo, Ergebnis, Hilfe, Exporte, Dashboard-Grundgeruest | Speichern/Laden/Loeschen gespeicherter Bescheide |
-| 3 | OIDC optional (Issue #254, offen) | wie Stufe 2 | wie Stufe 2 |
 
 Stufe 2 nutzt ausschliesslich Django-Bordmittel: `django.contrib.auth`
 (`LoginView`, `LogoutView`, `login_required`), `UserCreationForm`
 (`SignupForm`) fuer die Selbstregistrierung sowie `PasswordResetView`/
-`PasswordResetConfirmView` fuer den Passwort-Vergessen-Flow. Es gibt keine
-Abhaengigkeit zu allauth oder OIDC; das bleibt der optionalen Stufe 3 vorbehalten.
+`PasswordResetConfirmView` fuer den Passwort-Vergessen-Flow.
 
 ### 7.2 Automatische Login-Deaktivierung ohne Mailserver
 
@@ -519,7 +517,6 @@ Zusaetzlich zu Djangos `MinimumLengthValidator` und `CommonPasswordValidator` pr
 * Passwort-Vergessen nutzt Djangos Standardverhalten und bestaetigt jede
   Anfrage mit derselben Erfolgsseite, unabhaengig davon, ob die E-Mail-Adresse
   existiert (kein User-Enumeration-Leak).
-* OIDC ist optional konfigurierbar und erzwingt keinen Login fuer oeffentliche Seiten.
 
 ---
 
@@ -578,12 +575,6 @@ Abhaengigkeiten). Die CI-Testsuite prueft weiterhin die Spannen.
 | Ollama (extern, nicht als Python-Paket eingebunden) | KI-Assistent-Provider | `AI_ASSISTANT_ENABLED=true`, `AI_ASSISTANT_PROVIDER=ollama` |
 | SMTP-Server (extern) | Passwort-Reset-Mails, schaltet Login/Registrierung frei | `EMAIL_HOST` != `localhost` oder `LOGIN_ENABLED=1` |
 
-### Geplant
-
-| Paket | Zweck | Benoetigt fuer |
-| --- | --- | --- |
-| mozilla-django-oidc oder authlib | OIDC-Anbindung (Stufe 3) | Issue #254 |
-
 Neue Abhaengigkeiten werden nur eingefuehrt, wenn Django-Bordmittel nicht ausreichen.
 
 ---
@@ -625,7 +616,7 @@ app/xgewerbesteuer/tests/
 
 ## 11. Bekannte technische Schulden / Ausblick
 
-* OIDC (Stufe 3, Issue #254) wird nicht umgesetzt.
+* OIDC Issue #254 wird nicht umgesetzt.
 * Der KI-Assistent unterstuetzt aktuell nur den Ollama-Provider; weitere Provider
   lassen sich in `assistant_providers.py` ergaenzen, ohne `assistant.py` oder die
   Views anzupassen.
