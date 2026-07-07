@@ -355,8 +355,7 @@ Fälligkeitsübersicht, Vorjahres- und Mehrjahresvergleich, PDF-/CSV-/ICS-Export
 Demo-Beispielfall. Ergänzend wurden ein optionales Nutzerkonto zum Speichern von
 Auswertungen und ein optionaler, lokal konfigurierbarer KI-Assistent hinzugefügt.
 
-Offene Punkte (siehe [`docs/architektur.md`](docs/architektur.md#11-bekannte-technische-schulden--ausblick)):
-optionale OIDC-Anbindung (Stufe 3).
+Offene Punkte siehe [`docs/architektur.md`](docs/architektur.md#11-bekannte-technische-schulden--ausblick).
 
 Der laufende Fortschritt wird im
 [GitHub Project](https://github.com/users/ChoosenMEME/projects/1) getrackt. Die
