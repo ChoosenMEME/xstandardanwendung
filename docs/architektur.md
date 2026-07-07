@@ -625,7 +625,7 @@ app/xgewerbesteuer/tests/
 
 ## 11. Bekannte technische Schulden / Ausblick
 
-* OIDC (Stufe 3, Issue #254) ist weiterhin nur als Option vorgesehen, nicht umgesetzt.
+* OIDC (Stufe 3, Issue #254) wird nicht umgesetzt.
 * Der KI-Assistent unterstuetzt aktuell nur den Ollama-Provider; weitere Provider
   lassen sich in `assistant_providers.py` ergaenzen, ohne `assistant.py` oder die
   Views anzupassen.
