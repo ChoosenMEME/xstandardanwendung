@@ -312,6 +312,7 @@ def extract_advance_payments(root):
                     "fälligkeitsdatum",
                     "zahlungstermin",
                     "zahlungsfrist",
+                    "zahlungbis",
                 ],
             )
 
@@ -357,6 +358,7 @@ def extract_due_dates(root):
             "zahlungstermin",
             "zahlungsfrist",
             "datumfaelligkeit",
+            "zahlungbis",
         ]:
             value = clean_text(element.text)
 

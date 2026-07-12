@@ -444,6 +444,7 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
         root = self.parse(
             """
             <nachricht>
+              <faelligkeit><zahlungBis>2025-01-15</zahlungBis></faelligkeit>
               <faelligkeitsdatum>2025-02-15</faelligkeitsdatum>
               <zahlungstermin>2025-03-15</zahlungstermin>
               <fälligkeitsdatum>2025-02-15</fälligkeitsdatum>
@@ -451,7 +452,10 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
             """
         )
 
-        self.assertEqual(extract_due_dates(root), "2025-02-15, 2025-03-15")
+        self.assertEqual(
+            extract_due_dates(root),
+            "2025-01-15, 2025-02-15, 2025-03-15",
+        )
 
     def test_extract_helpers_return_not_found_for_missing_optional_values(self):
         root = self.parse("<nachricht />")
@@ -485,7 +489,7 @@ class XGewerbesteuerExtractionTests(SimpleTestCase):
               </vorauszahlung>
               <vorauszahlung>
                 <vorauszahlungsbetrag>100.00</vorauszahlungsbetrag>
-                <faelligkeitsdatum>2025-02-15</faelligkeitsdatum>
+                <faelligkeit><zahlungBis>2025-02-15</zahlungBis></faelligkeit>
                 <bezugsjahr>2025</bezugsjahr>
               </vorauszahlung>
             </nachricht>
